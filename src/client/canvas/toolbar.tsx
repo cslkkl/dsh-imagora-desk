@@ -16,6 +16,7 @@ export interface ToolbarProps {
   onAddPrompt: () => void
   onPickFiles: () => void
   onAddGroup: () => void
+  onPasteImport: () => void
   onRun: (ids: string[]) => void
   onCancelAll: () => void
   onAutoConnect: () => void
@@ -50,6 +51,7 @@ export function CanvasToolbar(props: ToolbarProps) {
       </ui.Button>
       {toolButton('导入图片', props.onPickFiles)}
       {toolButton('图片组', props.onAddGroup)}
+      {toolButton('粘贴导入', props.onPasteImport)}
       <span style={DIVIDER} />
       {toolButton('全部运行', () => props.onRun(runnableIds), { disabled: !promptCount })}
       {toolButton('运行所选', () => props.onRun(runnableIds.filter(id => selectedIds.includes(id))), {

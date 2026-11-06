@@ -30,12 +30,14 @@ import {
 } from '../lib/workflow'
 import type { WorkflowEdge, WorkflowNode } from '../lib/types'
 import { errMessage } from '../lib/format'
+import { buildPromptNodes } from '../lib/promptImportFormat'
 import { NodeActionContext } from '../nodes'
 import { CANVAS_CSS } from '../styles'
 import { NODE_TYPES } from './node-types'
 import { CanvasToolbar } from './toolbar'
 import { Banner, EmptyState, LogPanel, PreviewOverlay, Toast } from './overlays'
 import { HelpDialog, LoadDialog, SaveDialog } from './dialogs'
+import { PromptImportDialog } from './prompt-import-dialog'
 import { SettingsDialog } from './settings-dialog'
 import { connectEdge, useCanvasImages } from './use-canvas-images'
 import { useGeneratedTasks } from './use-canvas-tasks'
@@ -44,7 +46,10 @@ import { useCanvasHistory } from './use-canvas-history'
 import { useCanvasKeys } from './use-canvas-keys'
 import { useCanvasWorkflow } from './use-canvas-workflow'
 
-type DialogState = { kind: 'save' | 'load' | 'help' | 'settings'; workflows?: { name: string; modified: string }[] }
+type DialogState = {
+  kind: 'save' | 'load' | 'help' | 'settings' | 'import'
+  workflows?: { name: string; modified: string }[]
+}
 
 export function CanvasApp() {
   const [nodes, setNodes, onNodesChangeBase] = useNodesState<WorkflowNode>([])
@@ -326,6 +331,7 @@ export function CanvasApp() {
           onAddPrompt={addPromptNode}
           onPickFiles={() => fileInputRef.current?.click()}
           onAddGroup={addGroupNode}
+          onPasteImport={() => setDialog({ kind: 'import' })}
           onRun={runMany}
           onCancelAll={() => busyIds.forEach(id => void cancelPrompt(id))}
           onAutoConnect={autoConnectAll}
@@ -384,11 +390,19 @@ export function CanvasApp() {
               instanceRef.current = instance
             }}
             onMove={(_, viewport) => setZoom(viewport.zoom)}
-            onSelectionChange={({ nodes: picked }) => {
+            onEdgeDoubleClick={(_event, edge) => {
+              // 与 Imagora 一致：双击连线直接删掉，不用先选中再按 Del
+              history.record()
+              setEdges(current => current.filter(row => row.id !== edge.id))
+              setSelectedEdgeId(null)
+            }}
+            onSelectionChange={({ nodes: picked, edges: pickedEdges }) => {
               const ids = picked.map(node => node.id)
               setSelectedIds(current =>
                 current.length === ids.length && current.every((id, index) => id === ids[index]) ? current : ids,
               )
+              const edgeId = pickedEdges.length === 1 ? pickedEdges[0].id : null
+              setSelectedEdgeId(current => (current === edgeId ? current : edgeId))
             }}
             fitView
             fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
@@ -439,6 +453,28 @@ export function CanvasApp() {
           />
         ) : null}
         {dialog?.kind === 'help' ? <HelpDialog config={config} onClose={() => setDialog(null)} /> : null}
+        {dialog?.kind === 'import' ? (
+          <PromptImportDialog
+            sizes={config?.sizes ?? []}
+            onCancel={() => setDialog(null)}
+            onConfirm={cards => {
+              history.record()
+              const cfg = configRef.current
+              const created = buildPromptNodes(
+                cards,
+                {
+                  sizes: cfg?.sizes ?? [],
+                  defaultQuality: cfg?.qualities[0] ?? 'high',
+                  defaultOutputDir: '',
+                },
+                createPosition(),
+              )
+              setNodes(current => [...current, ...created])
+              setDialog(null)
+              flash(`已建 ${created.length} 张提示词卡`)
+            }}
+          />
+        ) : null}
         {dialog?.kind === 'settings' ? (
           <SettingsDialog
             config={config}
