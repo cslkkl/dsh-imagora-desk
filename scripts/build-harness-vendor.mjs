@@ -1,13 +1,11 @@
 // 渲染验收台的 vendor 构建：把 React / ReactDOM 打成浏览器全局，供 client bundle 使用。
-import { createRequire } from 'node:module'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const DEP_DIR = process.env.DSH_IMAGORA_FRONTEND
-  ? join(process.env.DSH_IMAGORA_FRONTEND, 'node_modules')
-  : join(process.env.USERPROFILE || '', 'Desktop', 'imagora', 'imagora', 'frontend', 'node_modules')
+// 依赖来自本项目（版本锁定），验收台不依赖外部目录
+const DEP_DIR = join(ROOT, 'node_modules')
 
 const esbuildEntry = join(DEP_DIR, 'esbuild', 'lib', 'main.js')
 const esbuild = (await import(pathToFileURL(esbuildEntry).href)).default
@@ -41,4 +39,3 @@ await esbuild.build({
   logLevel: 'warning',
 })
 console.log('[harness] vendor.js 已生成')
-void createRequire

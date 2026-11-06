@@ -1,8 +1,8 @@
 // 构建 client bundle：esbuild 打成 CJS，再套上 DSH 的模块加载器包装。
 // react / react-dom 由宿主模块表提供，不重复打包；@xyflow/react 打进包内。
 //
-// 依赖复用 Imagora 前端的 node_modules（esbuild / @xyflow/react 都在那儿），
-// 本插件不带自己的 node_modules：插件目录保持干净，装完即可用。
+// 依赖全部来自本项目的 node_modules（版本锁在 pnpm-lock.yaml），
+// 构建不再依赖外部目录，CI 与干净克隆上行为一致。
 import { createRequire } from 'node:module'
 import { copyFile, mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
@@ -12,11 +12,10 @@ const ROOT = dirname(fileURLToPath(import.meta.url))
 const OUT_DIR = join(ROOT, 'dist')
 const watch = process.argv.includes('--watch')
 
-/** 依赖搜索路径：插件自己的 node_modules 优先，其次 Imagora 前端的。 */
+/** 依赖搜索路径：本项目 node_modules；DSH_IMAGORA_FRONTEND 仅作显式覆盖（调试用）。 */
 const DEPS_DIRS = [
   join(ROOT, 'node_modules'),
   process.env.DSH_IMAGORA_FRONTEND ? join(process.env.DSH_IMAGORA_FRONTEND, 'node_modules') : '',
-  join(process.env.USERPROFILE || process.env.HOME || '', 'Desktop', 'imagora', 'imagora', 'frontend', 'node_modules'),
 ].filter(Boolean)
 
 async function loadEsbuild() {
@@ -30,7 +29,7 @@ async function loadEsbuild() {
       // 换下一个候选
     }
   }
-  throw new Error(`找不到 esbuild：检查 ${DEPS_DIRS.join(' 或 ')}`)
+  throw new Error(`找不到 esbuild，先跑 pnpm install。检查过：${DEPS_DIRS.join(' 或 ')}`)
 }
 
 const esbuild = await loadEsbuild()

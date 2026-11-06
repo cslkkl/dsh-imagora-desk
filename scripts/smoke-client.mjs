@@ -3,14 +3,12 @@
 // 断言导出与「侧边栏 + 主区域」两处插槽注册真的发生。
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const ROOT = resolve(new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'))
-const DEP_DIR = process.env.DSH_IMAGORA_FRONTEND
-  ? join(process.env.DSH_IMAGORA_FRONTEND, 'node_modules')
-  : join(process.env.USERPROFILE || '', 'Desktop', 'imagora', 'imagora', 'frontend', 'node_modules')
-
-const nodeRequire = createRequire(join(DEP_DIR, 'noop.js'))
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+// 依赖来自本项目（已锁定在 pnpm-lock.yaml），不再依赖外部目录，CI 上可直接跑
+const nodeRequire = createRequire(join(ROOT, 'node_modules', 'noop.js'))
 
 // --- 极简浏览器环境 ---
 const styleNodes = []
