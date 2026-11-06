@@ -19,7 +19,16 @@ interface Options {
   timersRef: MutableRefObject<Map<string, number>>
 }
 
-export function useGeneratedTasks({ nodesRef, edgesRef, setNodes, setEdges, log, flash, taskIdsRef, timersRef }: Options) {
+export function useGeneratedTasks({
+  nodesRef,
+  edgesRef,
+  setNodes,
+  setEdges,
+  log,
+  flash,
+  taskIdsRef,
+  timersRef,
+}: Options) {
   /** 结果回流：成功的结果在提示词卡正下方排成一行，并自动连一条「产出边」。 */
   const finishTask = useCallback(
     (nodeId: string, snapshot: TaskSnapshot) => {
@@ -120,7 +129,12 @@ export function useGeneratedTasks({ nodesRef, edgesRef, setNodes, setEdges, log,
         flash('提示词是空的')
         return
       }
-      const resolved = collectPromptRefImages(nodesRef.current, edgesRef.current as WorkflowEdge[], nodeId, node.data.prompt)
+      const resolved = collectPromptRefImages(
+        nodesRef.current,
+        edgesRef.current as WorkflowEdge[],
+        nodeId,
+        node.data.prompt,
+      )
       if (resolved.mode === 'invalid') {
         const names = resolved.unknown.map(name => `@${name}`).join('、')
         setNodes(current =>

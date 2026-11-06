@@ -8,14 +8,27 @@ export const inject = ['slots']
 
 const KEY = 'imagora'
 
-// 验收台需要拿到画布组件本体；正式运行时这里只是多挂一个全局引用，不参与渲染。
-;(globalThis as any).__dshImagoraCanvas = CanvasApp
+/** Cordis 上下文的最小形状：只声明本插件用到的两件事。 */
+interface SlotsContext {
+  slots: {
+    inject: (name: string, fn: () => unknown) => () => void
+    register: (options: Record<string, unknown>, component: unknown) => { dispose: () => void }
+  }
+  effect: (fn: () => (() => void) | undefined, label: string) => void
+}
 
-function PanelIcon({ size = 16 }: { size?: number; active?: boolean }) {
+declare global {
+  /** 验收台用来直接挂载画布组件；正式运行时不参与渲染。 */
+  var __dshImagoraCanvas: typeof CanvasApp | undefined
+}
+
+globalThis.__dshImagoraCanvas = CanvasApp
+
+function PanelIcon({ size = 16 }: { size?: number }) {
   return <Icon name="layers" size={size} />
 }
 
-export function apply(ctx: any) {
+export function apply(ctx: SlotsContext) {
   ctx.effect(() => {
     const style = document.createElement('style')
     style.setAttribute('data-dsh-imagora-desk', 'xyflow')
@@ -26,10 +39,19 @@ export function apply(ctx: any) {
 
   ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: KEY }, CanvasApp))
 
-  ctx.effect(() => ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
-    name: 'sidebar.panellist',
-    id: KEY,
-    order: 6,
-    label: () => '自由画布',
-  }, PanelIcon)), 'dsh-imagora-desk: 侧边栏入口')
+  ctx.effect(
+    () =>
+      ctx.slots.inject('sidebar.panellist', () =>
+        ctx.slots.register(
+          {
+            name: 'sidebar.panellist',
+            id: KEY,
+            order: 6,
+            label: () => '自由画布',
+          },
+          PanelIcon,
+        ),
+      ),
+    'dsh-imagora-desk: 侧边栏入口',
+  )
 }

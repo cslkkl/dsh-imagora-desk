@@ -1,61 +1,96 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="utf-8" />
-  <title>dsh-imagora 渲染验收台</title>
-  <style>
-    html, body { margin: 0; height: 100%; background: #f4f5f7; color: #1b1b1b;
-      font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
-    #root { height: 100vh; display: flex; }
-    #panel { flex: 1; min-width: 0; }
-    .boot { margin: auto; color: #666; font-size: 13px; }
-  </style>
-</head>
-<body>
-  <div id="root"><div class="boot">正在加载画布 bundle…</div></div>
-  <script src="/harness/dist/vendor.js"></script>
-  <script>
-    // 模拟 DSH 宿主的模块表：react / react-dom / jsx-runtime 由宿主提供
-    window.__ModuleLoader__ = {
-      entry: null,
-      load(payload) { this.entry = payload },
-    }
-  </script>
-  <script src="/dist/client.js"></script>
-  <script>
-    (function () {
-      var entry = window.__ModuleLoader__.entry
-      var mount = document.getElementById('root')
-      if (!entry) { mount.textContent = 'bundle 没有调用 __ModuleLoader__.load'; return }
-      var exported = entry.factory(function (id) {
-        if (id === 'react') return window.React
-        if (id === 'react-dom') return window.ReactDOM
-        if (id === 'react-dom/client') return window.ReactDOMClient
-        if (id === 'react/jsx-runtime') return window.__jsxRuntime
-        if (id === 'react/jsx-dev-runtime') return window.__jsxRuntime
-        throw new Error('未声明的外部模块：' + id)
-      })
-      if (!exported || typeof exported.apply !== 'function') {
-        mount.textContent = 'bundle 没有导出 apply'
-        return
+  <head>
+    <meta charset="utf-8" />
+    <title>dsh-imagora 渲染验收台</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #f4f5f7;
+        color: #1b1b1b;
+        font-family:
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          'Microsoft YaHei',
+          sans-serif;
       }
-      var registered = {}
-      var ctx = {
-        slots: {
-          inject: function (name, fn) { fn(); return function () {} },
-          register: function (options) {
-            registered[options.name] = options
-            return { dispose: function () {} }
-          },
+      #root {
+        height: 100vh;
+        display: flex;
+      }
+      #panel {
+        flex: 1;
+        min-width: 0;
+      }
+      .boot {
+        margin: auto;
+        color: #666;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"><div class="boot">正在加载画布 bundle…</div></div>
+    <script src="/harness/dist/vendor.js"></script>
+    <script>
+      // 模拟 DSH 宿主的模块表：react / react-dom / jsx-runtime 由宿主提供
+      window.__ModuleLoader__ = {
+        entry: null,
+        load(payload) {
+          this.entry = payload
         },
-        effect: function (fn) { var dispose = fn(); return typeof dispose === 'function' ? dispose : function () {} },
       }
-      exported.apply(ctx)
-      var App = window.__dshImagoraCanvas
-      if (!App) { mount.textContent = '没有拿到画布组件'; return }
-      mount.innerHTML = ''
-      window.ReactDOMClient.createRoot(mount).render(window.React.createElement(App))
-    })()
-  </script>
-</body>
+    </script>
+    <script src="/dist/client.js"></script>
+    <script>
+      ;(function () {
+        var entry = window.__ModuleLoader__.entry
+        var mount = document.getElementById('root')
+        if (!entry) {
+          mount.textContent = 'bundle 没有调用 __ModuleLoader__.load'
+          return
+        }
+        var exported = entry.factory(function (id) {
+          if (id === 'react') return window.React
+          if (id === 'react-dom') return window.ReactDOM
+          if (id === 'react-dom/client') return window.ReactDOMClient
+          if (id === 'react/jsx-runtime') return window.__jsxRuntime
+          if (id === 'react/jsx-dev-runtime') return window.__jsxRuntime
+          throw new Error('未声明的外部模块：' + id)
+        })
+        if (!exported || typeof exported.apply !== 'function') {
+          mount.textContent = 'bundle 没有导出 apply'
+          return
+        }
+        var registered = {}
+        var ctx = {
+          slots: {
+            inject: function (name, fn) {
+              fn()
+              return function () {}
+            },
+            register: function (options) {
+              registered[options.name] = options
+              return { dispose: function () {} }
+            },
+          },
+          effect: function (fn) {
+            var dispose = fn()
+            return typeof dispose === 'function' ? dispose : function () {}
+          },
+        }
+        exported.apply(ctx)
+        var App = window.__dshImagoraCanvas
+        if (!App) {
+          mount.textContent = '没有拿到画布组件'
+          return
+        }
+        mount.innerHTML = ''
+        window.ReactDOMClient.createRoot(mount).render(window.React.createElement(App))
+      })()
+    </script>
+  </body>
 </html>

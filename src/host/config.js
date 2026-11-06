@@ -80,12 +80,13 @@ export function loadImagoraConfig(settings) {
   const profileName = String(settings?.profile || envProfile || cfg.default_profile || '').trim()
   const profile = profiles[profileName] || {}
 
-  const apiKey =
-    env[`API_KEY_${profileName.toUpperCase()}`] || env.API_KEY || env.AIWANWU_API_KEY || ''
+  const apiKey = env[`API_KEY_${profileName.toUpperCase()}`] || env.API_KEY || env.AIWANWU_API_KEY || ''
   const baseUrl = String(env[`BASE_URL_${profileName.toUpperCase()}`] || profile.base_url || '')
   const apiPaths = {
     generations:
-      env[`PATH_GENERATIONS_${profileName.toUpperCase()}`] || profile.api_paths?.generations || '/v1/images/generations',
+      env[`PATH_GENERATIONS_${profileName.toUpperCase()}`] ||
+      profile.api_paths?.generations ||
+      '/v1/images/generations',
     edits: env[`PATH_EDITS_${profileName.toUpperCase()}`] || profile.api_paths?.edits || '/v1/images/edits',
   }
 

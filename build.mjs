@@ -15,9 +15,7 @@ const watch = process.argv.includes('--watch')
 /** 依赖搜索路径：插件自己的 node_modules 优先，其次 Imagora 前端的。 */
 const DEPS_DIRS = [
   join(ROOT, 'node_modules'),
-  process.env.DSH_IMAGORA_FRONTEND
-    ? join(process.env.DSH_IMAGORA_FRONTEND, 'node_modules')
-    : '',
+  process.env.DSH_IMAGORA_FRONTEND ? join(process.env.DSH_IMAGORA_FRONTEND, 'node_modules') : '',
   join(process.env.USERPROFILE || process.env.HOME || '', 'Desktop', 'imagora', 'imagora', 'frontend', 'node_modules'),
 ].filter(Boolean)
 
@@ -103,4 +101,3 @@ if (watch) {
 
 // host 半端是纯 ESM，直接跑 src；patch 复制一份到 dist 方便排查
 await copyFile(join(ROOT, 'cordis.patch.yml'), join(OUT_DIR, 'cordis.patch.yml')).catch(() => undefined)
-

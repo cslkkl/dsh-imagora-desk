@@ -52,7 +52,9 @@ function fail(status, detail) {
  */
 export async function generateImage(config, input) {
   if (!config.apiKey) {
-    throw new Error(`当前 profile「${config.profile || '未命名'}」没有配置密钥，先在 imagora 的 .env 里填 API_KEY_${(config.profile || '').toUpperCase() || '<PROFILE>'}`)
+    throw new Error(
+      `当前 profile「${config.profile || '未命名'}」没有配置密钥，先在 imagora 的 .env 里填 API_KEY_${(config.profile || '').toUpperCase() || '<PROFILE>'}`,
+    )
   }
   if (!config.baseUrl) throw new Error('当前 profile 没有接口地址，检查 imagora 的 config.json')
 
@@ -106,7 +108,11 @@ export async function generateImage(config, input) {
   if (!item) throw new Error(`接口响应没有图片数据：${JSON.stringify(body).slice(0, 240)}`)
 
   if (item.b64_json) {
-    return { buffer: Buffer.from(item.b64_json, 'base64'), ext: '.png', meta: { mode: refs.length ? 'img2img' : 'txt2img' } }
+    return {
+      buffer: Buffer.from(item.b64_json, 'base64'),
+      ext: '.png',
+      meta: { mode: refs.length ? 'img2img' : 'txt2img' },
+    }
   }
   if (item.url) {
     const file = await fetch(item.url, { signal: AbortSignal.timeout(300_000) })

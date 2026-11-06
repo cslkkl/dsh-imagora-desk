@@ -63,17 +63,28 @@ try {
   check('GET /config 读到了 imagora 目录', Boolean(config.root && existsSync(config.root)), config.root)
 
   const health = await fetch(`${base}/health`).then(res => res.json())
-  check('GET /health 有 issues 字段', Array.isArray(health.config?.issues), JSON.stringify(health.config?.issues ?? health))
+  check(
+    'GET /health 有 issues 字段',
+    Array.isArray(health.config?.issues),
+    JSON.stringify(health.config?.issues ?? health),
+  )
 
   const upload = await fetch(`${base}/upload?name=smoke.png`, { method: 'POST', body: PNG }).then(res => res.json())
   check('POST /upload 登记资产', Boolean(upload.image?.id), upload.image?.id ?? JSON.stringify(upload))
 
   const listed = await fetch(`${base}/assets`).then(res => res.json())
-  check('GET /assets 列出刚上传的图', listed.images.some(row => row.id === upload.image.id))
+  check(
+    'GET /assets 列出刚上传的图',
+    listed.images.some(row => row.id === upload.image.id),
+  )
 
   const file = await fetch(`${base}/file?id=${upload.image.id}`)
   const bytes = Buffer.from(await file.arrayBuffer())
-  check('GET /file 返回原字节', file.ok && bytes.equals(PNG), `${bytes.length} bytes ${file.headers.get('content-type')}`)
+  check(
+    'GET /file 返回原字节',
+    file.ok && bytes.equals(PNG),
+    `${bytes.length} bytes ${file.headers.get('content-type')}`,
+  )
 
   const missing = await fetch(`${base}/file?id=does-not-exist`)
   check('GET /file 未知 id 返回 404', missing.status === 404)
@@ -90,22 +101,39 @@ try {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       name: 'smoke-test',
-      nodes: [{
-        id: `img-${upload.image.id}`,
-        type: 'image',
-        position: { x: 10, y: 20 },
-        data: { registryId: upload.image.id, name: 'smoke.png', size: PNG.length, ext: 'png', url: upload.image.url, absPath: upload.image.absPath, refCount: 0 },
-      }],
+      nodes: [
+        {
+          id: `img-${upload.image.id}`,
+          type: 'image',
+          position: { x: 10, y: 20 },
+          data: {
+            registryId: upload.image.id,
+            name: 'smoke.png',
+            size: PNG.length,
+            ext: 'png',
+            url: upload.image.url,
+            absPath: upload.image.absPath,
+            refCount: 0,
+          },
+        },
+      ],
       edges: [],
     }),
   }).then(res => res.json())
   check('POST /workflow/save 落盘', save.ok === true, save.name)
 
   const load = await fetch(`${base}/workflow/load?name=smoke-test`).then(res => res.json())
-  check('GET /workflow/load 读回并补 url', load.nodes?.[0]?.data?.url === upload.image.url, JSON.stringify(load.missing ?? []))
+  check(
+    'GET /workflow/load 读回并补 url',
+    load.nodes?.[0]?.data?.url === upload.image.url,
+    JSON.stringify(load.missing ?? []),
+  )
 
   const lists = await fetch(`${base}/workflow/list`).then(res => res.json())
-  check('GET /workflow/list 含刚保存的', lists.workflows.some(row => row.name === 'smoke-test'))
+  check(
+    'GET /workflow/list 含刚保存的',
+    lists.workflows.some(row => row.name === 'smoke-test'),
+  )
 
   const recovery = await fetch(`${base}/recovery/save`, {
     method: 'POST',

@@ -1,7 +1,6 @@
 // /imagora/* 接口：配置、上传、文件、生成任务、工作流、恢复快照。
 import { readFile } from 'node:fs/promises'
 import { extname, join } from 'node:path'
-import { loadImagoraConfig, readSettings, writeSettings } from './config.js'
 import { MIME, extOf } from './store.js'
 
 const MAX_JSON = 8_000_000
@@ -142,7 +141,10 @@ export function createRouter({ store, pool, getConfig, applySettings }) {
       res.setHeader('cache-control', 'private, max-age=3600')
       res.setHeader('x-content-type-options', 'nosniff')
       if (method === 'HEAD') return res.end()
-      store.stream(entry.absPath).on('error', () => res.end()).pipe(res)
+      store
+        .stream(entry.absPath)
+        .on('error', () => res.end())
+        .pipe(res)
       return undefined
     }
 
@@ -237,14 +239,6 @@ export function createRouter({ store, pool, getConfig, applySettings }) {
     }
 
     return json(res, 404, { error: `未知接口：${method} ${path}` })
-  }
-}
-
-/** 让插件的设置文件真正落盘（模型选择、imagora 目录）。 */
-export function makeApplySettings(root) {
-  return patch => {
-    const next = writeSettings(root, patch)
-    return next
   }
 }
 

@@ -15,7 +15,12 @@ export function SaveDialog({ onCancel, onSubmit }: { onCancel: () => void; onSub
           <button type="button" className="im-btn" onClick={onCancel}>
             取消
           </button>
-          <button type="button" className="im-btn is-primary" disabled={!name.trim()} onClick={() => onSubmit(name.trim())}>
+          <button
+            type="button"
+            className="im-btn is-primary"
+            disabled={!name.trim()}
+            onClick={() => onSubmit(name.trim())}
+          >
             保存
           </button>
         </div>
@@ -81,7 +86,16 @@ export function HelpDialog({ onClose, config }: { onClose: () => void; config: I
           <tbody>
             {HELP_ROWS.map(([key, value]) => (
               <tr key={key}>
-                <td style={{ padding: '5px 8px 5px 0', color: 'var(--im-ink-3)', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{key}</td>
+                <td
+                  style={{
+                    padding: '5px 8px 5px 0',
+                    color: 'var(--im-ink-3)',
+                    whiteSpace: 'nowrap',
+                    verticalAlign: 'top',
+                  }}
+                >
+                  {key}
+                </td>
                 <td style={{ padding: '5px 0', lineHeight: 1.6 }}>{value}</td>
               </tr>
             ))}
@@ -89,7 +103,8 @@ export function HelpDialog({ onClose, config }: { onClose: () => void; config: I
         </table>
         {config ? (
           <p className="im-muted" style={{ fontSize: 11.5, marginTop: 10, lineHeight: 1.7 }}>
-            配置来源：{config.root || '未找到'} · profile「{config.profileLabel || config.profile}」· 模型 {config.modelLabel}
+            配置来源：{config.root || '未找到'} · profile「{config.profileLabel || config.profile}」· 模型{' '}
+            {config.modelLabel}
             <br />
             结果默认落在 {config.defaultOutputDir}
           </p>

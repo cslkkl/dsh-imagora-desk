@@ -77,8 +77,24 @@ export function CanvasApp() {
   }, [])
 
   const { config, configError, configRef, switchProfile, switchModel } = useCanvasConfig(flash)
-  const { addImages, replaceImage, openPreview } = useCanvasImages({ nodesRef, setNodes, createPosition: () => createPositionRef.current(), log, flash, setPreview })
-  const { runPrompt, cancelPrompt, runMany } = useGeneratedTasks({ nodesRef, edgesRef, setNodes, setEdges, log, flash, taskIdsRef, timersRef })
+  const { addImages, replaceImage, openPreview } = useCanvasImages({
+    nodesRef,
+    setNodes,
+    createPosition: () => createPositionRef.current(),
+    log,
+    flash,
+    setPreview,
+  })
+  const { runPrompt, cancelPrompt, runMany } = useGeneratedTasks({
+    nodesRef,
+    edgesRef,
+    setNodes,
+    setEdges,
+    log,
+    flash,
+    taskIdsRef,
+    timersRef,
+  })
   const { doSave, doLoad } = useCanvasWorkflow({
     nodes,
     edges,
@@ -107,7 +123,11 @@ export function CanvasApp() {
           const imageCount = counts.groupCounts.get(node.id) ?? 0
           const totalSize = counts.groupSizes.get(node.id) ?? 0
           const duplicateCount = counts.groupDups.get(node.id) ?? 0
-          if (node.data.imageCount === imageCount && node.data.totalSize === totalSize && node.data.duplicateCount === duplicateCount) {
+          if (
+            node.data.imageCount === imageCount &&
+            node.data.totalSize === totalSize &&
+            node.data.duplicateCount === duplicateCount
+          ) {
             return node
           }
           return { ...node, data: { ...node.data, imageCount, totalSize, duplicateCount } }
@@ -156,9 +176,7 @@ export function CanvasApp() {
     const instance = instanceRef.current
     const rect = flowRef.current?.getBoundingClientRect()
     const center =
-      instance && rect
-        ? instance.screenToFlowPosition({ x: rect.width / 2, y: rect.height / 2 })
-        : { x: 140, y: 120 }
+      instance && rect ? instance.screenToFlowPosition({ x: rect.width / 2, y: rect.height / 2 }) : { x: 140, y: 120 }
     const { position, next } = staggerCreatePosition(center, lastCreateRef.current)
     lastCreateRef.current = next
     return position
@@ -311,7 +329,12 @@ export function CanvasApp() {
           <Banner
             tone="warn"
             action={
-              <button type="button" className="im-btn is-ghost" style={{ height: 22 }} onClick={() => setRestored(null)}>
+              <button
+                type="button"
+                className="im-btn is-ghost"
+                style={{ height: 22 }}
+                onClick={() => setRestored(null)}
+              >
                 知道了
               </button>
             }
@@ -357,7 +380,9 @@ export function CanvasApp() {
           >
             <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
             <Controls position="bottom-left" showInteractive={false} />
-            {minimapOpen ? <MiniMap pannable zoomable position="bottom-right" style={{ width: 160, height: 110 }} /> : null}
+            {minimapOpen ? (
+              <MiniMap pannable zoomable position="bottom-right" style={{ width: 160, height: 110 }} />
+            ) : null}
           </ReactFlow>
 
           {nodes.length === 0 ? <EmptyState /> : null}
@@ -380,9 +405,15 @@ export function CanvasApp() {
 
         <PreviewOverlay preview={preview} onClose={() => setPreview(null)} />
 
-        {dialog?.kind === 'save' ? <SaveDialog onCancel={() => setDialog(null)} onSubmit={name => void doSave(name)} /> : null}
+        {dialog?.kind === 'save' ? (
+          <SaveDialog onCancel={() => setDialog(null)} onSubmit={name => void doSave(name)} />
+        ) : null}
         {dialog?.kind === 'load' ? (
-          <LoadDialog workflows={dialog.workflows ?? []} onCancel={() => setDialog(null)} onPick={name => void doLoad(name)} />
+          <LoadDialog
+            workflows={dialog.workflows ?? []}
+            onCancel={() => setDialog(null)}
+            onPick={name => void doLoad(name)}
+          />
         ) : null}
         {dialog?.kind === 'help' ? <HelpDialog config={config} onClose={() => setDialog(null)} /> : null}
       </div>

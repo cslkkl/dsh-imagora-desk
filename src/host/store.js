@@ -5,7 +5,7 @@
 //   recovery/   自动恢复快照（最近 5 份）
 //   registry.json / settings.json
 import { createHash, randomUUID } from 'node:crypto'
-import { createReadStream, existsSync, readdirSync, statSync } from 'node:fs'
+import { createReadStream, existsSync, readdirSync } from 'node:fs'
 import { mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { extname, join, resolve, sep } from 'node:path'
 
@@ -49,7 +49,10 @@ export class Store {
   /** 串行化落盘：并发生成会把 registry 同时写坏，这里排队。 */
   async serialize(task) {
     const run = this.writeQueue.then(task, task)
-    this.writeQueue = run.then(() => undefined, () => undefined)
+    this.writeQueue = run.then(
+      () => undefined,
+      () => undefined,
+    )
     return run
   }
 
@@ -148,7 +151,10 @@ export class Store {
   }
 
   safeName(name) {
-    const cleaned = String(name || '').replace(/[\\/:*?"<>|\s]+/g, ' ').trim().slice(0, 60)
+    const cleaned = String(name || '')
+      .replace(/[\\/:*?"<>|\s]+/g, ' ')
+      .trim()
+      .slice(0, 60)
     return cleaned || `工作流-${Date.now()}`
   }
 
@@ -172,7 +178,9 @@ export class Store {
     const body = JSON.stringify({ version: 1, name: `自动恢复 ${stamp}`, savedAt: stamp, ...payload }, null, 2)
     await writeFile(file, body, 'utf8')
     // 只留最近 5 份，避免快照堆积
-    const names = readdirSync(this.recoveryDir).filter(name => name.endsWith('.json')).sort()
+    const names = readdirSync(this.recoveryDir)
+      .filter(name => name.endsWith('.json'))
+      .sort()
     for (const old of names.slice(0, Math.max(0, names.length - 5))) {
       try {
         await unlink(join(this.recoveryDir, old))
@@ -184,7 +192,9 @@ export class Store {
   }
 
   async latestRecovery() {
-    const names = readdirSync(this.recoveryDir).filter(name => name.endsWith('.json')).sort()
+    const names = readdirSync(this.recoveryDir)
+      .filter(name => name.endsWith('.json'))
+      .sort()
     const last = names[names.length - 1]
     if (!last) return { ok: true, empty: true }
     const data = JSON.parse(await readFile(join(this.recoveryDir, last), 'utf8'))

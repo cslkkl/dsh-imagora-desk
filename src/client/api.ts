@@ -59,7 +59,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     body = null
   }
   if (!res.ok) {
-    const message = (body && typeof body === 'object' && 'error' in body ? String((body as { error: unknown }).error) : '') || text.slice(0, 200)
+    const message =
+      (body && typeof body === 'object' && 'error' in body ? String((body as { error: unknown }).error) : '') ||
+      text.slice(0, 200)
     throw Object.assign(new Error(message || `请求失败（HTTP ${res.status}）`), { status: res.status })
   }
   return body as T
@@ -111,9 +113,14 @@ export const saveRecovery = (nodes: WorkflowNode[], edges: WorkflowEdge[]) =>
   request<{ ok: boolean; name: string; savedAt: string }>('recovery/save', jsonBody({ nodes, edges }))
 
 export const latestRecovery = () =>
-  request<{ ok: boolean; empty?: boolean; name?: string; savedAt?: string; nodes?: WorkflowNode[]; edges?: WorkflowEdge[] }>(
-    'recovery/latest',
-  )
+  request<{
+    ok: boolean
+    empty?: boolean
+    name?: string
+    savedAt?: string
+    nodes?: WorkflowNode[]
+    edges?: WorkflowEdge[]
+  }>('recovery/latest')
 
 export const setModel = (model: string) => request<ImagoraConfig>('settings', jsonBody({ model }))
 export const setProfile = (profile: string) => request<ImagoraConfig>('settings', jsonBody({ profile }))

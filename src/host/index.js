@@ -42,30 +42,34 @@ export default {
       ctx.logger?.warn?.(`dsh-imagora-desk: 初始化目录失败 ${error.message}`)
     })
 
-    ctx.effect(() => ctx.webServer.register({
-      kind: 'prefix',
-      path: '/imagora',
-      handler: async (req, res) => {
-        try {
-          const rejection = requestRejection(ctx, req)
-          if (rejection) {
-            res.statusCode = rejection
-            res.setHeader('content-type', 'application/json; charset=utf-8')
-            res.end(JSON.stringify({ error: '未授权' }))
-            return
-          }
-          await ready
-          await route(req, res)
-        } catch (error) {
-          if (res.headersSent) {
-            res.end()
-            return
-          }
-          res.statusCode = error.status || 500
-          res.setHeader('content-type', 'application/json; charset=utf-8')
-          res.end(JSON.stringify({ error: error.message }))
-        }
-      },
-    }), 'dsh-imagora-desk: /imagora routes')
+    ctx.effect(
+      () =>
+        ctx.webServer.register({
+          kind: 'prefix',
+          path: '/imagora',
+          handler: async (req, res) => {
+            try {
+              const rejection = requestRejection(ctx, req)
+              if (rejection) {
+                res.statusCode = rejection
+                res.setHeader('content-type', 'application/json; charset=utf-8')
+                res.end(JSON.stringify({ error: '未授权' }))
+                return
+              }
+              await ready
+              await route(req, res)
+            } catch (error) {
+              if (res.headersSent) {
+                res.end()
+                return
+              }
+              res.statusCode = error.status || 500
+              res.setHeader('content-type', 'application/json; charset=utf-8')
+              res.end(JSON.stringify({ error: error.message }))
+            }
+          },
+        }),
+      'dsh-imagora-desk: /imagora routes',
+    )
   },
 }

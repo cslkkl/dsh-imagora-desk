@@ -21,8 +21,13 @@ globalThis.document = {
     const el = {
       tagName: String(tag).toUpperCase(),
       style: {},
-      setAttribute(key, value) { this[key] = value },
-      remove() { const at = styleNodes.indexOf(this); if (at >= 0) styleNodes.splice(at, 1) },
+      setAttribute(key, value) {
+        this[key] = value
+      },
+      remove() {
+        const at = styleNodes.indexOf(this)
+        if (at >= 0) styleNodes.splice(at, 1)
+      },
       appendChild() {},
       textContent: '',
       children: [],
@@ -31,18 +36,36 @@ globalThis.document = {
     return el
   },
   head: {
-    appendChild(node) { styleNodes.push(node) },
+    appendChild(node) {
+      styleNodes.push(node)
+    },
   },
   body: { appendChild() {} },
   addEventListener() {},
   removeEventListener() {},
-  querySelector() { return null },
+  querySelector() {
+    return null
+  },
 }
 globalThis.addEventListener = () => {}
 globalThis.removeEventListener = () => {}
-globalThis.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} })
-globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} }
-globalThis.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} }
+globalThis.matchMedia = () => ({
+  matches: false,
+  addEventListener() {},
+  removeEventListener() {},
+  addListener() {},
+  removeListener() {},
+})
+globalThis.ResizeObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.IntersectionObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
 globalThis.requestAnimationFrame = fn => setTimeout(fn, 0)
 globalThis.cancelAnimationFrame = id => clearTimeout(id)
 globalThis.getComputedStyle = () => ({ getPropertyValue: () => '' })
@@ -83,7 +106,11 @@ const exportsObject = factory(id => {
 })
 
 check('导出 apply 函数', typeof exportsObject.apply === 'function')
-check('导出 inject 含 slots', Array.isArray(exportsObject.inject) && exportsObject.inject.includes('slots'), JSON.stringify(exportsObject.inject))
+check(
+  '导出 inject 含 slots',
+  Array.isArray(exportsObject.inject) && exportsObject.inject.includes('slots'),
+  JSON.stringify(exportsObject.inject),
+)
 
 // --- 假 ctx：记录插槽注册 ---
 const injections = []
@@ -118,7 +145,11 @@ check('main 注册了组件', typeof mainReg?.component === 'function')
 const sidebarReg = registrations.find(row => row.options.name === 'sidebar.panellist')
 check('侧边栏注册 id=imagora', sidebarReg?.options?.id === 'imagora', JSON.stringify(sidebarReg?.options))
 check('侧边栏有 label', typeof sidebarReg?.options?.label === 'function' && sidebarReg.options.label() === '自由画布')
-check('xyflow 样式注入到 head', styleNodes.some(node => String(node.textContent).includes('react-flow')), `${styleNodes.length} 个 style`)
+check(
+  'xyflow 样式注入到 head',
+  styleNodes.some(node => String(node.textContent).includes('react-flow')),
+  `${styleNodes.length} 个 style`,
+)
 check('注册了 effect 清理', effects.length >= 2, effects.join(' | '))
 
 const failed = results.filter(row => !row.ok)

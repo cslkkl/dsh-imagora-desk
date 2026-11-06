@@ -49,7 +49,11 @@ export function useCanvasImages({ nodesRef, setNodes, createPosition, log, flash
 
   /** 拖进画布：落点用屏幕坐标换算，换算失败时退回「视口中心 + 阶梯错开」。 */
   const dropFiles = useCallback(
-    (files: File[], screen: { x: number; y: number } | null, toFlow: (point: { x: number; y: number }) => { x: number; y: number }) => {
+    (
+      files: File[],
+      screen: { x: number; y: number } | null,
+      toFlow: (point: { x: number; y: number }) => { x: number; y: number },
+    ) => {
       const position = screen ? toFlow(screen) : createPosition()
       void addImages(files, position)
     },

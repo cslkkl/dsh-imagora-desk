@@ -80,9 +80,7 @@ export class TaskPool {
     const config = this.getConfig()
     const cost = costOfSize(config, task.size)
     const refs = task.refs
-    task.messages.push(
-      refs.length ? `图生图 · 参考图 ${refs.length} 张` : '文生图',
-    )
+    task.messages.push(refs.length ? `图生图 · 参考图 ${refs.length} 张` : '文生图')
     try {
       const { buffer, ext, meta } = await generateImage(config, {
         prompt: task.prompt,

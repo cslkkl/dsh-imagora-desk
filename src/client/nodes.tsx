@@ -2,11 +2,7 @@
 // 画布把回调放在 context 里，节点组件只认 NodeProps —— 与 React Flow 的约定一致。
 import { createContext, memo, useContext, useEffect, useState } from 'react'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
-import type {
-  CanvasGroupNodeData,
-  CanvasImageNodeData,
-  CanvasPromptNodeData,
-} from './lib/types'
+import type { CanvasGroupNodeData, CanvasImageNodeData, CanvasPromptNodeData } from './lib/types'
 import { generatingLabel } from './lib/format'
 import { Icon } from './icons'
 import type { ImagoraConfig } from './api'
@@ -42,7 +38,17 @@ function Rail({ children }: { children: React.ReactNode }) {
   return <div className="im-rail">{children}</div>
 }
 
-function RailButton({ label, onClick, danger, children }: { label: string; onClick: () => void; danger?: boolean; children: React.ReactNode }) {
+function RailButton({
+  label,
+  onClick,
+  danger,
+  children,
+}: {
+  label: string
+  onClick: () => void
+  danger?: boolean
+  children: React.ReactNode
+}) {
   return (
     <button
       type="button"
@@ -67,14 +73,31 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
   const [broken, setBroken] = useState(false)
   const missing = data.missing || broken
   return (
-    <div className={`im-card${selected ? ' is-selected' : ''}${missing ? ' is-missing' : ''}`} style={{ padding: 8, width: 148 }}>
+    <div
+      className={`im-card${selected ? ' is-selected' : ''}${missing ? ' is-missing' : ''}`}
+      style={{ padding: 8, width: 148 }}
+    >
       <Handles />
-      {missing ? <span className="im-chip is-danger" style={{ position: 'absolute', right: 6, top: 6, zIndex: 2 }}>文件缺失</span> : null}
-      {data.maskDataUrl ? <span className="im-chip is-brand" style={{ position: 'absolute', left: 6, top: 6, zIndex: 2 }}>蒙版</span> : null}
+      {missing ? (
+        <span className="im-chip is-danger" style={{ position: 'absolute', right: 6, top: 6, zIndex: 2 }}>
+          文件缺失
+        </span>
+      ) : null}
+      {data.maskDataUrl ? (
+        <span className="im-chip is-brand" style={{ position: 'absolute', left: 6, top: 6, zIndex: 2 }}>
+          蒙版
+        </span>
+      ) : null}
       <Rail>
-        <RailButton label="预览大图" onClick={() => actions.zoomImage(id)}><Icon name="eye" /></RailButton>
-        <RailButton label="换一张图" onClick={() => actions.replaceImage(id)}><Icon name="image" /></RailButton>
-        <RailButton label="删除图片" danger onClick={() => actions.deleteNode(id)}><Icon name="trash" /></RailButton>
+        <RailButton label="预览大图" onClick={() => actions.zoomImage(id)}>
+          <Icon name="eye" />
+        </RailButton>
+        <RailButton label="换一张图" onClick={() => actions.replaceImage(id)}>
+          <Icon name="image" />
+        </RailButton>
+        <RailButton label="删除图片" danger onClick={() => actions.deleteNode(id)}>
+          <Icon name="trash" />
+        </RailButton>
       </Rail>
       <div
         className="im-thumb"
@@ -84,12 +107,31 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
         }}
       >
         {data.url ? (
-          <img src={data.url} alt={data.name} loading="lazy" decoding="async" draggable={false} onError={() => setBroken(true)} />
+          <img
+            src={data.url}
+            alt={data.name}
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            onError={() => setBroken(true)}
+          />
         ) : (
-          <span className="im-muted" style={{ fontSize: 11 }}>图片缺失</span>
+          <span className="im-muted" style={{ fontSize: 11 }}>
+            图片缺失
+          </span>
         )}
       </div>
-      <div style={{ marginTop: 5, fontSize: 11, color: 'var(--im-ink-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={data.name}>
+      <div
+        style={{
+          marginTop: 5,
+          fontSize: 11,
+          color: 'var(--im-ink-2)',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+        title={data.name}
+      >
         {data.name}
       </div>
       <div style={{ fontSize: 11, color: data.refCount > 0 ? 'var(--im-brand)' : 'var(--im-ink-3)' }}>
@@ -107,15 +149,26 @@ export const GroupNode = memo(function GroupNode({ id, data, selected }: NodePro
   const mb = data.totalSize > 0 ? (data.totalSize / (1024 * 1024)).toFixed(1) : '0.0'
   const dup = data.duplicateCount ?? 0
   return (
-    <div className={`im-card${selected ? ' is-selected' : ''}`} style={{ width: 196, padding: 14, background: 'color-mix(in srgb, var(--im-brand) 5%, var(--im-layer))' }}>
+    <div
+      className={`im-card${selected ? ' is-selected' : ''}`}
+      style={{ width: 196, padding: 14, background: 'color-mix(in srgb, var(--im-brand) 5%, var(--im-layer))' }}
+    >
       <Handles />
       <Rail>
-        <RailButton label="删除图片组" danger onClick={() => actions.deleteNode(id)}><Icon name="trash" /></RailButton>
+        <RailButton label="删除图片组" danger onClick={() => actions.deleteNode(id)}>
+          <Icon name="trash" />
+        </RailButton>
       </Rail>
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--im-brand)' }}>{data.imageCount} 张图</div>
-        <div style={{ marginTop: 3, fontSize: 12 }} className="im-muted">{mb} MB</div>
-        {dup > 0 ? <span className="im-chip is-brand" style={{ marginTop: 5 }}>去重 {dup}</span> : null}
+        <div style={{ marginTop: 3, fontSize: 12 }} className="im-muted">
+          {mb} MB
+        </div>
+        {dup > 0 ? (
+          <span className="im-chip is-brand" style={{ marginTop: 5 }}>
+            去重 {dup}
+          </span>
+        ) : null}
       </div>
     </div>
   )
@@ -148,9 +201,10 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
   const busy = data.status === 'queued' || data.status === 'running'
   const sizes = config?.sizes ?? []
   const qualities = config?.qualities ?? []
-  const sizeOptions = sizes.some(row => row.value === data.size) || !data.size
-    ? sizes
-    : [...sizes, { value: data.size, label: `${data.size}（自定义）`, cost: 0 }]
+  const sizeOptions =
+    sizes.some(row => row.value === data.size) || !data.size
+      ? sizes
+      : [...sizes, { value: data.size, label: `${data.size}（自定义）`, cost: 0 }]
   const qualityEffective = config?.qualityEffective !== false
 
   return (
@@ -158,12 +212,18 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
       <Handles />
       <Rail>
         <span className={`im-dot is-${data.status}`} title={STATUS_TEXT[data.status] ?? ''} />
-        <RailButton label="删除提示词" danger onClick={() => actions.deleteNode(id)}><Icon name="trash" /></RailButton>
+        <RailButton label="删除提示词" danger onClick={() => actions.deleteNode(id)}>
+          <Icon name="trash" />
+        </RailButton>
       </Rail>
 
       <div className="im-row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
-        <span className="im-node-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.title ?? '提示词生成'}</span>
-        <span className="im-chip">{data.status === 'running' ? <Elapsed from={data.startedAtMs} /> : (STATUS_TEXT[data.status] ?? '就绪')}</span>
+        <span className="im-node-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {data.title ?? '提示词生成'}
+        </span>
+        <span className="im-chip">
+          {data.status === 'running' ? <Elapsed from={data.startedAtMs} /> : (STATUS_TEXT[data.status] ?? '就绪')}
+        </span>
       </div>
 
       <textarea
@@ -174,21 +234,38 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
         onChange={event => actions.updatePrompt(id, { prompt: event.target.value })}
       />
 
-      <div className="nodrag" style={{ display: 'grid', gap: 6, gridTemplateColumns: qualityEffective ? '1fr 84px' : '1fr', marginTop: 6 }}>
+      <div
+        className="nodrag"
+        style={{ display: 'grid', gap: 6, gridTemplateColumns: qualityEffective ? '1fr 84px' : '1fr', marginTop: 6 }}
+      >
         <div>
           <span className="im-label">尺寸</span>
-          <select className="im-select" style={{ width: '100%' }} value={data.size} onChange={event => actions.updatePrompt(id, { size: event.target.value })}>
+          <select
+            className="im-select"
+            style={{ width: '100%' }}
+            value={data.size}
+            onChange={event => actions.updatePrompt(id, { size: event.target.value })}
+          >
             {sizeOptions.map(option => (
-              <option key={option.value} value={option.value}>{option.label}</option>
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
             ))}
           </select>
         </div>
         {qualityEffective ? (
           <div>
             <span className="im-label">质量</span>
-            <select className="im-select" style={{ width: '100%' }} value={data.quality} onChange={event => actions.updatePrompt(id, { quality: event.target.value })}>
+            <select
+              className="im-select"
+              style={{ width: '100%' }}
+              value={data.quality}
+              onChange={event => actions.updatePrompt(id, { quality: event.target.value })}
+            >
               {qualities.map(quality => (
-                <option key={quality} value={quality}>{quality}</option>
+                <option key={quality} value={quality}>
+                  {quality}
+                </option>
               ))}
             </select>
           </div>
@@ -221,7 +298,13 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
           }}
         >
           <Icon name="play" />
-          {data.status === 'running' ? <Elapsed from={data.startedAtMs} /> : data.status === 'queued' ? '排队中…' : '运行'}
+          {data.status === 'running' ? (
+            <Elapsed from={data.startedAtMs} />
+          ) : data.status === 'queued' ? (
+            '排队中…'
+          ) : (
+            '运行'
+          )}
         </button>
         {busy ? (
           <button

@@ -1,0 +1,5 @@
+dist
+harness/dist
+node_modules
+pnpm-lock.yaml
+src/client/lib

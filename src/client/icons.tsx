@@ -21,7 +21,15 @@ const PATHS: Record<string, string> = {
   layers: 'M12 4l8 4-8 4-8-4 8-4zM4 12l8 4 8-4M4 16l8 4 8-4',
 }
 
-export function Icon({ name, size = 14, style }: { name: keyof typeof PATHS | string; size?: number; style?: CSSProperties }) {
+export function Icon({
+  name,
+  size = 14,
+  style,
+}: {
+  name: keyof typeof PATHS | string
+  size?: number
+  style?: CSSProperties
+}) {
   const d = PATHS[name] || PATHS.help
   return (
     <svg

@@ -120,7 +120,17 @@ export function defineConfig(path, url) {
     const step = (pollCounts.get(id) ?? 0) + 1
     pollCounts.set(id, step)
     if (step === 1) {
-      return { taskId: id, status: 'queued', startedAt: null, finishedAt: null, results: [], messages: [], totalCost: 0, error: null, cancelRequested: false }
+      return {
+        taskId: id,
+        status: 'queued',
+        startedAt: null,
+        finishedAt: null,
+        results: [],
+        messages: [],
+        totalCost: 0,
+        error: null,
+        cancelRequested: false,
+      }
     }
     if (step < 3) {
       return {
@@ -140,18 +150,20 @@ export function defineConfig(path, url) {
       status: 'done',
       startedAt: Date.now() - 2400,
       finishedAt: Date.now(),
-      results: [{
-        status: 'ok',
-        assetId: `gen-${id}`,
-        url: `/imagora/file?id=gen-${id}`,
-        name: 'txt2img_20261106_131900_demo.png',
-        absPath: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output\\txt2img_20261106_131900_demo.png',
-        ext: 'png',
-        bytes: 812345,
-        size: '1024x1024',
-        cost: 0.05,
-        mode: 'txt2img',
-      }],
+      results: [
+        {
+          status: 'ok',
+          assetId: `gen-${id}`,
+          url: `/imagora/file?id=gen-${id}`,
+          name: 'txt2img_20261106_131900_demo.png',
+          absPath: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output\\txt2img_20261106_131900_demo.png',
+          ext: 'png',
+          bytes: 812345,
+          size: '1024x1024',
+          cost: 0.05,
+          mode: 'txt2img',
+        },
+      ],
       messages: ['文生图', '已生成 · 1024x1024 · 0.05 元'],
       totalCost: 0.05,
       error: null,

@@ -57,7 +57,13 @@ const PREVIEW_STYLE: CSSProperties = {
   background: 'var(--im-layer)',
 }
 
-export function PreviewOverlay({ preview, onClose }: { preview: { url: string; name: string } | null; onClose: () => void }) {
+export function PreviewOverlay({
+  preview,
+  onClose,
+}: {
+  preview: { url: string; name: string } | null
+  onClose: () => void
+}) {
   if (!preview) return null
   return (
     <div className="im-modal-mask" onClick={onClose}>
