@@ -40,6 +40,8 @@ import { SettingsDialog } from './settings-dialog'
 import { connectEdge, useCanvasImages } from './use-canvas-images'
 import { useGeneratedTasks } from './use-canvas-tasks'
 import { useCanvasConfig } from './use-canvas-config'
+import { useCanvasHistory } from './use-canvas-history'
+import { useCanvasKeys } from './use-canvas-keys'
 import { useCanvasWorkflow } from './use-canvas-workflow'
 
 type DialogState = { kind: 'save' | 'load' | 'help' | 'settings'; workflows?: { name: string; modified: string }[] }
@@ -54,6 +56,7 @@ export function CanvasApp() {
   const [zoom, setZoom] = useState(1)
   const [minimapOpen, setMinimapOpen] = useState(true)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [restored, setRestored] = useState<string | null>(null)
 
   const flowRef = useRef<HTMLDivElement>(null)
@@ -110,6 +113,9 @@ export function CanvasApp() {
     setRestored,
   })
 
+  /* ---------------- 撤销 / 重做 ---------------- */
+  const history = useCanvasHistory({ nodesRef, edgesRef, setNodes, setEdges, flash })
+
   /* ---------------- 派生量 ---------------- */
   // 引用计数与组聚合在渲染时算，不写回状态（写回会和节点同步互相触发）
   const counts = useMemo(() => computeCounts(nodes, edges as WorkflowEdge[]), [nodes, edges])
@@ -156,11 +162,12 @@ export function CanvasApp() {
 
   const removeNodes = useCallback(
     (ids: string[]) => {
+      history.record()
       const drop = new Set(ids)
       setNodes(current => current.filter(node => !drop.has(node.id)))
       setEdges(current => current.filter(edge => !drop.has(edge.source) && !drop.has(edge.target)))
     },
-    [setNodes, setEdges],
+    [setNodes, setEdges, history],
   )
 
   const deleteNode = useCallback(
@@ -254,23 +261,26 @@ export function CanvasApp() {
     return () => window.removeEventListener('paste', onPaste)
   }, [addImages, createPosition])
 
-  /* ---------------- 键盘 ---------------- */
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && preview) {
-        setPreview(null)
-        return
-      }
-      const target = event.target as HTMLElement | null
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return
-      if ((event.key === 'Delete' || event.key === 'Backspace') && selectedIds.length) {
-        event.preventDefault()
-        removeNodes(selectedIds)
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [preview, selectedIds, removeNodes])
+  /* ---------------- 键盘：与 Imagora 同键位 ---------------- */
+  useCanvasKeys({
+    nodesRef,
+    edgesRef,
+    setNodes,
+    setEdges,
+    selectedIds,
+    selectedEdgeId,
+    onDeleteNodes: removeNodes,
+    onDeleteEdge: edgeId => {
+      history.record()
+      setEdges(current => current.filter(edge => edge.id !== edgeId))
+      setSelectedEdgeId(null)
+    },
+    onUndo: history.undo,
+    onRestore: history.restore,
+    onSave: () => setDialog({ kind: 'save' }),
+    onClosePreview: () => setPreview(null),
+    hasPreview: Boolean(preview),
+  })
 
   /* ---------------- 节点上下文 ---------------- */
   const actions = useMemo(
