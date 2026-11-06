@@ -34,6 +34,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 
 - 本地钩子（commit 前）：文本卫生、prettier、eslint、tsc、host 冒烟、bundle 冒烟，全绿。
 - CI：`.github/workflows/ci.yml`，只读；末段 `git diff --exit-code -- dist/client.js` 守住产物同步。
+- CI 状态以 Actions 徽章为准，不在这里抄结论；最近一次 main 的 push 为绿。
 - 冒烟数字：host 22 项、client 13 项。
 - 渲染验收台：`scripts/harness-server.mjs` + 真实浏览器，实测建卡→运行→回流、三个对话框、Del 删除。
 - 真实出图链路验证过一次（火山 Seedream 5.0 pro，单张 0.20 元）。
@@ -52,6 +53,8 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - 派生数据写回会被同步的节点状态 → React 无限更新。引用计数与组聚合在渲染时算，不 setState。
 - 本机 pre-commit 装远端 hook 环境会失败（setuptools 取不到），钩子只用 `language: system`。
 - `.env` 里 `ACTIVE_PROFILE` 指向的来源没有密钥时，画布顶部会提示；切来源即可，配置不需重填。
+- 冒烟脚本曾经隐式依赖本机其他项目的 `node_modules`：本机绿、CI 红。脚本只允许用本项目依赖。
+- 目录被 `dsh web` 通过 Junction 持有时改不了名：先移除插件解锁，改名后再装回去。
 
 ## 文档地图
 
