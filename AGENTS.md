@@ -41,10 +41,14 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 
 ## 待办
 
-- [ ] 画布增强功能未移植：裁剪、切分、蒙版重绘、放大
+- [ ] 发布到 npm：市场索引（dsh-plugin-lab/market）由 npm 元数据生成，不发布就搜不到。需要先 `npm login`
+- [ ] 粘帖导入提示词（`lib/promptImportFormat.ts` 已在，界面未接）
+- [ ] 双击连线删除、默认输出路径、吸附对齐、节点锁定
+- [ ] 图片加工未移植：裁剪、切分、蒙版重绘、放大
 - [ ] 成本看板与预算闸门未移植
-- [ ] 提示词粘贴批量导入（`lib/promptImportFormat.ts` 已在，界面未接）
 - [ ] 未做自动化 UI 测试，验收台靠手工脚本驱动
+
+功能对照全表 → [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md)
 
 ## 活跃坑
 
@@ -59,6 +63,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 ## 文档地图
 
 - 设计圣经（不变量、契约、数据流）→ [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- 与 Imagora 的功能对照 → [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md)
 - 决策与依据 → [.agents/notes/](.agents/notes/README.md)
 - host 半端手册 → [src/host/README.md](src/host/README.md)
 - client 半端手册 → [src/client/README.md](src/client/README.md)
