@@ -62,7 +62,7 @@ dsh plugin --profile web add https://github.com/cslkkl/dsh-imagora-desk/releases
 | `Ctrl/Cmd + S`                          | 保存工作流                               |
 | `Delete` / `Backspace`                  | 删选中的节点；没选节点时删选中的那条连线 |
 | `Escape`                                | 关掉大图预览                             |
-| 滚轮 / 右键拖拽 / 空白拖拽              | 缩放 / 平移 / 框选                       |
+| 滚轮 · 左键拖空白 · `Shift`+拖          | 缩放 · 平移画布 · 框选                   |
 | 双击图片                                | 放大预览                                 |
 
 在输入框里打字时这些键位不生效，交回浏览器原生行为。
