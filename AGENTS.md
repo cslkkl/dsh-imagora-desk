@@ -35,9 +35,9 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - 本地钩子（commit 前）：文本卫生、prettier、eslint、tsc、host 冒烟、bundle 冒烟，全绿。
 - CI：`.github/workflows/ci.yml`，只读；末段 `git diff --exit-code -- dist/client.js` 守住产物同步。
 - CI 状态以 Actions 徽章为准，不在这里抄结论；最近一次 main 的 push 为绿。
-- 冒烟数字：host 22 项、client 13 项。
+- 冒烟数字：host 32 项、client 13 项。
 - 渲染验收台：`scripts/harness-server.mjs` + 真实浏览器，实测建卡→运行→回流、三个对话框、Del 删除。
-- 真实出图链路验证过一次（火山 Seedream 5.0 pro，单张 0.20 元）。
+- 真实出图链路验证过两次（火山 Seedream 5.0 pro，1024x1024，单张 0.20 元）：一次走 imagora 配置，一次走插件内配置。
 
 ## 待办
 
