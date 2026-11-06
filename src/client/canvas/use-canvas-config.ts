@@ -53,5 +53,5 @@ export function useCanvasConfig(flash: (line: string) => void) {
     [apply, flash],
   )
 
-  return { config, configError, configRef, switchProfile, switchModel }
+  return { config, configError, configRef, switchProfile, switchModel, replaceConfig: apply }
 }

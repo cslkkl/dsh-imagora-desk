@@ -37,6 +37,15 @@ export function apply(ctx: SlotsContext) {
     return () => style.remove()
   }, 'dsh-imagora-desk: xyflow 基础样式')
 
+  // 尽早探一次组件库：宿主没提供时在控制台说清楚，而不是等用户点开画布才炸
+  void import('./ui').then(({ primitives }) => {
+    try {
+      primitives()
+    } catch (error) {
+      console.error('[dsh-imagora-desk]', error)
+    }
+  })
+
   ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: KEY }, CanvasApp))
 
   ctx.effect(

@@ -80,6 +80,15 @@ const bundle = readFileSync(join(ROOT, 'dist', 'client.js'), 'utf8')
 // 极少量的 DOM 访问会在模块初始化阶段触发，包一层保证失败能定位到具体行
 new Function('window', 'document', bundle)(globalThis, globalThis.document)
 
+/** 官方组件库的替身：只需要「是函数」就能让 require 与模块初始化通过。 */
+const primitivesStub = new Proxy(
+  {},
+  {
+    get: (_target, key) => (typeof key === 'string' ? () => null : undefined),
+    has: () => true,
+  },
+)
+
 const results = []
 const check = (name, ok, detail = '') => {
   results.push({ name, ok })
@@ -100,6 +109,8 @@ const exportsObject = factory(id => {
   if (id === 'react-dom') return nodeRequire('react-dom')
   if (id === 'react/jsx-runtime') return nodeRequire('react/jsx-runtime')
   if (id === 'react-dom/client') return nodeRequire('react-dom/client')
+  // 官方组件库由宿主提供；冒烟里给一组最小替身，只为让模块初始化跑通
+  if (id === '@deepseek-ai/dsh-client-ui-primitives') return primitivesStub
   throw new Error(`bundle 请求了未声明的外部模块：${id}`)
 })
 

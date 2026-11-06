@@ -36,12 +36,13 @@ import { NODE_TYPES } from './node-types'
 import { CanvasToolbar } from './toolbar'
 import { Banner, EmptyState, LogPanel, PreviewOverlay, Toast } from './overlays'
 import { HelpDialog, LoadDialog, SaveDialog } from './dialogs'
+import { SettingsDialog } from './settings-dialog'
 import { connectEdge, useCanvasImages } from './use-canvas-images'
 import { useGeneratedTasks } from './use-canvas-tasks'
 import { useCanvasConfig } from './use-canvas-config'
 import { useCanvasWorkflow } from './use-canvas-workflow'
 
-type DialogState = { kind: 'save' | 'load' | 'help'; workflows?: { name: string; modified: string }[] }
+type DialogState = { kind: 'save' | 'load' | 'help' | 'settings'; workflows?: { name: string; modified: string }[] }
 
 export function CanvasApp() {
   const [nodes, setNodes, onNodesChangeBase] = useNodesState<WorkflowNode>([])
@@ -76,7 +77,7 @@ export function CanvasApp() {
     window.setTimeout(() => setToast(current => (current === line ? null : current)), 2600)
   }, [])
 
-  const { config, configError, configRef, switchProfile, switchModel } = useCanvasConfig(flash)
+  const { config, configError, configRef, switchProfile, switchModel, replaceConfig } = useCanvasConfig(flash)
   const { addImages, replaceImage, openPreview } = useCanvasImages({
     nodesRef,
     setNodes,
@@ -321,6 +322,7 @@ export function CanvasApp() {
               flash(`读取失败：${errMessage(error)}`)
             }
           }}
+          onOpenSettings={() => setDialog({ kind: 'settings' })}
           onOpenHelp={() => setDialog({ kind: 'help' })}
         />
 
@@ -416,6 +418,17 @@ export function CanvasApp() {
           />
         ) : null}
         {dialog?.kind === 'help' ? <HelpDialog config={config} onClose={() => setDialog(null)} /> : null}
+        {dialog?.kind === 'settings' ? (
+          <SettingsDialog
+            config={config}
+            onClose={() => setDialog(null)}
+            onSaved={next => {
+              replaceConfig(next)
+              setDialog(null)
+            }}
+            onFlash={flash}
+          />
+        ) : null}
       </div>
     </NodeActionContext.Provider>
   )

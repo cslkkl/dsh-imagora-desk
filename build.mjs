@@ -78,7 +78,15 @@ const options = {
   target: ['chrome110'],
   jsx: 'automatic',
   jsxImportSource: 'react',
-  external: ['react', 'react-dom', 'react/jsx-runtime', 'react-dom/client', 'react/jsx-dev-runtime'],
+  external: [
+    'react',
+    'react-dom',
+    'react/jsx-runtime',
+    'react-dom/client',
+    'react/jsx-dev-runtime',
+    // 宿主模块表提供的官方组件库：不打进 bundle，运行时由宿主解析
+    '@deepseek-ai/dsh-client-ui-primitives',
+  ],
   nodePaths: DEPS_DIRS,
   define: { 'process.env.NODE_ENV': '"production"' },
   write: false,

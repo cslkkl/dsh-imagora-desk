@@ -2,10 +2,18 @@
 import type { WorkflowEdge, WorkflowNode } from './lib/types'
 
 export interface ImagoraConfig {
+  source?: 'plugin' | 'imagora'
   root: string
   profile: string
   profileLabel: string
   profiles?: { name: string; label: string }[]
+  provider?: {
+    baseUrl: string
+    model: string
+    qualities: string[]
+    sizes: { value: string; label: string; cost: number }[]
+    apiKeyConfigured: boolean
+  }
   model: string
   modelLabel: string
   models: { id: string; label: string; note?: string }[]
@@ -125,3 +133,20 @@ export const latestRecovery = () =>
 export const setModel = (model: string) => request<ImagoraConfig>('settings', jsonBody({ model }))
 export const setProfile = (profile: string) => request<ImagoraConfig>('settings', jsonBody({ profile }))
 export const revealPath = (path: string) => request<{ ok: boolean }>('reveal', jsonBody({ path }))
+
+export interface ProviderPatch {
+  baseUrl?: string
+  model?: string
+  apiKey?: string
+  clearApiKey?: boolean
+  reset?: boolean
+  qualities?: string[]
+  sizes?: { value: string; label?: string; cost?: number }[]
+}
+
+/** 写插件自带的接口配置；空字符串字段表示不修改。 */
+export const saveProvider = (patch: ProviderPatch) => request<ImagoraConfig>('provider', jsonBody(patch))
+
+/** 试连通：只读上游模型清单，不生成图、不花钱。 */
+export const probeProvider = (input: { baseUrl?: string; apiKey?: string }) =>
+  request<{ ok: boolean; models: string[]; error?: string }>('provider/probe', jsonBody(input))

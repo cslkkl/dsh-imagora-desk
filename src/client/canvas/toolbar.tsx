@@ -1,6 +1,8 @@
 // 工具栏：只负责把按钮和下拉渲染出来，动作一律由 props 回调上抛。
-// 这里不直接调接口、不碰画布状态，切换来源/模型失败时也只把错误交给上层 flash。
-import { Icon } from '../icons'
+//
+// 按钮与提示用官方组件库（宿主提供），保证外观与 DSH 其它面板一致：
+// 主题、暗色、键盘焦点环都跟着宿主走，不必自己维护一套。
+import { primitives } from '../ui'
 import type { ImagoraConfig } from '../api'
 
 export interface ToolbarProps {
@@ -24,53 +26,39 @@ export interface ToolbarProps {
   onFitView: () => void
   onOpenSave: () => void
   onOpenLoad: () => void
+  onOpenSettings: () => void
   onOpenHelp: () => void
 }
 
 const DIVIDER = { width: 1, height: 18, background: 'var(--im-line)', margin: '0 2px' } as const
 
 export function CanvasToolbar(props: ToolbarProps) {
+  const ui = primitives()
   const { config, promptCount, runnableIds, selectedIds, busyIds, minimapOpen, zoom } = props
+  const toolButton = (label: string, onClick: () => void, extra?: Record<string, unknown>) => (
+    <ui.Tooltip label={label} side="bottom">
+      <ui.Button type="button" size="sm" variant="toolbar" aria-label={label} onClick={onClick} {...extra}>
+        {label}
+      </ui.Button>
+    </ui.Tooltip>
+  )
+
   return (
     <div className="im-toolbar">
-      <button type="button" className="im-btn is-primary" onClick={props.onAddPrompt}>
-        <Icon name="plus" />
+      <ui.Button type="button" size="sm" onClick={props.onAddPrompt}>
         提示词卡
-      </button>
-      <button type="button" className="im-btn" onClick={props.onPickFiles}>
-        <Icon name="image" />
-        导入图片
-      </button>
-      <button type="button" className="im-btn" onClick={props.onAddGroup}>
-        <Icon name="layers" />
-        图片组
-      </button>
+      </ui.Button>
+      {toolButton('导入图片', props.onPickFiles)}
+      {toolButton('图片组', props.onAddGroup)}
       <span style={DIVIDER} />
-      <button type="button" className="im-btn" disabled={!promptCount} onClick={() => props.onRun(runnableIds)}>
-        <Icon name="play" />
-        全部运行
-      </button>
-      <button
-        type="button"
-        className="im-btn"
-        disabled={!selectedIds.length}
-        onClick={() => props.onRun(runnableIds.filter(id => selectedIds.includes(id)))}
-      >
-        运行所选
-      </button>
-      <button type="button" className="im-btn is-danger" disabled={!busyIds.length} onClick={props.onCancelAll}>
-        <Icon name="stop" />
-        取消全部
-      </button>
+      {toolButton('全部运行', () => props.onRun(runnableIds), { disabled: !promptCount })}
+      {toolButton('运行所选', () => props.onRun(runnableIds.filter(id => selectedIds.includes(id))), {
+        disabled: !selectedIds.length,
+      })}
+      {toolButton('取消全部', props.onCancelAll, { disabled: !busyIds.length })}
       <span style={DIVIDER} />
-      <button type="button" className="im-btn" onClick={props.onAutoConnect}>
-        <Icon name="link" />
-        自动连线
-      </button>
-      <button type="button" className="im-btn" disabled={!selectedIds.length} onClick={props.onArrangeSelected}>
-        <Icon name="wand" />
-        整理所选
-      </button>
+      {toolButton('自动连线', props.onAutoConnect)}
+      {toolButton('整理所选', props.onArrangeSelected, { disabled: !selectedIds.length })}
       <span className="im-spacer" />
 
       {config && (config.profiles?.length ?? 0) > 1 ? (
@@ -90,51 +78,30 @@ export function CanvasToolbar(props: ToolbarProps) {
         </select>
       ) : null}
 
-      {config ? (
+      {config && (config.models?.length ?? 0) > 1 ? (
         <select
           className="im-select"
           value={config.model}
           title={`${config.profileLabel || config.profile} · 当前模型`}
           onChange={event => props.onSwitchModel(event.target.value)}
         >
-          {config.models.length ? (
-            config.models.map(row => (
-              <option key={row.id} value={row.id}>
-                {row.label}
-              </option>
-            ))
-          ) : (
-            <option value={config.model}>{config.modelLabel}</option>
-          )}
+          {config.models.map(row => (
+            <option key={row.id} value={row.id}>
+              {row.label}
+            </option>
+          ))}
         </select>
       ) : null}
 
-      <button
-        type="button"
-        className={`im-btn${minimapOpen ? ' is-on' : ''}`}
-        title="小地图"
-        onClick={props.onToggleMinimap}
-      >
-        <Icon name="map" />
-      </button>
+      {toolButton(minimapOpen ? '小地图·开' : '小地图·关', props.onToggleMinimap)}
       <span className="im-zoom" title="当前缩放">
         {Math.round(zoom * 100)}%
       </span>
-      <button type="button" className="im-btn" onClick={props.onFitView}>
-        <Icon name="maximize" />
-        全览
-      </button>
-      <button type="button" className="im-btn" onClick={props.onOpenSave}>
-        <Icon name="save" />
-        保存
-      </button>
-      <button type="button" className="im-btn" onClick={props.onOpenLoad}>
-        <Icon name="folder" />
-        加载
-      </button>
-      <button type="button" className="im-btn is-ghost" title="帮助" onClick={props.onOpenHelp}>
-        <Icon name="help" />
-      </button>
+      {toolButton('全览', props.onFitView)}
+      {toolButton('保存', props.onOpenSave)}
+      {toolButton('加载', props.onOpenLoad)}
+      {toolButton('设置', props.onOpenSettings)}
+      {toolButton('帮助', props.onOpenHelp)}
     </div>
   )
 }
