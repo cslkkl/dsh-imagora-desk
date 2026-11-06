@@ -1,4 +1,4 @@
-# dsh-imagora bundle patch：同一个包提供 host 半片（/imagora/* 接口 + 生图）与浏览器半片（自由画布）
+# dsh-imagora-desk bundle patch：同一个包提供 host 半片（/imagora/* 接口 + 生图）与浏览器半片（自由画布）
 - insert:
     - id: imagora
-      name: 'dsh-imagora'
+      name: 'dsh-imagora-desk'

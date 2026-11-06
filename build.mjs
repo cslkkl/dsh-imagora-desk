@@ -63,7 +63,7 @@ const wrap = {
     b.onEnd(async result => {
       if (result.errors.length) return
       for (const file of result.outputFiles ?? []) {
-        const wrapped = `window.__ModuleLoader__.load({id:"dsh-imagora",factory:(require)=>{const module={exports:{}};const exports=module.exports;\n${file.text}\nreturn module.exports}})\n`
+        const wrapped = `window.__ModuleLoader__.load({id:"dsh-imagora-desk",factory:(require)=>{const module={exports:{}};const exports=module.exports;\n${file.text}\nreturn module.exports}})\n`
         await writeFile(file.path, wrapped, 'utf8')
       }
     })
@@ -94,11 +94,11 @@ const options = {
 if (watch) {
   const ctx = await esbuild.context(options)
   await ctx.watch()
-  console.log('[dsh-imagora] watching src/client …')
+  console.log('[dsh-imagora-desk] watching src/client …')
 } else {
   const result = await esbuild.build(options)
   const info = await stat(join(OUT_DIR, 'client.js'))
-  console.log(`[dsh-imagora] client.js ${(info.size / 1024).toFixed(0)} KB，warnings：${result.warnings.length}`)
+  console.log(`[dsh-imagora-desk] client.js ${(info.size / 1024).toFixed(0)} KB，warnings：${result.warnings.length}`)
 }
 
 // host 半端是纯 ESM，直接跑 src；patch 复制一份到 dist 方便排查

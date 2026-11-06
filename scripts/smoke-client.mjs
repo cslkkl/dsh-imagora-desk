@@ -65,6 +65,13 @@ const check = (name, ok, detail = '') => {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  ${detail}` : ''}`)
 }
 
+// 包名一旦改了，模块加载器 id 与 patch 必须跟着改，否则页面加载不到这个 bundle
+const pkgName = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).name
+const bundleId = /__ModuleLoader__\.load\(\{\s*id:\s*"([^"]+)"/.exec(bundle)?.[1]
+check('bundle id 与 package.json name 一致', bundleId === pkgName, `${bundleId} vs ${pkgName}`)
+const patchText = readFileSync(join(ROOT, 'cordis.patch.yml'), 'utf8')
+check('cordis.patch.yml 指向同一个包名', patchText.includes(`name: '${pkgName}'`), pkgName)
+
 check('bundle 调用了 __ModuleLoader__.load', typeof factory === 'function')
 
 const exportsObject = factory(id => {

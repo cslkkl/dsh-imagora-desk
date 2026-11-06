@@ -1,5 +1,5 @@
 {
-  "name": "dsh-imagora",
+  "name": "dsh-imagora-desk",
   "version": "0.1.0",
   "description": "DeepSeek Harness 插件：把 Imagora 的自由画布搬进 DSH —— 提示词卡与图片摊在一张无限画布上，连线即参考关系。",
   "type": "module",

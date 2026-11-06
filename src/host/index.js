@@ -1,4 +1,4 @@
-// dsh-imagora host 半片：/imagora/* 接口、画布资产、工作流，以及真正去打上游的生图请求。
+// dsh-imagora-desk host 半片：/imagora/* 接口、画布资产、工作流，以及真正去打上游的生图请求。
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { loadImagoraConfig, readSettings, writeSettings } from './config.js'
@@ -9,7 +9,7 @@ import { TaskPool } from './tasks.js'
 // 状态目录：默认 ~/.dsh/imagora；测试可用 DSH_IMAGORA_HOME 指到临时目录，别脏了真实画布。
 const ROOT = process.env.DSH_IMAGORA_HOME || join(homedir(), '.dsh', 'imagora')
 
-export const name = 'dsh-imagora'
+export const name = 'dsh-imagora-desk'
 
 /**
  * Web 服务不替插件路由鉴权，每个请求自己走一遍 Host/Origin 与登录凭证检查；
@@ -39,7 +39,7 @@ export default {
     const route = createRouter({ store, pool, getConfig, applySettings })
 
     const ready = store.init().catch(error => {
-      ctx.logger?.warn?.(`dsh-imagora: 初始化目录失败 ${error.message}`)
+      ctx.logger?.warn?.(`dsh-imagora-desk: 初始化目录失败 ${error.message}`)
     })
 
     ctx.effect(() => ctx.webServer.register({
@@ -66,6 +66,6 @@ export default {
           res.end(JSON.stringify({ error: error.message }))
         }
       },
-    }), 'dsh-imagora: /imagora routes')
+    }), 'dsh-imagora-desk: /imagora routes')
   },
 }

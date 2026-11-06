@@ -1,9 +1,7 @@
 # dsh-imagora-desk
 
-把 [Imagora](https://github.com/Cogniform/imagora) 的**自由画布**搬进 DeepSeek Harness：
+把 [Imagora](https://github.com/Cogniform/imagora) 的**自由画布**搬进 DeepSeek：
 提示词卡与图片摊在一张无限画布上，**连线就是参考关系**；跑完的图自动回流成新节点。
-
-> 仓库名 `dsh-imagora-desk`，插件包名 `dsh-imagora`（`package.json` 的 `name`；安装与 Cordis patch 认这个名字）。
 
 只做画布，不带 Imagora 的表单页、批量页、配置页。模型、尺寸、价目与密钥直接读你本机
 Imagora 的 `config.json` / `.env`，所以两边不会各存一份配置。

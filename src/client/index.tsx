@@ -18,11 +18,11 @@ function PanelIcon({ size = 16 }: { size?: number; active?: boolean }) {
 export function apply(ctx: any) {
   ctx.effect(() => {
     const style = document.createElement('style')
-    style.setAttribute('data-dsh-imagora', 'xyflow')
+    style.setAttribute('data-dsh-imagora-desk', 'xyflow')
     style.textContent = xyflowCss
     document.head.appendChild(style)
     return () => style.remove()
-  }, 'dsh-imagora: xyflow 基础样式')
+  }, 'dsh-imagora-desk: xyflow 基础样式')
 
   ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: KEY }, CanvasApp))
 
@@ -31,5 +31,5 @@ export function apply(ctx: any) {
     id: KEY,
     order: 6,
     label: () => '自由画布',
-  }, PanelIcon)), 'dsh-imagora: 侧边栏入口')
+  }, PanelIcon)), 'dsh-imagora-desk: 侧边栏入口')
 }
