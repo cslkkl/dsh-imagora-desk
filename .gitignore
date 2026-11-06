@@ -1,0 +1,9 @@
+# 构建产物 dist/client.js 要进仓库：装插件时它就是浏览器半端，克隆下来即可用。
+# 验收台的 vendor 是本地现生成的，不上传。
+harness/dist/
+node_modules/
+.agent/
+.playwright-mcp/
+*.log
+harness/*.out
+harness/*.err

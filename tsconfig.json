@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": [],
+    "baseUrl": ".",
+    "paths": {
+      "react": ["../imagora/imagora/frontend/node_modules/@types/react/index.d.ts"],
+      "react/jsx-runtime": ["../imagora/imagora/frontend/node_modules/@types/react/jsx-runtime.d.ts"],
+      "react-dom": ["../imagora/imagora/frontend/node_modules/@types/react-dom/index.d.ts"],
+      "@xyflow/react": ["../imagora/imagora/frontend/node_modules/@xyflow/react/dist/esm/index.d.ts"]
+    }
+  },
+  "include": ["src/client/**/*.ts", "src/client/**/*.tsx", "src/client/env.d.ts"]
+}
