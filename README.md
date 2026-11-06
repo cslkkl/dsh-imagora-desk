@@ -21,15 +21,18 @@
 ## 装法
 
 ```powershell
-# 从本仓库装进当前 profile（会写 package.json + cordis.patch.yml，并建 Junction 链接）
-dsh plugin --profile web install <本仓库路径>
+# npm 已发布时（市场里点安装等价于这条）
+dsh plugin --profile web add dsh-imagora-desk
+
+# 或用 GitHub Release 的 tarball（没配 npm 源时）
+dsh plugin --profile web add https://github.com/cslkkl/dsh-imagora-desk/releases/download/v0.1.0/dsh-imagora-desk-0.1.0.tgz
 ```
 
 装完刷新页面，左侧面板列表出现「自由画布」。
 若刷新后没出现，重启一次 `dsh web`——页面的 client 清单 rev 在启动时计算。
 
-前置：本机有一份可用的 Imagora，至少配好一个来源的密钥。
-否则画布顶部会提示「当前 profile 没有配置密钥」，用工具栏的来源下拉切一个即可。
+**首次打开会自动弹出设置**：填接口地址与 API Key（+ 模型名）即可出图，不需要本机装过 Imagora。
+反过来用本机 Imagora 的配置也可以，设置弹窗里能切。
 
 | 操作        | 说明                                                                       |
 | ----------- | -------------------------------------------------------------------------- |
@@ -37,13 +40,17 @@ dsh plugin --profile web install <本仓库路径>
 | 导入图片    | 或直接把图拖进画布、在画布上 `Ctrl+V` 粘贴                                 |
 | 运行        | 单卡「运行」、工具栏「全部运行」「运行所选」；「取消全部」停掉排队中的任务 |
 | 保存 / 加载 | 手动命名存工作流；画布改动另有一份自动恢复快照（留最近 5 份）              |
+| 设置        | 接口地址、API Key、模型；可「测试连通」只读模型清单，不花钱                |
 
-键盘：`Del` 删除选中节点；滚轮缩放；右键或中键拖拽平移；空白处拖拽框选；双击图片看大图。
+键盘（与 Imagora 一致）：`Ctrl+A` 全选 · `Ctrl+Z/Y` 撤销恢复 · `Ctrl+S` 保存 · `Del` 删除选中 ·
+滚轮缩放 · 右键或中键拖拽平移 · 空白拖拽框选 · 双击图片看大图。
+
+画布功能与 Imagora 的逐项对照 → [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md)。
 
 ## 数据去哪了
 
-请求直连你自己配置的接口，密钥只从本机 Imagora 的 `.env` 读进内存拼请求头。
-图片与工作流全部落在本地 `~/.dsh/imagora/`，没有任何中转服务。
+请求直连你自己填的接口。密钥只存本机 `~/.dsh/imagora/settings.json`（600 权限），
+不回传页面、不进日志；图片与工作流全部落在本地，没有任何中转服务。
 
 ## 开发
 

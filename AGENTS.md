@@ -64,6 +64,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 
 - 设计圣经（不变量、契约、数据流）→ [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - 与 Imagora 的功能对照 → [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md)
+- 发布到 npm 与市场收录 → [docs/PUBLISHING.md](docs/PUBLISHING.md)
 - 决策与依据 → [.agents/notes/](.agents/notes/README.md)
 - host 半端手册 → [src/host/README.md](src/host/README.md)
 - client 半端手册 → [src/client/README.md](src/client/README.md)
