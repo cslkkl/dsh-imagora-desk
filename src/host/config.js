@@ -1,5 +1,9 @@
-// 读取 Imagora 自己的 config.json / providers.local.json / .env，解析出当前生效的
-// 中转站、模型、尺寸与价目表。插件不复制一份配置：改了 imagora 的配置，画布跟着变。
+// 配置来源有两层：
+//   1. 插件自带的 provider（settings.json 里的 provider）——填了 baseUrl + key 就能用，
+//      不要求本机装过 Imagora，这是「下载后填 key 即可用」的那条路。
+//   2. 本机 Imagora 的 config.json / providers.local.json / .env——没自带配置时的兜底，
+//      沿用它的来源、模型、尺寸与价目。
+// 自带 provider 优先级更高：用户在插件里明确填过，就该生效。
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -8,6 +12,15 @@ import { dirname, join, resolve } from 'node:path'
 export function foldId(text) {
   return String(text || '').replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, '-')
 }
+
+/** 自带 provider 没给尺寸时的默认档位：覆盖常见 1:1 / 横 / 竖。 */
+const FALLBACK_SIZES = [
+  { value: '1024x1024', label: '1024x1024 (1:1)', cost: 0 },
+  { value: '1536x1024', label: '1536x1024 (3:2 横版)', cost: 0 },
+  { value: '1024x1536', label: '1024x1536 (2:3 竖版)', cost: 0 },
+]
+
+const FALLBACK_QUALITIES = ['low', 'medium', 'high']
 
 function parseEnv(text) {
   const out = {}
@@ -44,11 +57,68 @@ export function writeSettings(root, patch) {
   const next = { ...readSettings(root), ...patch }
   try {
     mkdirSync(root, { recursive: true })
-    writeFileSync(join(root, 'settings.json'), JSON.stringify(next, null, 2), 'utf8')
+    const file = join(root, 'settings.json')
+    // 里面有明文密钥：只给当前用户读
+    writeFileSync(file, JSON.stringify(next, null, 2), { encoding: 'utf8', mode: 0o600 })
   } catch {
     // 写不进去也要让本次会话用上新值，只是下次启动会丢
   }
   return next
+}
+
+/** 归一化自带 provider：去掉空串与首尾空白，URL 去尾斜杠。 */
+function normalizeProvider(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  const text = value => (typeof value === 'string' ? value.trim() : '')
+  const baseUrl = text(raw.baseUrl).replace(/\/+$/, '')
+  const provider = {
+    baseUrl,
+    apiKey: text(raw.apiKey),
+    model: text(raw.model),
+    qualities: Array.isArray(raw.qualities) && raw.qualities.length ? raw.qualities.map(String) : [],
+    sizes: Array.isArray(raw.sizes)
+      ? raw.sizes
+          .filter(row => row && typeof row.value === 'string' && row.value.trim())
+          .map(row => ({
+            value: row.value.trim(),
+            label: text(row.label) || row.value.trim(),
+            cost: Number(row.cost) || 0,
+          }))
+      : [],
+  }
+  // 没地址就没有 provider：其余字段单独存在没有意义
+  return provider.baseUrl ? provider : null
+}
+
+/** 自带 provider 生效时用它解析，不看本机 Imagora。 */
+function resolveFromProvider(provider, settings, root) {
+  const modelId = provider.model || String(settings?.model || '').trim()
+  const sizes = provider.sizes.length ? provider.sizes : FALLBACK_SIZES
+  const qualities = provider.qualities.length ? provider.qualities : FALLBACK_QUALITIES
+  const issues = []
+  if (!provider.apiKey) issues.push('还没填 API Key：点右上角「设置」填一次即可')
+  if (!modelId) issues.push('还没填模型名：点右上角「设置」填一次即可')
+
+  return {
+    source: 'plugin',
+    root,
+    profile: 'plugin',
+    profileLabel: '插件内配置',
+    profiles: [],
+    baseUrl: provider.baseUrl,
+    apiPaths: { generations: '/v1/images/generations', edits: '/v1/images/edits' },
+    apiKey: provider.apiKey,
+    model: modelId,
+    modelLabel: modelId,
+    models: modelId ? [{ id: modelId, label: modelId, note: '' }] : [],
+    sizes,
+    qualities,
+    qualityEffective: qualities.length > 1,
+    outputFormats: ['png', 'jpeg', 'webp'],
+    defaultOutputDir: join(root || homedir(), 'output'),
+    issues,
+    providerView: providerView({ provider }),
+  }
 }
 
 /** 候选 imagora 目录：设置 > 环境变量 > 桌面默认位置。 */
@@ -64,9 +134,12 @@ export function locateImagoraRoot(settings) {
   return candidates[0] ? resolve(candidates[0]) : ''
 }
 
-/** 解析一次 imagora 配置。任何字段缺失都回退到内置默认，不让画布因为配置不全而打不开。 */
+/** 解析一次配置。自带 provider 优先；否则回退到本机 Imagora。 */
 export function loadImagoraConfig(settings) {
   const root = locateImagoraRoot(settings)
+  const provider = normalizeProvider(settings?.provider)
+  if (provider) return resolveFromProvider(provider, settings, root)
+
   const configPath = root ? join(root, 'config.json') : ''
   const cfg = (configPath && readJson(configPath)) || {}
   const local = (root && readJson(join(root, 'providers.local.json'))) || {}
@@ -110,11 +183,12 @@ export function loadImagoraConfig(settings) {
 
   const defaultOutputDir = join(root || homedir(), 'output')
   const issues = []
-  if (!cfg.profiles) issues.push('没读到 imagora 的 config.json（可在插件设置里指定目录）')
+  if (!cfg.profiles) issues.push('没读到 imagora 的 config.json（也没在插件里填过接口地址）')
   if (!apiKey) issues.push(`当前 profile「${profileName || '未命名'}」没有配置密钥`)
   if (!modelId) issues.push('当前 profile 没有默认模型')
 
   return {
+    source: 'imagora',
     root,
     profile: profileName,
     profileLabel: profile.label || profileName,
@@ -131,12 +205,68 @@ export function loadImagoraConfig(settings) {
     outputFormats: model?.output_formats || ['png'],
     defaultOutputDir,
     issues,
+    providerView: providerView(settings),
   }
 }
 
 export function costOfSize(config, size) {
   const row = config.sizes.find(option => option.value === size)
   return row ? row.cost : 0
+}
+
+/** 读回给前端的 provider 视图：密钥只报「有没有」，永不回传明文。 */
+export function providerView(settings) {
+  const provider = normalizeProvider(settings?.provider) || {}
+  return {
+    baseUrl: provider.baseUrl || '',
+    model: provider.model || String(settings?.model || ''),
+    qualities: provider.qualities || [],
+    sizes: provider.sizes || [],
+    apiKeyConfigured: Boolean(provider.apiKey),
+  }
+}
+
+/**
+ * 写 provider。空字符串字段表示「不修改」，`clearApiKey` 显式清空密钥。
+ * 只接受 JSON 能表达的值，避免把函数之类的东西写进设置文件。
+ */
+export function applyProviderPatch(settings, patch) {
+  const current = normalizeProvider(settings?.provider) || {
+    baseUrl: '',
+    apiKey: '',
+    model: '',
+    qualities: [],
+    sizes: [],
+  }
+  const text = value => (typeof value === 'string' ? value.trim() : '')
+  const next = { ...current }
+
+  if (typeof patch.baseUrl === 'string' && patch.baseUrl.trim()) {
+    next.baseUrl = patch.baseUrl.trim().replace(/\/+$/, '')
+  }
+  if (typeof patch.model === 'string' && patch.model.trim()) next.model = patch.model.trim()
+  if (typeof patch.apiKey === 'string' && patch.apiKey.trim()) next.apiKey = patch.apiKey.trim()
+  if (patch.clearApiKey === true) next.apiKey = ''
+  if (Array.isArray(patch.qualities)) next.qualities = patch.qualities.map(String).filter(Boolean)
+  if (Array.isArray(patch.sizes)) {
+    next.sizes = patch.sizes
+      .filter(row => row && typeof row.value === 'string' && row.value.trim())
+      .map(row => ({
+        value: String(row.value).trim(),
+        label: text(row.label) || String(row.value).trim(),
+        cost: Number(row.cost) || 0,
+      }))
+  }
+  if (patch.reset === true) {
+    return {
+      baseUrl: '',
+      apiKey: '',
+      model: '',
+      qualities: [],
+      sizes: [],
+    }
+  }
+  return next
 }
 
 export { dirname, join }

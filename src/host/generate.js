@@ -137,3 +137,42 @@ export function humanizeError(error) {
   if (/model.*not.*found|invalid.*model/i.test(text)) return `模型名不被该中转站接受：${text}`
   return text
 }
+
+/**
+ * 探一下接口地址与密钥：读 `GET {baseUrl}/models`，不生成图、不花钱。
+ * 兼容 `{data:[{id}]}` / `{models:[...]}` / 裸数组三种口径；拿不到清单不算失败。
+ * @param {string} baseUrl - 形如 `https://host` 或 `https://host/v1` 的根地址
+ * @param {string} apiKey - 明文密钥，只在本次请求里用
+ * @returns {Promise<string[]>} 上游报的模型 id
+ */
+export async function listModels(baseUrl, apiKey) {
+  const base = String(baseUrl || '').replace(/\/+$/, '')
+  if (!base) throw new Error('接口地址为空')
+  const headers = {}
+  if (apiKey) headers.authorization = `Bearer ${apiKey}`
+  const response = await fetch(`${base}/models`, { headers, signal: AbortSignal.timeout(15_000) })
+  const text = await response.text()
+  if (!response.ok) throw fail(response.status, text)
+  let body
+  try {
+    body = JSON.parse(text)
+  } catch {
+    throw new Error(`该地址返回的不是 JSON：${text.slice(0, 160)}`)
+  }
+  const items = Array.isArray(body)
+    ? body
+    : Array.isArray(body?.data)
+      ? body.data
+      : Array.isArray(body?.models)
+        ? body.models
+        : []
+  const ids = []
+  for (const item of items) {
+    if (typeof item === 'string') ids.push(item)
+    else if (item && typeof item === 'object') {
+      const id = item.id || item.name || item.model
+      if (typeof id === 'string' && id) ids.push(id)
+    }
+  }
+  return [...new Set(ids)]
+}

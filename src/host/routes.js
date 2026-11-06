@@ -1,6 +1,8 @@
 // /imagora/* 接口：配置、上传、文件、生成任务、工作流、恢复快照。
 import { readFile } from 'node:fs/promises'
 import { extname, join } from 'node:path'
+import { applyProviderPatch } from './config.js'
+import { humanizeError, listModels } from './generate.js'
 import { MIME, extOf } from './store.js'
 
 const MAX_JSON = 8_000_000
@@ -42,6 +44,7 @@ async function readJson(req) {
 
 function publicConfig(config) {
   return {
+    source: config.source,
     root: config.root,
     profile: config.profile,
     profileLabel: config.profileLabel,
@@ -54,6 +57,7 @@ function publicConfig(config) {
     qualityEffective: config.qualityEffective,
     defaultOutputDir: config.defaultOutputDir,
     issues: config.issues,
+    provider: config.providerView,
   }
 }
 
@@ -62,9 +66,10 @@ function publicConfig(config) {
  * @param {import('./store.js').Store} deps.store
  * @param {import('./tasks.js').TaskPool} deps.pool
  * @param {() => object} deps.getConfig
+ * @param {() => object} deps.getSettings
  * @param {(patch: object) => void} deps.applySettings
  */
-export function createRouter({ store, pool, getConfig, applySettings }) {
+export function createRouter({ store, pool, getConfig, getSettings, applySettings }) {
   return async function route(req, res) {
     const url = new URL(req.url || '/', 'http://local')
     const path = url.pathname.replace(/^\/imagora/, '') || '/'
@@ -86,6 +91,31 @@ export function createRouter({ store, pool, getConfig, applySettings }) {
       if (typeof body.profile === 'string') applySettings({ profile: body.profile.trim() })
       if (typeof body.imagoraRoot === 'string') applySettings({ imagoraRoot: body.imagoraRoot.trim() })
       return json(res, 200, publicConfig(getConfig()))
+    }
+
+    // 插件自带的接口配置：填完就能用，不要求本机装过 Imagora
+    if (path === '/provider' && method === 'POST') {
+      const body = await readJson(req)
+      const settings = getSettings()
+      const next = applyProviderPatch(settings, body)
+      applySettings({ provider: next })
+      return json(res, 200, publicConfig(getConfig()))
+    }
+
+    // 试一下地址 + 密钥能不能通：只读一次模型清单，不生成图、不花钱
+    if (path === '/provider/probe' && method === 'POST') {
+      const body = await readJson(req)
+      const settings = getSettings()
+      const merged = applyProviderPatch(settings, body)
+      const baseUrl = merged.baseUrl || getConfig().baseUrl
+      const apiKey = String(body.apiKey || '').trim() || merged.apiKey || getConfig().apiKey
+      if (!baseUrl) return json(res, 400, { error: '先填接口地址' })
+      try {
+        const models = await listModels(baseUrl, apiKey)
+        return json(res, 200, { ok: true, models })
+      } catch (error) {
+        return json(res, 400, { ok: false, error: humanizeError(error) })
+      }
     }
 
     if (path === '/profiles' && method === 'GET') {

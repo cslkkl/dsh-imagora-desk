@@ -224,6 +224,43 @@ try {
     body: JSON.stringify({ profile: '' }),
   }).then(res => res.json())
   check('POST /settings 空 profile 回到跟随 .env', restored.profile === 'fixture', restored.profile)
+
+  // 自带 provider：填地址 + 密钥后，配置来源切换为插件内配置，且密钥不回传明文
+  const withProvider = await fetch(`${base}/provider`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ baseUrl: 'https://example.invalid/v1/', apiKey: 'sk-smoke-secret', model: 'demo-model' }),
+  }).then(res => res.json())
+  check('POST /provider 切到插件内配置', withProvider.source === 'plugin', withProvider.source)
+  check('POST /provider 去尾斜杠并生效', withProvider.provider?.baseUrl === 'https://example.invalid/v1')
+  check('POST /provider 密钥只报已配置', withProvider.provider?.apiKeyConfigured === true)
+  check('POST /provider 响应不含密钥明文', !JSON.stringify(withProvider).includes('sk-smoke-secret'))
+  check(
+    'POST /provider 后不再报缺少密钥',
+    !withProvider.issues.some(row => row.includes('API Key')),
+    JSON.stringify(withProvider.issues),
+  )
+
+  const cleared = await fetch(`${base}/provider`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ clearApiKey: true }),
+  }).then(res => res.json())
+  check('POST /provider clearApiKey 清掉密钥', cleared.provider?.apiKeyConfigured === false)
+
+  const reset = await fetch(`${base}/provider`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ reset: true }),
+  }).then(res => res.json())
+  check('POST /provider reset 回到 imagora 配置', reset.source === 'imagora', reset.source)
+
+  const probeMissing = await fetch(`${base}/provider/probe`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ baseUrl: '' }),
+  })
+  check('POST /provider/probe 缺地址返回 400', probeMissing.status === 400)
 } finally {
   server.close()
   for (const dir of [SANDBOX, FIXTURE_ROOT]) {

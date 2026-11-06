@@ -31,12 +31,13 @@ export default {
     let settings = readSettings(ROOT)
 
     const getConfig = () => loadImagoraConfig(settings)
+    const getSettings = () => settings
     const applySettings = patch => {
       settings = writeSettings(ROOT, patch)
       return settings
     }
     const pool = new TaskPool({ getConfig, store, concurrency: 3 })
-    const route = createRouter({ store, pool, getConfig, applySettings })
+    const route = createRouter({ store, pool, getConfig, getSettings, applySettings })
 
     const ready = store.init().catch(error => {
       ctx.logger?.warn?.(`dsh-imagora-desk: 初始化目录失败 ${error.message}`)
