@@ -1,13 +1,48 @@
 // 本地冒烟：用假的 Cordis 上下文挂起 host 半片，再用真实 HTTP 打一遍接口。
 // 不提交真实生图任务（不花钱），只验证配置解析、上传、文件服务、错误分支与工作流落盘。
 import { createServer } from 'node:http'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 // 用临时目录跑：不往真实画布目录里塞测试资产与恢复快照
 const SANDBOX = mkdtempSync(join(tmpdir(), 'dsh-imagora-smoke-'))
 process.env.DSH_IMAGORA_HOME = SANDBOX
+
+// 造一份最小的 imagora 配置，让冒烟在任何机器（含 CI）上都能自证配置解析。
+// 真实机器上 DSH_IMAGORA_ROOT 存在时不覆盖，改为校验真实配置。
+const FIXTURE_ROOT = mkdtempSync(join(tmpdir(), 'imagora-fixture-'))
+if (!process.env.DSH_IMAGORA_ROOT) {
+  writeFileSync(
+    join(FIXTURE_ROOT, 'config.json'),
+    JSON.stringify(
+      {
+        default_profile: 'fixture',
+        profiles: {
+          fixture: {
+            label: '冒烟来源',
+            base_url: 'https://example.invalid/api/v3',
+            api_paths: { generations: '/images/generations', edits: '/images/generations' },
+            default_model: 'fixture-model',
+            default_quality: 'high',
+            quality_options: ['low', 'high'],
+            models: [
+              {
+                id: 'fixture-model',
+                label: 'Fixture Model',
+                size_options: [{ value: '1024x1024', label: '1024x1024 (1:1 1K)', cost: 0.1 }],
+              },
+            ],
+          },
+        },
+      },
+      null,
+      2,
+    ),
+  )
+  writeFileSync(join(FIXTURE_ROOT, '.env'), 'API_KEY_FIXTURE=sk-smoke\nACTIVE_PROFILE=fixture\n')
+  process.env.DSH_IMAGORA_ROOT = FIXTURE_ROOT
+}
 
 const plugin = await import(new URL('../src/host/index.js', import.meta.url).href)
 
@@ -61,6 +96,11 @@ try {
   check('GET /config 返回 profile', Boolean(config.profile), `profile=${config.profile} model=${config.model}`)
   check('GET /config 带尺寸表', Array.isArray(config.sizes) && config.sizes.length > 0, `${config.sizes?.length} 档`)
   check('GET /config 读到了 imagora 目录', Boolean(config.root && existsSync(config.root)), config.root)
+  check(
+    'GET /config 解析出模型与质量档',
+    Boolean(config.model) && Array.isArray(config.qualities),
+    `${config.model} / ${config.qualities}`,
+  )
 
   const health = await fetch(`${base}/health`).then(res => res.json())
   check(
@@ -147,7 +187,6 @@ try {
 
   const unknown = await fetch(`${base}/nope`)
   check('未知路径返回 404', unknown.status === 404)
-
   await fetch(`${base}/asset/delete`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -163,12 +202,36 @@ try {
     body: JSON.stringify({ id: 'not-a-task' }),
   }).then(res => res.json())
   check('POST /task/cancel 未知任务返回 ok:false', cancel.ok === false)
+
+  // 未知任务查快照必须 404，不能编一个空快照出来
+  const missingTask = await fetch(`${base}/task?id=nope`)
+  check('GET /task 未知 id 返回 404', missingTask.status === 404)
+
+  // 越权路径：/file 只放行 assets 与 output，其余一律 403/404
+  const escape = await fetch(`${base}/file?id=../../package.json`)
+  check('GET /file 路径穿越被拒', escape.status === 403 || escape.status === 404, String(escape.status))
+
+  // 切来源要能落到磁盘并被下一次读取采纳
+  const switched = await fetch(`${base}/settings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ profile: 'fixture' }),
+  }).then(res => res.json())
+  check('POST /settings 回写配置', switched.profile === 'fixture', switched.profile)
+  const restored = await fetch(`${base}/settings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ profile: '' }),
+  }).then(res => res.json())
+  check('POST /settings 空 profile 回到跟随 .env', restored.profile === 'fixture', restored.profile)
 } finally {
   server.close()
-  try {
-    rmSync(SANDBOX, { recursive: true, force: true })
-  } catch {
-    // 临时目录删不掉不影响结论
+  for (const dir of [SANDBOX, FIXTURE_ROOT]) {
+    try {
+      rmSync(dir, { recursive: true, force: true })
+    } catch {
+      // 临时目录删不掉不影响结论
+    }
   }
 }
 

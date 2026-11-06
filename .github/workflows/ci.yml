@@ -1,0 +1,49 @@
+name: ci
+
+# 只读检查：不改代码、不提交、不推送。
+# 本地钩子负责「提交前自动修」，这里负责「独立环境复核」。
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: install (frozen)
+        run: pnpm install --frozen-lockfile
+
+      - name: lint
+        run: pnpm run lint
+
+      - name: format check
+        run: pnpm run format:check
+
+      - name: typecheck
+        run: pnpm run typecheck
+
+      - name: build
+        run: pnpm run build
+
+      - name: smoke
+        run: pnpm run test
+
+      # 构建产物必须与源码同步提交：改了源码却没重建 dist，装出来的插件还是旧画布
+      - name: dist 与源码同步
+        run: git diff --exit-code -- dist/client.js
