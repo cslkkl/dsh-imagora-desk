@@ -81,6 +81,17 @@ export function CanvasApp() {
   }, [])
 
   const { config, configError, configRef, switchProfile, switchModel, replaceConfig } = useCanvasConfig(flash)
+
+  // 首次使用（既没插件内配置、也没有可用密钥）时直接把设置弹出来：
+  // 「下载后填一次 key 就能用」靠这一步，不然用户只会看到一行错误提示。
+  const settingsPrompted = useRef(false)
+  useEffect(() => {
+    if (!config || settingsPrompted.current) return
+    const needsSetup = !config.provider?.apiKeyConfigured && (config.source === 'plugin' || config.issues.length > 0)
+    if (!needsSetup) return
+    settingsPrompted.current = true
+    setDialog({ kind: 'settings' })
+  }, [config])
   const { addImages, replaceImage, openPreview } = useCanvasImages({
     nodesRef,
     setNodes,
