@@ -411,9 +411,15 @@ export function CanvasApp() {
             proOptions={{ hideAttribution: true }}
             defaultEdgeOptions={{ animated: true, markerEnd: { type: MarkerType.ArrowClosed } }}
             deleteKeyCode={null}
-            panOnScroll
+            // 滚轮 = 缩放。之前打开了 panOnScroll，滚轮被当成上下平移，
+            // 与 Imagora（只设 panOnDrag，滚轮保持缩放）不一致。
+            panOnScroll={false}
+            zoomOnScroll
+            zoomOnPinch
+            // 左键空白拖拽框选；平移用中键/右键拖，或按住空格
             selectionOnDrag
             panOnDrag={[1, 2]}
+            selectionKeyCode={null}
           >
             <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
             <Controls position="bottom-left" showInteractive={false} />
