@@ -1,6 +1,6 @@
 // client 半端入口：向侧边栏与主区域注册「imagora」面板。
 // 侧边栏那一行由 sidebar.panellist 渲染；点开后主区域用同名 key 渲染画布。
-import { CanvasApp } from './canvas'
+import { CanvasApp } from './canvas/index'
 import { Icon } from './icons'
 import xyflowCss from '@xyflow/react/dist/style.css'
 
