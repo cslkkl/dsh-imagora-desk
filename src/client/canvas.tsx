@@ -81,7 +81,6 @@ export function CanvasApp() {
   const lastCreateRef = useRef<{ x: number; y: number } | null>(null)
   const timersRef = useRef<Map<string, number>>(new Map())
   const taskIdsRef = useRef<Map<string, string>>(new Map())
-  const pendingEdgesRef = useRef<WorkflowEdge[]>([])
   const recoveryTimerRef = useRef<number | null>(null)
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
