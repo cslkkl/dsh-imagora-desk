@@ -4,6 +4,7 @@ import { createServer } from 'node:http'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { resolveApiPaths } from '../src/host/config.js'
 
 // 用临时目录跑：不往真实画布目录里塞测试资产与恢复快照
 const SANDBOX = mkdtempSync(join(tmpdir(), 'dsh-imagora-smoke-'))
@@ -232,6 +233,11 @@ try {
     body: JSON.stringify({ baseUrl: 'https://example.invalid/v1/', apiKey: 'sk-smoke-secret', model: 'demo-model' }),
   }).then(res => res.json())
   check('POST /provider 切到插件内配置', withProvider.source === 'plugin', withProvider.source)
+  // 地址已含版本段时不能再补 /v1：否则拼出 .../api/v3/v1/images/generations（真实 404）
+  const versioned = resolveApiPaths('https://ark.cn-beijing.volces.com/api/v3')
+  check('地址含版本段时路径不重复加 v1', versioned.generations === '/images/generations', versioned.generations)
+  const bare = resolveApiPaths('https://api.example.com')
+  check('地址无版本段时补 /v1', bare.generations === '/v1/images/generations', bare.generations)
   check('POST /provider 去尾斜杠并生效', withProvider.provider?.baseUrl === 'https://example.invalid/v1')
   check('POST /provider 密钥只报已配置', withProvider.provider?.apiKeyConfigured === true)
   check('POST /provider 响应不含密钥明文', !JSON.stringify(withProvider).includes('sk-smoke-secret'))

@@ -22,6 +22,23 @@ const FALLBACK_SIZES = [
 
 const FALLBACK_QUALITIES = ['low', 'medium', 'high']
 
+/**
+ * 按 baseUrl 推断接口路径。
+ *
+ * 用户填的地址有两种习惯：`https://api.example.com`（不含版本段）和
+ * `https://ark.cn-beijing.volces.com/api/v3`（已含版本段）。若一律拼
+ * `/v1/images/generations`，后者会变成 `.../api/v3/v1/images/...` → 404。
+ * 所以：地址末尾已经有版本段就只接 `/images/...`，否则补 `/v1`。
+ */
+export function resolveApiPaths(baseUrl) {
+  const hasVersion = /\/v\d+$/i.test(String(baseUrl || '').replace(/\/+$/, ''))
+  const prefix = hasVersion ? '' : '/v1'
+  return {
+    generations: `${prefix}/images/generations`,
+    edits: `${prefix}/images/edits`,
+  }
+}
+
 function parseEnv(text) {
   const out = {}
   for (const raw of String(text || '').split(/\r?\n/)) {
@@ -106,7 +123,7 @@ function resolveFromProvider(provider, settings, root) {
     profileLabel: '插件内配置',
     profiles: [],
     baseUrl: provider.baseUrl,
-    apiPaths: { generations: '/v1/images/generations', edits: '/v1/images/edits' },
+    apiPaths: resolveApiPaths(provider.baseUrl),
     apiKey: provider.apiKey,
     model: modelId,
     modelLabel: modelId,
