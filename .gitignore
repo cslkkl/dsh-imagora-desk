@@ -7,3 +7,6 @@ node_modules/
 *.log
 harness/*.out
 harness/*.err
+
+# pnpm pack 的产物，发版时上传到 Release，不进仓库
+*.tgz
