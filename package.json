@@ -1,7 +1,7 @@
 {
   "name": "dsh-imagora-desk",
   "version": "0.1.0",
-  "description": "DeepSeek Harness 插件：把 Imagora 的自由画布搬进 DSH —— 提示词卡与图片摊在一张无限画布上，连线即参考关系。",
+  "description": "DeepSeek 插件：把 Imagora 的自由画布搬进 DSH —— 提示词卡与图片摊在一张无限画布上，连线即参考关系。",
   "type": "module",
   "main": "src/host/index.js",
   "exports": {
@@ -25,10 +25,15 @@
     "node": ">=20",
     "dsh": ">=0.2.1-rc.5 <0.3.0"
   },
+  "packageManager": "pnpm@12.15.0",
   "scripts": {
+    "dev": "node build.mjs --watch",
     "build": "node build.mjs",
-    "watch": "node build.mjs --watch",
-    "smoke": "node scripts/smoke-host.mjs && node scripts/smoke-client.mjs",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/smoke-host.mjs && node scripts/smoke-client.mjs",
     "harness": "node scripts/build-harness-vendor.mjs && node scripts/harness-server.mjs"
   },
   "keywords": [
@@ -56,6 +61,15 @@
     "THIRD_PARTY_NOTICES.md"
   ],
   "devDependencies": {
-    "esbuild": "0.25.12"
+    "@eslint/js": "9.39.5",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "@xyflow/react": "12.11.2",
+    "esbuild": "0.25.12",
+    "eslint": "9.39.4",
+    "eslint-config-prettier": "10.1.8",
+    "prettier": "3.9.10",
+    "typescript": "5.7.3",
+    "typescript-eslint": "8.72.1"
   }
 }

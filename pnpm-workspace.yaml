@@ -1,0 +1,4 @@
+# pnpm 12 把「允许哪些依赖跑安装脚本」放在这里（package.json 的 pnpm 字段已不再读取）。
+# esbuild 需要跑安装脚本落地二进制；插件运行期没有任何依赖，其余 devDependencies 都是纯 JS。
+allowBuilds:
+  esbuild: true
