@@ -416,10 +416,13 @@ export function CanvasApp() {
             panOnScroll={false}
             zoomOnScroll
             zoomOnPinch
-            // 左键空白拖拽框选；平移用中键/右键拖，或按住空格
-            selectionOnDrag
-            panOnDrag={[1, 2]}
-            selectionKeyCode={null}
+            // 与 Imagora 同一套手势：左键拖空白 = 平移画布（panOnDrag），
+            // Ctrl/Cmd+点击 = 加选。框选 Imagora 用右键拖，这里用 Shift+拖（原生），
+            // 右键留给「平移」，免得和 Imagora 的右键框选抢同一个键。
+            panOnDrag
+            selectionOnDrag={false}
+            selectionKeyCode="Shift"
+            multiSelectionKeyCode={['Meta', 'Control']}
           >
             <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
             <Controls position="bottom-left" showInteractive={false} />
