@@ -6,6 +6,7 @@ import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import type { CanvasGroupNodeData, CanvasImageNodeData, CanvasPromptNodeData } from './lib/types'
 import { generatingLabel } from './lib/format'
 import { Icon } from './icons'
+import { GenerationPending } from './canvas/generation-pending'
 import type { ImagoraConfig } from './api'
 
 export interface NodeActions {
@@ -344,6 +345,11 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
           onChange={event => actions.updatePrompt(id, { outputDir: event.target.value })}
         />
       </div>
+
+      {/* 生成中占位卡：挂在 textarea 与按钮之间，占住「结果还没回来」这一段。
+          原版同位置（CanvasNodes.tsx:557-563）。只在 running 时挂载 ——
+          它从挂载那刻算 0s，常驻挂载会让秒数从打开页面就开始跑。 */}
+      {data.status === 'running' ? <GenerationPending /> : null}
 
       {data.status === 'failed' && data.message ? (
         <div style={{ marginTop: 6, fontSize: 11, color: 'var(--im-danger)', lineHeight: 1.5 }}>{data.message}</div>
