@@ -107,6 +107,12 @@ function normalizeProvider(raw) {
   return provider.baseUrl ? provider : null
 }
 
+/** 预算上限（元）。0 / 非法 / 未设都当作「不设上限」。 */
+function resolveBudget(settings) {
+  const raw = Number(settings?.budget)
+  return Number.isFinite(raw) && raw > 0 ? raw : 0
+}
+
 /** 默认输出目录：设置里填过就用它，否则落在 `<插件数据目录>/output`。 */
 function resolveOutputDir(settings, root) {
   const custom = typeof settings?.outputDir === 'string' ? settings.outputDir.trim() : ''
@@ -139,6 +145,7 @@ function resolveFromProvider(provider, settings, root) {
     qualityEffective: qualities.length > 1,
     outputFormats: ['png', 'jpeg', 'webp'],
     defaultOutputDir: resolveOutputDir(settings, root),
+    budget: resolveBudget(settings),
     issues,
     providerView: providerView({ provider }),
   }
@@ -227,6 +234,7 @@ export function loadImagoraConfig(settings) {
     qualityEffective: qualities.length > 1,
     outputFormats: model?.output_formats || ['png'],
     defaultOutputDir,
+    budget: resolveBudget(settings),
     issues,
     providerView: providerView(settings),
   }

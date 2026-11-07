@@ -82,6 +82,15 @@ export function useGeneratedTasks({
       if (timer) window.clearTimeout(timer)
       timersRef.current.delete(nodeId)
       const cost = snapshot.totalCost ?? 0
+      // 成本记在卡上（累加）：画布的成本看板直接把这些数加起来，
+      // 不再单独维护一份账，避免「节点删了但账还在」的不一致。
+      if (cost > 0) {
+        setNodes(current => {
+          const node = current.find(row => row.id === nodeId)
+          const before = Number(node?.data?.cost ?? 0)
+          return updatePromptNode(current, nodeId, { cost: before + cost })
+        })
+      }
       log(
         snapshot.status === 'done'
           ? `完成 · ${okResults.length} 张${cost ? ` · ${cost.toFixed(2)} 元` : ''}`
@@ -152,6 +161,8 @@ export function useGeneratedTasks({
           quality: node.data.quality,
           refIds: resolved.images.map(row => (row.type === 'image' ? row.data.registryId : '')).filter(Boolean),
           outputDir: node.data.outputDir,
+          // 让 host 知道这个画布已经花了多少，撞到预算上限就当场拒掉
+          spent: nodesRef.current.reduce((sum, row) => sum + Number(row.data?.cost ?? 0), 0),
         })
         taskIdsRef.current.set(nodeId, submitted.taskId)
         setNodes(current =>

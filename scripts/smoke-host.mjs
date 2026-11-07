@@ -288,6 +288,37 @@ try {
     body: JSON.stringify({ baseUrl: '' }),
   })
   check('POST /provider/probe 缺地址返回 400', probeMissing.status === 400)
+
+  // 预算：设了上限后，超额的提交必须被拦（409），否则等于「钱已经花了才发现」
+  const withBudget = await fetch(`${base}/settings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ budget: 1.5 }),
+  }).then(res => res.json())
+  check('POST /settings 预算上限生效', withBudget.budget === 1.5, String(withBudget.budget))
+
+  const blocked = await fetch(`${base}/generate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'smoke', size: '1024x1024', spent: 1.5 }),
+  })
+  check('POST /generate 达预算返回 409', blocked.status === 409, String(blocked.status))
+  const blockedBody = await blocked.json()
+  check('POST /generate 达预算带出上限与已花', blockedBody.budget === 1.5 && blockedBody.spent === 1.5)
+
+  const notBlocked = await fetch(`${base}/generate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'smoke', size: '1024x1024', spent: 0.5 }),
+  })
+  check('POST /generate 未达预算仍可提交', notBlocked.status === 200, String(notBlocked.status))
+
+  const clearBudget = await fetch(`${base}/settings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ budget: 0 }),
+  }).then(res => res.json())
+  check('POST /settings 0 表示不设上限', clearBudget.budget === 0, String(clearBudget.budget))
 } finally {
   server.close()
   for (const dir of [SANDBOX, FIXTURE_ROOT]) {

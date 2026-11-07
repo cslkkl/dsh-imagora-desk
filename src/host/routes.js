@@ -56,6 +56,7 @@ function publicConfig(config) {
     qualities: config.qualities,
     qualityEffective: config.qualityEffective,
     defaultOutputDir: config.defaultOutputDir,
+    budget: config.budget,
     issues: config.issues,
     provider: config.providerView,
   }
@@ -92,6 +93,11 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
       if (typeof body.imagoraRoot === 'string') applySettings({ imagoraRoot: body.imagoraRoot.trim() })
       // 默认输出路径：空字符串 = 回到插件数据目录下的 output
       if (typeof body.outputDir === 'string') applySettings({ outputDir: body.outputDir.trim() })
+      // 预算上限（元）：0 或空 = 不设上限
+      if (body.budget !== undefined) {
+        const budget = Number(body.budget)
+        applySettings({ budget: Number.isFinite(budget) && budget > 0 ? budget : 0 })
+      }
       return json(res, 200, publicConfig(getConfig()))
     }
 
@@ -197,6 +203,17 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
         if (entry) refs.push(entry.absPath)
       }
       const outputDir = String(body.outputDir || '')
+      // 预算闸门：花到上限就别再发新任务。这里拦的是「提交」，不是「结果」——
+      // 排队后再拦没有意义，钱已经花了。
+      const budget = Number(getSettings()?.budget ?? 0)
+      const spent = Number(body.spent ?? 0)
+      if (Number.isFinite(budget) && budget > 0 && spent >= budget) {
+        return json(res, 409, {
+          error: `已达预算上限 ¥${budget.toFixed(2)}（本画布已花 ¥${spent.toFixed(2)}），调高预算或不设上限后再运行`,
+          budget,
+          spent,
+        })
+      }
       const submitted = pool.submit({ prompt, size, quality, refs, outputDir })
       return json(res, 200, submitted)
     }

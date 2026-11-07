@@ -21,6 +21,8 @@ export interface ImagoraConfig {
   qualities: string[]
   qualityEffective: boolean
   defaultOutputDir: string
+  /** 预算上限（元）；0 = 不设上限 */
+  budget?: number
   issues: string[]
 }
 
@@ -93,6 +95,8 @@ export interface SubmitInput {
   quality: string
   refIds: string[]
   outputDir?: string
+  /** 本画布当前已花多少（元）：host 用它判断是否撞到预算上限 */
+  spent?: number
 }
 
 export const submitGenerate = (input: SubmitInput) =>
@@ -128,6 +132,9 @@ export const setModel = (model: string) => request<ImagoraConfig>('settings', js
 export const setProfile = (profile: string) => request<ImagoraConfig>('settings', jsonBody({ profile }))
 /** 默认输出路径：传空串 = 回到来源根目录下的 output。 */
 export const setOutputDir = (outputDir: string) => request<ImagoraConfig>('settings', jsonBody({ outputDir }))
+
+/** 预算上限（元）：0 = 不设上限。 */
+export const setBudget = (budget: number) => request<ImagoraConfig>('settings', jsonBody({ budget }))
 export const revealPath = (path: string) => request<{ ok: boolean }>('reveal', jsonBody({ path }))
 
 export interface ProviderPatch {

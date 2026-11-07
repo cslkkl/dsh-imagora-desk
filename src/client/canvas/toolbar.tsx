@@ -3,6 +3,7 @@
 // 按钮与提示用官方组件库（宿主提供），保证外观与 DSH 其它面板一致：
 // 主题、暗色、键盘焦点环都跟着宿主走，不必自己维护一套。
 import { primitives } from '../ui'
+import { CostBadge, type CostSummary } from './cost'
 import type { ImagoraConfig } from '../api'
 
 export interface ToolbarProps {
@@ -14,6 +15,7 @@ export interface ToolbarProps {
   minimapOpen: boolean
   snapEnabled: boolean
   canvasLocked: boolean
+  cost: CostSummary
   zoom: number
   onAddPrompt: () => void
   onPickFiles: () => void
@@ -85,6 +87,8 @@ export function CanvasToolbar(props: ToolbarProps) {
       {tonedButton('view', '自动连线', props.onAutoConnect)}
       {tonedButton('view', '整理所选', props.onArrangeSelected, { disabled: !selectedIds.length })}
       <span className="im-spacer" />
+
+      <CostBadge summary={props.cost} budget={config?.budget ?? 0} />
 
       {config && (config.profiles?.length ?? 0) > 1 ? (
         <select

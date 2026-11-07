@@ -41,6 +41,7 @@ import { CanvasToolbar } from './toolbar'
 import { Banner, EmptyState, LogPanel, PreviewOverlay, Toast } from './overlays'
 import { HelpDialog, LoadDialog, SaveDialog } from './dialogs'
 import { HistoryDialog } from './history-dialog'
+import { useCostSummary } from './cost'
 import { SnapGuideLayer } from './snap-guides'
 import { PromptImportDialog } from './prompt-import-dialog'
 import { SettingsDialog } from './settings-dialog'
@@ -139,6 +140,9 @@ export function CanvasApp() {
 
   /* ---------------- 撤销 / 重做 ---------------- */
   const history = useCanvasHistory({ nodesRef, edgesRef, setNodes, setEdges, flash })
+
+  /* ---------------- 成本 ---------------- */
+  const cost = useCostSummary(nodes)
 
   /* ---------------- 派生量 ---------------- */
   // 引用计数与组聚合在渲染时算，不写回状态（写回会和节点同步互相触发）
@@ -337,6 +341,7 @@ export function CanvasApp() {
           minimapOpen={minimapOpen}
           snapEnabled={snapEnabled}
           canvasLocked={canvasLocked}
+          cost={cost}
           onToggleLock={() =>
             setCanvasLocked(value => {
               const next = !value

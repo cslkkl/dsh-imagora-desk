@@ -146,6 +146,44 @@ button.im-danger-tone {
   min-width: 42px;
   text-align: right;
 }
+/* 成本看板：数字用琥珀，跟图片组的色系呼应（都是「东西」那一侧） */
+.im-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--im-group-soft);
+  color: var(--im-group);
+  border: 1px solid color-mix(in srgb, var(--im-group) 30%, transparent);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.im-cost.is-over {
+  background: color-mix(in srgb, var(--im-danger) 14%, transparent);
+  color: var(--im-danger);
+  border-color: color-mix(in srgb, var(--im-danger) 36%, transparent);
+}
+.im-cost-num { line-height: 1; }
+.im-cost-bar {
+  width: 44px;
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--im-group) 22%, transparent);
+  overflow: hidden;
+}
+.im-cost.is-over .im-cost-bar { background: color-mix(in srgb, var(--im-danger) 24%, transparent); }
+.im-cost-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--im-group), var(--im-prompt));
+}
+.im-cost.is-over .im-cost-fill { background: var(--im-danger); }
+.im-cost-flag { font-size: 10.5px; font-weight: 600; }
 .im-canvas { position: relative; flex: 1; min-height: 0; }
 .im-canvas .react-flow__attribution { display: none; }
 .im-canvas .react-flow__minimap {

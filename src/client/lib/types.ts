@@ -314,6 +314,8 @@ export interface CanvasPromptNodeData {
   message?: string | undefined;
   /** 已请求取消、还在等它落地（运行中的任务要等当前这张完成才停）：卡片按钮显示「取消中…」并禁用 */
   cancelRequested?: boolean | undefined;
+  /** 这张卡累计花掉的钱（元）。每完成一次就累加，用于画布成本看板 */
+  cost?: number | undefined;
   [key: string]: unknown;
 }
 
