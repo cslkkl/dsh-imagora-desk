@@ -94,7 +94,14 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
   return (
     <div
       className={`im-panel-card${selected ? ' is-selected' : ''}${missing ? ' is-missing' : ''}`}
-      style={{ padding: 8, width: 144 }}
+      /* 146 = 缩略图 128 + 左右内边距 8×2 + 左右边框 1×2，与缩略图严丝合缝。
+       *
+       * ⚠️ `boxSizing` 必须显式写 `border-box`（维护者报过「右侧有多余内间隔，左边没有」）：
+       * 插件里没有 Tailwind 的全局 reset，默认是 `content-box` —— 那时 `width: 144` 指的是
+       * **内容宽**，缩略图只占 128，右边就空出 16px 死区（实测左 9 / 右 25）。
+       * 原版靠 Tailwind preflight 的 `*,::before,::after{box-sizing:border-box}` 拿到 border-box，
+       * 所以我们这边凡是「写了 width 又写了 padding」的元素都得自己声明一次。 */
+      style={{ padding: 8, width: 146, boxSizing: 'border-box' }}
     >
       <Handles />
       {missing ? (

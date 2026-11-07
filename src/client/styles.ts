@@ -646,6 +646,9 @@ body[data-ds-dark-theme] {
    那个内高光是原版卡面看上去「有厚度」的来源，别省。 */
 .im-panel-card {
   position: relative;
+  /* 节点卡里「width + padding」是常态，没这一步会按 content-box 算 →
+     宽度多出两倍内边距，右侧凭空出现一条死区（见 nodes.tsx 的 146 那条注释）。 */
+  box-sizing: border-box;
   border: 1px solid var(--im-line);
   /* 原版 .panel-card 的 18px 写在未分层规则里，压过 @layer 的 rounded-xl(12) */
   border-radius: var(--im-r-surface);
@@ -901,6 +904,10 @@ body[data-ds-dark-theme] {
 .im-modal-panel {
   display: flex;
   flex-direction: column;
+  /* width + padding + border 三样都写了，必须是 border-box —— 否则四档宽度
+     每档都多出 42px（20×2 内边距 + 1×2 边框），看起来就是"我们的弹窗比原版宽一圈"。
+     原版靠 Tailwind preflight 的全局 border-box 拿到这个行为，插件里没有那个 reset。 */
+  box-sizing: border-box;
   width: min(100%, 42rem);
   max-height: min(86dvh, 760px);
   overflow: hidden;
