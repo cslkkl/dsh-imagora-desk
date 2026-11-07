@@ -293,19 +293,18 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
     if (path === '/workflow/load' && method === 'GET') {
       const name = url.searchParams.get('name') || ''
       const data = await store.loadWorkflow(name)
-      const missing = []
-      const nodes = (Array.isArray(data.nodes) ? data.nodes : []).map(node => {
-        if (node?.type !== 'image') return node
-        const abs = node.data?.absPath || node.data?.file || ''
-        if (!abs) {
-          missing.push(node.data?.registryId || node.id)
-          return { ...node, data: { ...node.data, missing: true } }
-        }
-        return node
-      })
+      // 「缺失」只能**按解析结果**判，不能在解析前按「节点上有没有 absPath」判。
+      // 原版工作流（以及我们共用模式写出的那份）里图片节点**只存 registryId**，
+      // 派生路径是加载时从注册表现算的 —— 解析前看字段必然为空，那样判会把健康的
+      // 存档整批判成「缺失」（实测一个 12 图的存档报了 12 张缺失，实际全都能取到）。
+      // 正确顺序：先 hydrate（补 absPath / url / missing），再按 missing 汇总。
+      const nodes = store.hydrate(data.nodes, await assetIndex())
+      const missing = (Array.isArray(nodes) ? nodes : [])
+        .filter(node => node?.type === 'image' && node.data?.missing === true)
+        .map(node => String(node.data?.registryId || node.id))
       return json(res, 200, {
         name: data.name || name,
-        nodes: store.hydrate(nodes, await assetIndex()),
+        nodes,
         edges: Array.isArray(data.edges) ? data.edges : [],
         missing,
       })

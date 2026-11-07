@@ -478,6 +478,14 @@ try {
     Boolean(sharedLoad.nodes?.[0]?.data?.url),
     sharedLoad.nodes?.[0]?.data?.url ?? JSON.stringify(sharedLoad.missing ?? []),
   )
+  // 「缺失」必须按**解析结果**算，不能按「节点上有没有 absPath」算：原版存档里图片节点
+  // 只存 registryId，解析前看字段必然为空，那样判会把健康存档整批判成缺失
+  // （实测一个 12 图的存档报了 12 张，实际全都能取到）。
+  check(
+    '共用模式：只存 registryId 的存档不误报缺失',
+    Array.isArray(sharedLoad.missing) && sharedLoad.missing.length === 0,
+    JSON.stringify(sharedLoad.missing ?? []),
+  )
 
   // 存一份回共用目录：必须写进原版那个 workflows/，且图片节点不带派生路径
   const sharedSave = await fetch(`${base}/workflow/save`, {
