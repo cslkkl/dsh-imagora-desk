@@ -36,6 +36,13 @@ export function LogPanel({ logs }: { logs: string[] }) {
   )
 }
 
+/**
+ * 底部居中提示。
+ *
+ * **不要用宿主的 toast 背景 token**：那套 token 是给「深底 + 白字」配的，
+ * 而这里的文字颜色继承自我们的 `--im-ink`（浅色主题接近纯黑）——
+ * 两个体系一混就是「黑底黑字」。背景与文字必须成对取自同一套 token。
+ */
 const TOAST_STYLE: CSSProperties = {
   position: 'absolute',
   left: '50%',
@@ -44,9 +51,10 @@ const TOAST_STYLE: CSSProperties = {
   zIndex: 30,
   padding: '7px 14px',
   borderRadius: 999,
-  background: 'var(--dsw-alias-toast-bg, var(--im-surface-float))',
+  background: 'var(--im-surface-float)',
+  color: 'var(--im-ink)',
   border: '1px solid var(--im-line)',
-  boxShadow: 'var(--dsw-elevation-panel, 0 6px 20px rgba(0,0,0,.14))',
+  boxShadow: 'var(--im-shadow-float)',
   fontSize: 12,
 }
 
