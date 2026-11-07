@@ -102,7 +102,7 @@ const HELP_ROWS: [string, string][] = [
 export function HelpDialog({ onClose, config }: { onClose: () => void; config: ImagoraConfig | null }) {
   return (
     <ModalShell
-      title="自由画布"
+      title="操作帮助"
       subtitle="画布、节点、连线与快捷键速查。"
       size="lg"
       onClose={onClose}
