@@ -85,7 +85,10 @@ body {
   min-height: 0;
   background: var(--im-surface-inset);
   color: var(--im-ink);
-  padding-top: 8px;
+  /* 三层（页头 / 工具栏 / 画布）之间的间距由 gap 统一提供，
+     不靠各自的 margin 相加 —— 原版就是 flex flex-col gap-2（8px）。 */
+  gap: 8px;
+  padding: 8px 12px 12px;
   font-family: var(--dsw-font-family, system-ui, sans-serif);
   font-size: 13px;
   letter-spacing: -0.01em;
@@ -143,7 +146,6 @@ body {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin: 12px 12px 0;
   padding: 10px 14px;
   border: 1px solid var(--im-edge-idle);
   border-radius: var(--im-r-card);
@@ -156,7 +158,6 @@ body {
   gap: 8px;
   flex-wrap: wrap;
   /* 与页头同为卡片容器，但圆角略小（原版 .studio-toolbar 13px） */
-  margin: 8px 12px 0;
   padding: 9px 10px;
   position: relative;
   border: 1px solid var(--im-edge-idle);
@@ -391,8 +392,10 @@ body {
 .im-select-root {
   position: relative;
   display: inline-block;
+  /* 宽度交给触发器自己的内容：写死 max-width 会把「火山方舟官方」这种中文名
+     截成「火山方舟官...」。上限只作兜底，防止超长模型 ID 把整行撑破。 */
   min-width: 0;
-  max-width: 260px;
+  max-width: 320px;
 }
 
 /* 触发器：外形沿用输入控件（等高、同边框、同底色），加上图标与省略号 */
@@ -705,7 +708,8 @@ body {
   position: relative;
   flex: 1;
   min-height: 0;
-  margin: 0 12px 12px;
+  /* 间距由 .im-root 的 gap 提供，这里不自留边距 */
+  margin: 0;
   border: 1px solid var(--im-line);
   /* 原版 .studio-canvas 是 18px（不是 --r-card 的 16） */
   border-radius: var(--im-r-surface);
