@@ -55,7 +55,13 @@ body {
   --im-h-ctl: 28px;
   --im-h-field: 38px;
   --im-r-pill: 999px;
+  /* 圆角分成四档，都对应原版的实测值：
+     pill 胶囊 → card 页头/弹窗 16 → surface 卡片与画布 18 → control 输入控件 10
+     另有 float 11（原版 minimap / controls）与 sm 8（原版 rounded-lg 一族）。 */
   --im-r-card: 16px;
+  --im-r-surface: 18px;
+  --im-r-float: 11px;
+  --im-r-sm: 8px;
   --im-r-control: 10px;
 
   /* 阴影走宿主 elevation：写死 rgba 在深色主题下等于没有阴影 */
@@ -89,9 +95,9 @@ body {
 .im-brand {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   height: var(--im-h-ctl);
-  padding: 0 6px 0 0;
+  padding: 0 2px 0 0;
   border: 0;
   background: transparent;
   color: var(--im-ink);
@@ -99,16 +105,36 @@ body {
   flex: none;
 }
 .im-brand-title {
-  font-size: 16px;
+  /* 原版 .brand-swing__face h1 是 1.05rem + 负字距，不是整数 16px */
+  font-size: 1.05rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.035em;
   color: var(--im-ink);
 }
-.im-brand:hover .im-brand-title { color: var(--im-brand); }
+.im-brand {
+  border-radius: 12px;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), filter 0.28s ease;
+}
+/* 原版 hover：整块抬起 1px、放大 1.5%，光晕落在 logo 与标题上 */
+.im-brand:hover {
+  transform: translateY(-1px) scale(1.015);
+}
+.im-brand:hover svg {
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--im-brand) 28%, transparent));
+}
+.im-brand:hover .im-brand-title {
+  color: var(--im-brand);
+  filter: drop-shadow(0 5px 12px color-mix(in srgb, var(--im-brand) 18%, transparent));
+}
 
 /* 顶栏两行各是一块卡片容器（原版 .studio-header / .studio-toolbar）：
    细边框 + 卡片圆角 + 柔和阴影 + 卡片表面。做成贴边的裸条就会显得"毛坯"。
    控件等高 28px，共用一条水平基线。 */
+/* 页头行里的按钮是胶囊形（原版只有 .studio-header 上下文才这样） */
+.im-header .im-btn-ghost,
+.im-header .im-btn-primary {
+  border-radius: var(--im-r-pill);
+}
 .im-header {
   display: flex;
   align-items: center;
@@ -163,16 +189,23 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 4px;
   border: 0;
-  border-radius: var(--im-r-pill);
+  /* 圆角按原版分档：一般场景 ghost 10 / primary 11，只有页头那一行是胶囊。
+     见下面 .im-btn-ghost / .im-btn-primary / .is-pill 三条。 */
+  border-radius: var(--im-r-control);
   padding: 8px 16px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
   cursor: pointer;
   transition: color 0.35s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.3s ease;
+}
+/* 页头里的按钮才是胶囊（原版 .studio-header .btn-ghost 才有 999px） */
+.im-btn-primary.is-pill,
+.im-btn-ghost.is-pill {
+  border-radius: var(--im-r-pill);
 }
 .im-btn-primary::before,
 .im-btn-ghost::before {
@@ -190,6 +223,7 @@ body {
 .im-btn-ghost:hover:not(:disabled)::before { transform: scaleX(1); }
 
 .im-btn-primary {
+  border-radius: 11px;
   background: var(--im-brand);
   color: var(--im-on-brand);
   /* 涟漪层 = 品牌底上的前景色：浅色主题白、深色主题近黑。
@@ -201,6 +235,7 @@ body {
   box-shadow: 0 0 20px color-mix(in srgb, var(--im-brand) 40%, transparent);
 }
 .im-btn-ghost {
+  border-radius: 10px;
   background: transparent;
   color: var(--im-brand);
   --im-btn-fill: var(--im-brand);
@@ -215,8 +250,8 @@ body {
 .im-btn-primary:disabled,
 .im-btn-ghost:disabled { cursor: not-allowed; opacity: 0.5; }
 /* 尺寸档：工具栏 / 模态 / 行内小按钮 */
-.im-btn-sm { padding: 5px 12px; font-size: 12px; }
-.im-btn-xs { padding: 3px 8px; font-size: 11px; }
+.im-btn-sm { padding: 4px 12px; font-size: 12px; }
+.im-btn-xs { padding: 4px 8px; font-size: 11px; }
 /* 危险修饰：文字与涟漪同为红色，配合 ghost 使用 */
 .im-btn-danger { color: var(--im-danger); --im-btn-fill: var(--im-danger); }
 
@@ -278,12 +313,13 @@ body {
   width: 100%;
   box-sizing: border-box;
   border: 1px solid var(--im-line-strong);
-  border-radius: var(--im-r-control);
+  /* 原版 .field-control = rounded-lg（8px），不是 --r-control(10) */
+  border-radius: 8px;
   background: var(--im-surface);
   color: var(--im-ink);
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.6;
-  padding: 7px 10px;
+  padding: 8px 20px;
   resize: vertical;
   font-family: inherit;
   outline: none;
@@ -307,7 +343,7 @@ body {
 /* 一组同类字段的容器：参数说明里成组出现（接口三项、目录两项） */
 .im-fieldset {
   display: grid;
-  gap: 14px;
+  gap: 16px;
   padding-top: 12px;
   border-top: 1px solid var(--im-line);
 }
@@ -320,7 +356,7 @@ body {
 }
 .im-field-hint {
   margin: 5px 0 0;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
   color: var(--im-ink-3);
 }
@@ -338,22 +374,36 @@ body {
 .im-select {
   height: var(--im-h-ctl);
   max-width: 260px;
-  padding: 0 8px;
-  border-radius: var(--im-r-control);
+  padding: 0 10px;
+  border-radius: 8px;
   border: 1px solid var(--im-line-strong);
   background: var(--im-surface);
   color: var(--im-ink);
-  font-size: 12.5px;
+  font-size: 12px;
   transition: border-color 0.2s ease;
 }
 .im-select:hover { border-color: var(--im-ink-3); }
+
+/* 节点内的输入/下拉用紧凑档：原版 .studio-canvas .node-pop 把字号压到 12px、
+   横向内边距收成 8px —— 14px 在 7fr 列里会被截成「1024x1024 (1:1) (0…」。 */
+.im-field--compact,
+.im-canvas .im-field {
+  height: 30px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.im-canvas textarea.im-field {
+  height: auto;
+  padding: 8px;
+}
 
 /* ---------------- 节点卡片（照搬 .panel-card） ----------------
    三类节点共用同一块面板，靠内容区分，不靠色相——与 Imagora 一致。 */
 .im-panel-card {
   position: relative;
   border: 1px solid var(--im-line);
-  border-radius: var(--im-r-card);
+  /* 原版 .panel-card 的 18px 写在未分层规则里，压过 @layer 的 rounded-xl(12) */
+  border-radius: var(--im-r-surface);
   background: var(--im-surface);
   box-shadow: var(--im-shadow-card);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -375,7 +425,8 @@ body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 8px;
+  /* 原版缩略图是 .rounded（4px），不是 8 */
+  border-radius: 4px;
   background: var(--im-surface-inset);
   cursor: zoom-in;
 }
@@ -452,10 +503,12 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 20px;
+  /* 插件里的 chip 全部用作节点角标，对应原版 .chip--sm（18px），不是 .chip（28px） */
+  height: 18px;
   padding: 0 8px;
   border-radius: var(--im-r-pill);
-  font-size: 11px;
+  font-size: 10px;
+  font-weight: 600;
   line-height: 1;
   white-space: nowrap;
   background: var(--im-hover);
@@ -465,7 +518,7 @@ body {
 .im-chip.is-danger { background: color-mix(in srgb, var(--im-danger) 14%, transparent); color: var(--im-danger); }
 .im-chip.is-ok { background: color-mix(in srgb, var(--im-ok) 14%, transparent); color: var(--im-ok); }
 .im-chip.is-running { background: color-mix(in srgb, var(--im-brand) 12%, transparent); color: var(--im-brand); }
-.im-chip--sm { height: 18px; padding: 0 6px; font-size: 10.5px; }
+.im-chip--sm { height: 18px; padding: 0 6px; font-size: 10px; }
 
 /* ---------------- 画布本体 ---------------- */
 /* 画布本身是一块 panel-card：与 Imagora 的 .studio-canvas panel-card 同构，
@@ -476,7 +529,8 @@ body {
   min-height: 0;
   margin: 0 12px 12px;
   border: 1px solid var(--im-line);
-  border-radius: var(--im-r-card);
+  /* 原版 .studio-canvas 是 18px（不是 --r-card 的 16） */
+  border-radius: var(--im-r-surface);
   background: var(--im-surface);
   box-shadow: var(--im-shadow-card);
   overflow: hidden;
@@ -508,9 +562,10 @@ body {
 .react-flow__handle.im-handle {
   width: 32px;
   height: 12px;
-  border-radius: 6px;
+  /* 原版连接点是 4px 圆角 + 白色外环，没有边框 */
+  border-radius: 4px;
   background: var(--im-brand);
-  border: 1.5px solid var(--im-surface);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--im-surface) 85%, transparent);
   opacity: 0;
   transition: opacity 0.15s ease;
 }
@@ -614,8 +669,9 @@ body {
   flex-direction: column;
   align-items: stretch;
   min-width: 76px;
-  padding: 3px;
-  border-radius: var(--im-r-control);
+  padding: 0;
+  /* 原版 .react-flow__controls 是 11px；内边距由行自己带，容器不留 */
+  border-radius: var(--im-r-float);
   background: var(--im-surface);
   border: 1px solid var(--im-line);
   box-shadow: var(--im-shadow-card);
@@ -623,11 +679,19 @@ body {
 .im-dock-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  min-height: 26px;
+  /* 有图标之后必须左对齐：居中会让 9 行的图标与文字各自错开，看着参差 */
+  justify-content: flex-start;
+  gap: 4px;
+  /* 原版 .dock-row 固定 64×30：四位数百分比与两字标签都放得下，列宽也不会被撑开 */
+  width: 64px;
+  min-height: 30px;
   padding: 0 8px;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.02em;
   border: 0;
-  border-radius: 7px;
+  /* 原版 dock-row 不设圆角：圆角由容器 overflow:hidden 裁出来 */
+  border-radius: 0;
   background: transparent;
   color: var(--im-ink-2);
   font-size: 12px;
@@ -635,7 +699,25 @@ body {
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.im-dock-row:hover { background: var(--im-hover); color: var(--im-ink); }
+.im-dock-row-label {
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+/* 缩放读数：等宽数字 + 居中，百分比变化时列宽不跳 */
+.im-dock-row-value {
+  width: 100%;
+  text-align: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+/* hover 用品牌色淡底（原版 .react-flow__controls-button:hover 的做法） */
+.im-dock-row:hover {
+  background: color-mix(in srgb, var(--im-brand) 10%, transparent);
+  color: var(--im-brand);
+}
 .im-dock-row.is-on { color: var(--im-brand); font-weight: 600; }
 .im-dock-row--readout {
   cursor: default;
@@ -816,7 +898,9 @@ body {
   max-width: 320px;
   pointer-events: none;
 }
+/* 原版日志行带白色 text-shadow：点阵浅底上直接压灰字会糊，加一圈白晕才读得清 */
 .im-log-line {
+  text-shadow: 0 1px 3px color-mix(in srgb, var(--im-surface) 90%, transparent);
   font-size: 11px;
   line-height: 1.6;
   color: var(--im-ink-3);

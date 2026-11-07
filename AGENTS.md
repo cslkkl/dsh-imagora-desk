@@ -35,7 +35,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - 本地钩子（commit 前）：文本卫生、prettier、eslint、tsc、host 冒烟、bundle 冒烟，全绿。
 - CI：`.github/workflows/ci.yml`，只读；末段 `git diff --exit-code -- dist/client.js` 守住产物同步。
 - CI 状态以 Actions 徽章为准，不在这里抄结论；最近一次 main 的 push 为绿。
-- 冒烟数字：host 45 项、client 13 项。
+- 冒烟数字：host 45 项、client 16 项（含设计层 CSS 括号平衡一条）。
 - 渲染验收台：`scripts/harness-server.mjs` + 真实浏览器，实测建卡→运行→回流、四个对话框、Del 删除、粘贴导入、生成历史、滚轮缩放、左键平移、拖拽吸附与对齐线、锁定画布、成本徽章与预算闸门、裁剪/切分/放大/蒙版四个对话框。
 - 真实出图链路验证过两次（火山 Seedream 5.0 pro，1024x1024，单张 0.20 元）：一次走 imagora 配置，一次走插件内配置。
 
@@ -43,6 +43,12 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 
 - [x] 市场可搜索：自托管索引 + GitHub Pages，实测搜到并安装成功。发 npm 只是可选增强（`dsh plugin add dsh-imagora-desk` 直接装）
 - [ ] 未做自动化 UI 测试，验收台靠手工脚本驱动
+- [ ] 提示词卡缺原版的「生成中秒数占位块」（现在秒数塞在运行按钮文字里）
+- [ ] 预览遮罩只是「一张图 + 点击关闭」，原版 ZoomModal 有缩放/平移/复制/新标签
+- [ ] 图片节点蒙版角标不可点击：原版点一下清除，插件目前挂了蒙版就无法撤销
+- [ ] 保存弹窗缺「已有工作流列表」（原版可点选覆盖）
+- [ ] 生成历史计数在 footer，原版在 header；裁剪信息行在 body，原版在 footer 左侧
+- [ ] 可拖出按钮缺 grip 把手与呼吸光环（原版 hover 时右侧浮出圆形把手）
 
 功能对照全表 → [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md)
 
@@ -53,6 +59,8 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - 包名改了一处没改全 → 页面静默不出现插件。四处一起改：`package.json`、`cordis.patch.yml`、`build.mjs` 的 loader id、host 导出名。
 - 把 React 打进 bundle → 两份 React，hooks 直接报错。`react` / `react-dom` / `react/jsx-runtime` 必须 external。
 - 本机 pre-commit 装远端 hook 环境会失败（setuptools 取不到），钩子只用 `language: system`。
+- 设计层 CSS 少一个 `}` 会**静默**让它之后的所有规则失效，页面只是变丑、没有任何报错。冒烟里有一条括号平衡断言兜住；改完样式块一定要跑 `pnpm run test`。
+- 提示统一用原生 `title`，不要引入宿主气泡组件：两种并存会出现「有的秒出黑框、有的等 1~2 秒」。见 [决策](.agents/notes/2026-11-07-native-title-only.md)。
 - 索引别用 jsDelivr：JSON 请求实测 4 次挂 1 次（ECONNRESET），宿主读不到就在界面报「Could not fetch」。用 GitHub Pages（`pages.yml`），同一份文件连测 4 次全通。
 - 索引里的 commit 不能写「刚提交的 HEAD」：索引文件本身是提交的一部分，写进去那次提交又产生新 HEAD，永远落后一格。现在指向 v<version> tag 指向的提交，`market:fresh` 兜住存在性。
 

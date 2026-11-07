@@ -22,6 +22,14 @@ const PATHS: Record<string, string> = {
   crop: 'M6 3v13a2 2 0 002 2h13M3 6h13a2 2 0 012 2v13',
   grid: 'M4 4h16v16H4zM9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16',
   expand: 'M9 4H4v5M15 20h5v-5M4 4l6 6M20 20l-6-6',
+  // 控件坞那几行（原版 DockRow 每行都有 14px 图标，只留文字会比原版单薄一档）
+  zoomIn: 'M11 4.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM20 20l-4-4M8 11h6M11 8v6',
+  zoomOut: 'M11 4.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM20 20l-4-4M8 11h6',
+  focus: 'M12 3v3M12 18v3M3 12h3M18 12h3M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z',
+  magnet: 'M6 4v8a6 6 0 0012 0V4M6 4h4v8M18 4h-4v8',
+  lock: 'M7.5 11V8a4.5 4.5 0 019 0v3M5 11h14v9H5z',
+  unlock: 'M7.5 11V8a4.5 4.5 0 018.9-1M5 11h14v9H5z',
+  grip: 'M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01',
 }
 
 export function Icon({
