@@ -1,0 +1,75 @@
+{
+  "format": 1,
+  "title": {
+    "en": "Imagora Desk",
+    "zh": "Imagora 画布"
+  },
+  "description": {
+    "en": "A curated index hosted by the plugin author. Add it under Plugins → Custom plugin indexes.",
+    "zh": "插件作者自托管的索引。在「插件 → 自定义插件索引」里添加即可。"
+  },
+  "metadata": {
+    "categories": {
+      "ui": {
+        "title": {
+          "en": "Interface",
+          "zh": "界面"
+        }
+      }
+    },
+    "labels": {
+      "local": {
+        "title": {
+          "en": "Local",
+          "zh": "本地"
+        }
+      },
+      "byok": {
+        "title": {
+          "en": "BYOK",
+          "zh": "自备密钥"
+        }
+      }
+    },
+    "sortKeys": {}
+  },
+  "plugins": [
+    {
+      "name": "dsh-imagora-desk",
+      "title": {
+        "en": "Imagora Desk",
+        "zh": "Imagora 自由画布"
+      },
+      "description": {
+        "en": "Imagora's free-form canvas inside DSH: prompt cards and images on one infinite canvas where an edge means a reference. Fill in the endpoint and API Key on first open.",
+        "zh": "把 Imagora 的自由画布搬进 DSH：提示词卡与图片摊在一张无限画布上，连线即参考关系。首次打开填接口地址与 API Key 即可用。"
+      },
+      "icon": "./icon.svg",
+      "author": "cslkkl",
+      "homepage": "https://github.com/cslkkl/dsh-imagora-desk",
+      "repository": {
+        "url": "https://github.com/cslkkl/dsh-imagora-desk"
+      },
+      "metadata": {
+        "category": "ui",
+        "keywords": ["dsh", "deepseek-harness", "dsh-plugin", "imagora", "canvas", "image-generation"],
+        "labels": ["byok"],
+        "sortKeys": {}
+      },
+      "versions": [
+        {
+          "version": "0.1.0",
+          "publishTimestamp": 1794021497,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/cslkkl/dsh-imagora-desk",
+            "commit": "a2b8736afff65f03ca165c8a4ac88c3aeb944bb0"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.5 <0.3.0"
+          }
+        }
+      ]
+    }
+  ]
+}
