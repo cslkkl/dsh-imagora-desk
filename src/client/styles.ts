@@ -85,6 +85,27 @@ body {
 /* ---------------- 顶栏 ----------------
    与 Imagora 一样两行：上面一行页头（来源 / 模型 / 成本 / 设置），下面一行画布动作。
    行间距 2px、按钮间距 8px 都照原版（gap-2 / flex-col gap-2）。 */
+/* 品牌区：logo + 标题并排，与原版 studio-header 左端一致 */
+.im-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--im-h-ctl);
+  padding: 0 6px 0 0;
+  border: 0;
+  background: transparent;
+  color: var(--im-ink);
+  cursor: pointer;
+  flex: none;
+}
+.im-brand-title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--im-ink);
+}
+.im-brand:hover .im-brand-title { color: var(--im-brand); }
+
 .im-header {
   display: flex;
   align-items: center;
@@ -648,12 +669,57 @@ body {
 .im-dot.is-failed { background: var(--im-danger); }
 @keyframes im-pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.35 } }
 
+/* ============ 画布自定义鼠标指针（一套四态，原样照搬 Imagora） ============
+ * 无限画布底色浅、节点稀疏时系统箭头容易"视觉丢失"，这里把画布内所有状态都换成
+ * 自定义高对比光标：深灰（#1e293b）图形 + 白色外描边，品牌蓝点缀——
+ * 空白画布 = 十字准星（中心品牌色加号，与拖拽落点示意同款图形）；
+ * 节点悬浮 = 四向移动（可拖拽）；节点拖拽中 / 画布平移 = 四向 + 实心中心（按下态）；
+ * 连线悬浮 = 经典箭头（可点选/双击删除/端点接线）。
+ * data URI 无法引用 CSS 变量，点缀色用固定蓝；节点内输入框/按钮保留各自光标。
+ * 文件拖拽悬停在画布上时（.canvas-drop-active）切系统 copy 光标，比准星更明确"可以放进来"。
+ * !important 保证覆盖 @xyflow/react 自带样式（依赖注入顺序不受 import 位置控制）。 */
+.react-flow__pane {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M12 2v6M12 16v6M2 12h6M16 12h6' stroke='%23ffffff' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M12 2v6M12 16v6M2 12h6M16 12h6' stroke='%231e293b' stroke-width='2.2' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='12' r='4.6' fill='%23ffffff' stroke='%231e293b' stroke-width='1'/%3E%3Cpath d='M12 10.2v3.6M10.2 12h3.6' stroke='%233b82f6' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E")
+      12 12,
+    crosshair !important;
+}
+/* 节点悬浮：四向移动（图片/图片组/提示词卡片均可拖拽） */
+.react-flow__node {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5' stroke='%23ffffff' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5' stroke='%231e293b' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3' stroke='%231e293b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E")
+      12 12,
+    grab !important;
+}
+/* 节点拖拽中 / 左键拖拽平移中：四向 + 实心中心（按下状态） */
+.react-flow__node.dragging,
+.react-flow__pane.dragging {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5' stroke='%23ffffff' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5' stroke='%231e293b' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3' stroke='%231e293b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3Ccircle cx='12' cy='12' r='3.6' fill='%23ffffff' stroke='%231e293b' stroke-width='1.4'/%3E%3Ccircle cx='12' cy='12' r='1.8' fill='%233b82f6'/%3E%3C/svg%3E")
+      12 12,
+    grabbing !important;
+}
+/* 连线悬浮：经典箭头（可点选/双击删除/端点接线） */
+.react-flow__edge {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M4.5 2.5 20 12l-7.2 1.5 3.1 7.3-3.6 1.5-3.1-7.3-4.7 4.6z' stroke='%23ffffff' stroke-width='4' stroke-linejoin='round' fill='none'/%3E%3Cpath d='M4.5 2.5 20 12l-7.2 1.5 3.1 7.3-3.6 1.5-3.1-7.3-4.7 4.6z' fill='%231e293b' stroke='%231e293b' stroke-width='1.4' stroke-linejoin='round'/%3E%3C/svg%3E")
+      4 3,
+    pointer !important;
+}
+/* 节点内交互元素保留各自光标：输入类 = 文本，按钮 = 手型（不被节点移动光标覆盖） */
+.react-flow__node :is(input, textarea, select, [contenteditable]) {
+  cursor: text;
+}
+.react-flow__node button {
+  cursor: pointer;
+}
+/* 文件拖拽悬停在画布上：系统 copy 光标（!important 需压过上面的准星规则） */
+.im-canvas.is-drop-active .react-flow__pane {
+  cursor: copy !important;
+
 /* ---------------- 浮层 ---------------- */
 /* 提示条：中性表面 + 只有图标着色。整块色底在暗色主题下很脏，也像报错页。 */
 .im-banner {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
+  min-height: 30px;
   padding: 8px 12px;
   font-size: 12px;
   line-height: 1.6;
