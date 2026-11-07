@@ -23,8 +23,10 @@
 | 文件                     | 职责                                          |
 | ------------------------ | --------------------------------------------- |
 | `index.tsx`              | 状态与 refs、派生量、动作装配、ReactFlow 挂载 |
-| `toolbar.tsx`            | 工具栏，动作全部由 props 上抛                 |
-| `overlays.tsx`           | 空态、日志、toast、大图预览、顶部提示条       |
+| `toolbar.tsx`            | 顶栏，只放全局动作；动作全部由 props 上抛     |
+| `inspector.tsx`          | 右上角选中操作栏（选中 ≥1 个节点才出现）      |
+| `dock.tsx`               | 左下角缩放控件坞（带文字的一列）              |
+| `overlays.tsx`           | 空态、日志轮播、toast、大图预览、顶部提示条   |
 | `dialogs.tsx`            | 保存 / 加载 / 帮助三个对话框                  |
 | `node-types.ts`          | React Flow 的节点类型表                       |
 | `use-canvas-config.ts`   | 配置读取与来源、模型切换                      |
