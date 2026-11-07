@@ -352,6 +352,26 @@ try {
   check('补齐后不误判 missing', node?.data?.missing === false, String(node?.data?.missing))
 
   check('POST /recovery/save 未报错', noPath.status === 200)
+
+  // 蒙版：data URL 要能被解析成 Buffer；空串当作「不带蒙版」；坏数据要 400
+  const maskOk = await fetch(`${base}/generate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      prompt: 'smoke mask',
+      size: '1024x1024',
+      refIds: [uploaded.image.id],
+      mask: `data:image/png;base64,${PIXEL_PNG}`,
+    }),
+  })
+  check('POST /generate 收 data URL 形态的蒙版', maskOk.status === 200, String(maskOk.status))
+
+  const maskEmpty = await fetch(`${base}/generate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'smoke mask', size: '1024x1024', refIds: [uploaded.image.id], mask: '' }),
+  })
+  check('POST /generate 空蒙版当作不带', maskEmpty.status === 200, String(maskEmpty.status))
 } finally {
   server.close()
   for (const dir of [SANDBOX, FIXTURE_ROOT]) {

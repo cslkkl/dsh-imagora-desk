@@ -212,6 +212,18 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
         if (entry) refs.push(entry.absPath)
       }
       const outputDir = String(body.outputDir || '')
+      // 蒙版：data URL 或 base64 都能收，统一转成 Buffer 交给任务池
+      let mask = null
+      if (typeof body.mask === 'string' && body.mask.trim()) {
+        const raw = body.mask.trim()
+        const base64 = raw.includes(',') ? raw.slice(raw.indexOf(',') + 1) : raw
+        try {
+          mask = Buffer.from(base64, 'base64')
+        } catch {
+          return json(res, 400, { error: '蒙版数据解析失败' })
+        }
+        if (!mask.length) return json(res, 400, { error: '蒙版数据为空' })
+      }
       // 预算闸门：花到上限就别再发新任务。这里拦的是「提交」，不是「结果」——
       // 排队后再拦没有意义，钱已经花了。
       const budget = Number(getSettings()?.budget ?? 0)
@@ -223,7 +235,7 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
           spent,
         })
       }
-      const submitted = pool.submit({ prompt, size, quality, refs, outputDir })
+      const submitted = pool.submit({ prompt, size, quality, refs, outputDir, mask })
       return json(res, 200, submitted)
     }
 

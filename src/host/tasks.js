@@ -32,6 +32,8 @@ export class TaskPool {
       quality: input.quality,
       outputDir: input.outputDir || '',
       refs: Array.isArray(input.refs) ? input.refs : [],
+      // 蒙版（局部重绘）：Buffer 或 null。随任务快照保存，之后改画布不影响已提交的任务。
+      mask: Buffer.isBuffer(input.mask) && input.mask.length ? input.mask : null,
       createdAt: Date.now(),
       startedAt: null,
       finishedAt: null,
@@ -87,6 +89,7 @@ export class TaskPool {
         size: task.size,
         quality: task.quality,
         refs,
+        mask: task.mask || null,
       })
       // 结果同时落两处：assets/（画布引用）与用户指定的输出目录（可交付）
       const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)

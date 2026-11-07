@@ -41,6 +41,7 @@ import { CanvasToolbar } from './toolbar'
 import { Banner, EmptyState, LogPanel, PreviewOverlay, Toast } from './overlays'
 import { HelpDialog, LoadDialog, SaveDialog } from './dialogs'
 import { CropDialog } from './crop-dialog'
+import { MaskDialog } from './mask-dialog'
 import { HistoryDialog } from './history-dialog'
 import { SplitDialog } from './split-dialog'
 import { UpscaleDialog } from './upscale-dialog'
@@ -56,7 +57,7 @@ import { useCanvasKeys } from './use-canvas-keys'
 import { useCanvasWorkflow } from './use-canvas-workflow'
 
 type DialogState = {
-  kind: 'save' | 'load' | 'help' | 'settings' | 'import' | 'history' | 'crop' | 'split' | 'upscale'
+  kind: 'save' | 'load' | 'help' | 'settings' | 'import' | 'history' | 'crop' | 'split' | 'upscale' | 'mask'
   workflows?: { name: string; modified: string }[]
   /** 图片加工类对话框要处理的那张图 */
   target?: { nodeId: string; src: string; name: string }
@@ -319,7 +320,7 @@ export function CanvasApp() {
   // 三个动作都只是「打开对应对话框，把要处理的那张图带过去」，
   // 真正的像素处理在对话框里（本地 canvas，不走接口、不花钱）。
   const openImageOp = useCallback(
-    (kind: 'crop' | 'split' | 'upscale') => (nodeId: string) => {
+    (kind: 'crop' | 'split' | 'upscale' | 'mask') => (nodeId: string) => {
       const node = nodesRef.current.find(row => row.id === nodeId)
       if (!node || node.type !== 'image' || !node.data.url) {
         flash('这张图还没有可用的文件')
@@ -335,6 +336,7 @@ export function CanvasApp() {
       cropImage: openImageOp('crop'),
       splitImage: openImageOp('split'),
       upscaleImage: openImageOp('upscale'),
+      maskImage: openImageOp('mask'),
     }),
     [openImageOp],
   )
@@ -587,6 +589,27 @@ export function CanvasApp() {
             onConfirm={async (dataUrl, note) => {
               history.record()
               await addDataUrl(dataUrl, `${dialog.target!.name.replace(/\.[^.]+$/, '')}_up_${Date.now()}.png`)
+              setDialog(null)
+              flash(note)
+            }}
+          />
+        ) : null}
+        {dialog?.kind === 'mask' && dialog.target ? (
+          <MaskDialog
+            src={dialog.target.src}
+            name={dialog.target.name}
+            onClose={() => setDialog(null)}
+            onConfirm={async (maskDataUrl, note) => {
+              // 蒙版挂在图片节点上而不是提示词卡：它描述的是「这张图的哪块要改」，
+              // 换提示词重画同一块是常态，蒙版该跟着图走
+              history.record()
+              setNodes(current =>
+                current.map(row =>
+                  row.id === dialog.target!.nodeId && row.type === 'image'
+                    ? { ...row, data: { ...row.data, maskDataUrl } }
+                    : row,
+                ),
+              )
               setDialog(null)
               flash(note)
             }}

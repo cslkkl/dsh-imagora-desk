@@ -97,6 +97,8 @@ export interface SubmitInput {
   outputDir?: string
   /** 本画布当前已花多少（元）：host 用它判断是否撞到预算上限 */
   spent?: number
+  /** 蒙版 data URL：透明像素 = 要重绘的区域；空串表示不带 */
+  mask?: string
 }
 
 export const submitGenerate = (input: SubmitInput) =>

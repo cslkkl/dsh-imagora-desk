@@ -163,6 +163,8 @@ export function useGeneratedTasks({
           outputDir: node.data.outputDir,
           // 让 host 知道这个画布已经花了多少，撞到预算上限就当场拒掉
           spent: nodesRef.current.reduce((sum, row) => sum + Number(row.data?.cost ?? 0), 0),
+          // 蒙版挂在参考图节点上：取第一张带蒙版的图，局部重绘就按它来
+          mask: resolved.images.map(row => (row.type === 'image' ? row.data.maskDataUrl : '')).find(Boolean) || '',
         })
         taskIdsRef.current.set(nodeId, submitted.taskId)
         setNodes(current =>

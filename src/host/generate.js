@@ -47,7 +47,7 @@ function fail(status, detail) {
 /**
  * 生成一张图并返回二进制内容。
  * @param {object} config - loadImagoraConfig() 的结果
- * @param {{prompt: string, size: string, quality: string, refs: string[]}} input
+ * @param {{prompt: string, size: string, quality: string, refs: string[], mask?: Buffer|null}} input
  * @returns {Promise<{buffer: Buffer, ext: string, meta: object}>}
  */
 export async function generateImage(config, input) {
@@ -58,6 +58,7 @@ export async function generateImage(config, input) {
   }
   if (!config.baseUrl) throw new Error('当前 profile 没有接口地址，检查 imagora 的 config.json')
 
+  const maskBuffer = Buffer.isBuffer(input.mask) && input.mask.length ? input.mask : null
   const base = config.baseUrl.replace(/\/+$/, '')
   const payload = {
     model: config.model,
@@ -79,6 +80,11 @@ export async function generateImage(config, input) {
       const ext = extname(file).toLowerCase() || '.png'
       const type = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.webp' ? 'image/webp' : 'image/png'
       form.append('image', new Blob([buffer], { type }), basename(file))
+    }
+    // 蒙版：透明像素 = 要重绘的区域（与上游 images/edits 口径一致）。
+    // 只在有参考图时随形态发，否则 generations 不认这个字段。
+    if (maskBuffer) {
+      form.append('mask', new Blob([maskBuffer], { type: 'image/png' }), 'mask.png')
     }
     for (const [key, value] of Object.entries(payload)) form.append(key, String(value))
     response = await fetch(`${base}${config.apiPaths.edits}`, {
