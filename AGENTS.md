@@ -58,6 +58,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - `.env` 里 `ACTIVE_PROFILE` 指向的来源没有密钥时，画布顶部会提示；切来源即可，配置不需重填。
 - 冒烟脚本曾经隐式依赖本机其他项目的 `node_modules`：本机绿、CI 红。脚本只允许用本项目依赖。
 - 目录被 `dsh web` 通过 Junction 持有时改不了名：先移除插件解锁，改名后再装回去。
+- github.com:443 会连不上而 api.github.com 通：push 改走 `ssh://git@ssh.github.com:443/<owner>/<repo>.git`（本仓库 push 已指向它）。
 
 ## 文档地图
 
