@@ -66,6 +66,7 @@ dsh plugin --profile web add https://github.com/cslkkl/dsh-imagora-desk/releases
 | 运行              | 单卡「运行」；工具栏「全部运行」「运行所选」「取消全部」           |
 | 生成历史          | 磁盘上出过的图，筛选后多选放回画布                                 |
 | 成本              | 工具栏右侧显示本画布累计花费；设了预算上限会带进度条，超限拒新任务 |
+| 图片加工          | 图片节点悬停 → 裁剪 / 切分 / 放大 / 蒙版重绘，全部本地处理不花钱   |
 | 保存 / 加载       | 手动命名存工作流；改动另有自动恢复快照（留最近 5 份）              |
 
 ## 快捷键
@@ -91,7 +92,8 @@ dsh plugin --profile web add https://github.com/cslkkl/dsh-imagora-desk/releases
 
 ## 与 Imagora 的差距
 
-画布主干一致，差距集中在图片加工（裁剪 / 切分 / 放大 / 蒙版）与几个效率辅助功能。
+功能面已经对齐：58 项对照里没有「未实现」项了。剩下三处 🟡 是同一件事的两种做法
+（节点拖拽拉伸、加载同名工作流的二次确认、插件内配置时的价目显示），不是缺功能。
 逐项对照见 [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md)。
 
 ## 开发
