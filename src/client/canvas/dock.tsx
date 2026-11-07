@@ -1,8 +1,8 @@
-// 画布左下角的控件坞：照搬 Imagora 的 Controls 位置与内容。
+// 画布左下角的控件坞：照搬 Imagora 的 Controls 位置与**行序**。
 //
-// 原版把 React Flow 自带的三个图标按钮（+ / − / ⛶）全关掉，换成带文字的一列：
-// 「缩放读数 / 放大 / 缩小 / 适应 / 锁定 / 帮助」——原生图标按钮没有任何说明，
-// 混在一列里最难认。小地图与吸附开关也收到这里，不占顶栏。
+// 原版把 React Flow 自带的三个图标按钮（+ / − / ⛶）全关掉，换成带文字的一列，
+// 行序固定为：缩放读数 → 放大 → 缩小 → 适应 → 聚焦 → 吸附 → 地图 → 锁定 → 帮助。
+// 原生图标按钮没有任何说明，混在一列里最难认；行序也别随手调，用户是靠位置记的。
 import { primitives } from '../ui'
 
 export interface DockProps {
@@ -13,9 +13,11 @@ export interface DockProps {
   onZoomIn: () => void
   onZoomOut: () => void
   onFitView: () => void
+  /** 有选中就只看选中的，否则看全图 */
+  onFocusSelected: () => void
   onToggleSnap: () => void
-  onToggleLock: () => void
   onToggleMinimap: () => void
+  onToggleLock: () => void
   onOpenHelp: () => void
 }
 
@@ -36,6 +38,7 @@ function DockRow({
       className={`im-dock-row nodrag${active ? ' is-on' : ''}`}
       title={title}
       aria-label={title}
+      aria-pressed={active === undefined ? undefined : active}
       onClick={onClick}
     >
       {label}
@@ -55,15 +58,26 @@ export function CanvasDock(props: DockProps) {
       <DockRow label="放大" title="放大画布（滚轮同样可以缩放）" onClick={props.onZoomIn} />
       <DockRow label="缩小" title="缩小画布（滚轮同样可以缩放）" onClick={props.onZoomOut} />
       <DockRow label="适应" title="适应视图：把所有节点缩放到一屏可见" onClick={props.onFitView} />
+      <DockRow label="聚焦" title="聚焦（有选中时只看选中的，否则看全图）" onClick={props.onFocusSelected} />
       <DockRow
-        label="锁定"
-        title={canvasLocked ? '已锁定：只可缩放，拖动/连线/选中/平移都停了' : '锁定画布，防手抖'}
+        label="吸附"
+        title={snapEnabled ? '关闭拖拽吸附' : '开启拖拽吸附'}
+        active={snapEnabled}
+        onClick={props.onToggleSnap}
+      />
+      <DockRow
+        label="地图"
+        title={minimapOpen ? '隐藏小地图' : '显示小地图'}
+        active={minimapOpen}
+        onClick={props.onToggleMinimap}
+      />
+      <DockRow
+        label={canvasLocked ? '已锁' : '锁定'}
+        title={canvasLocked ? '解锁画布' : '锁定画布：防止误拖节点（滚轮缩放与「适应」仍然可用）'}
         active={canvasLocked}
         onClick={props.onToggleLock}
       />
-      <DockRow label="吸附" title="拖拽时按邻居对齐并画参考线" active={snapEnabled} onClick={props.onToggleSnap} />
-      <DockRow label="小地图" title="显示/隐藏左上角小地图" active={minimapOpen} onClick={props.onToggleMinimap} />
-      <DockRow label="帮助" title="操作帮助：画布 / 节点 / 连线 / 快捷键" onClick={props.onOpenHelp} />
+      <DockRow label="帮助" title="操作帮助与快捷键" onClick={props.onOpenHelp} />
     </div>
   )
 }

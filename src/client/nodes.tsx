@@ -154,31 +154,55 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
 /* ---------------- 图片组节点 ---------------- */
 export type GroupFlowNode = Node<CanvasGroupNodeData, 'group'>
 
+/**
+ * 图片组：照搬 Imagora 的 GroupNode。
+ *
+ * 用几张错位的背景卡把「这是一组、里面有 N 张」直接画出来，不靠读数字。
+ * 两条约束都是从原版注释里继承来的，别改回去：
+ *
+ * 1. **只往左上错开，不往右下**。右下会让叠卡伸出卡面、压到相邻节点，看起来像
+ *    「一堆没对齐的纸片糊在外面」。错开量由根节点的 pt-3 pl-3 预留出来，
+ *    所以叠卡永远落在节点边界以内。
+ * 2. **不旋转、各层同色**。旋转会让每组朝向都不一样（整块画布看着乱），
+ *    不同掺色叠起来会出现「底层发白、前两层发红」的割裂感。
+ *
+ * 夹到 3 张：张数是数据不能当渲染数量，40 张的组渲染 39 层合成层会掉帧。
+ */
+const STACK_STEP_PX = 4
+
 export const GroupNode = memo(function GroupNode({ id, data, selected }: NodeProps<GroupFlowNode>) {
   const actions = useActions()
   const mb = data.totalSize > 0 ? (data.totalSize / (1024 * 1024)).toFixed(1) : '0.0'
   const dup = data.duplicateCount ?? 0
+  const stackCount = Math.min(Math.max(data.imageCount - 1, 0), 3)
+
   return (
-    <div
-      className={`im-panel-card im-panel-card--group${selected ? ' is-selected' : ''}`}
-      style={{ width: 196, padding: 14 }}
-    >
+    <div className={`im-group-node${selected ? ' is-selected' : ''}`}>
       <Handles />
       <Rail>
         <RailButton label="删除图片组" danger onClick={() => actions.deleteNode(id)}>
           <Icon name="trash" />
         </RailButton>
       </Rail>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--im-brand-dark)' }}>{data.imageCount} 张图</div>
-        <div style={{ marginTop: 3, fontSize: 12 }} className="im-muted">
-          {mb} MB
+      {/* 叠卡与卡面同处一个定位父级：错开量落在根节点 padding 的预留区里，不越界 */}
+      <div className="im-group-stack">
+        {Array.from({ length: stackCount }, (_, index) => (
+          <div
+            key={index}
+            aria-hidden
+            className="im-group-stack-card"
+            style={{ transform: `translate(${-(index + 1) * STACK_STEP_PX}px, ${-(index + 1) * STACK_STEP_PX}px)` }}
+          />
+        ))}
+        <div className="im-group-face">
+          <div className="im-group-count">{data.imageCount} 张图</div>
+          <div className="im-group-size">{mb} MB</div>
+          {dup > 0 ? (
+            <span className="im-chip im-chip--sm is-brand im-group-dup" title={`已去重 ${dup} 张重复图片`}>
+              去重
+            </span>
+          ) : null}
         </div>
-        {dup > 0 ? (
-          <span className="im-chip is-brand" style={{ marginTop: 6 }}>
-            去重 {dup}
-          </span>
-        ) : null}
       </div>
     </div>
   )

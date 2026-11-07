@@ -1,14 +1,41 @@
 // 设置弹窗：填接口地址、API Key、模型，或切回 Imagora 的配置。
 //
-// 用官方的 SettingsValueField / SettingsSecretField：密钥框只报「已配置 / 未配置」，
+// 三个字段用自己的 input + .im-field；密钥框只报「已配置 / 未配置」，
 // 明文只在提交那一次离开输入框，不上屏、不回显。
 // 外壳与底部行动走 ModalShell：宽度由 size 档决定，按钮在 footer 槽位。
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { probeProvider, saveProvider, type ImagoraConfig } from '../api'
 import { errMessage } from '../lib/format'
-import { primitives } from '../ui'
 import { ModalShell } from './modal-shell'
 import { OutputDirRow } from './output-dir-row'
+
+/** 一个字段：标签在上、输入框、说明小字在下（与原版配置弹窗同一排布）。 */
+function Field({
+  id,
+  label,
+  hint,
+  state,
+  stateTone,
+  children,
+}: {
+  id: string
+  label: string
+  hint?: string
+  state?: string
+  stateTone?: 'ok' | 'warn'
+  children: ReactNode
+}) {
+  return (
+    <div>
+      <label className="im-label" htmlFor={id}>
+        {label}
+        {state ? <span className={`im-field-state is-${stateTone ?? 'ok'}`}>{state}</span> : null}
+      </label>
+      {children}
+      {hint ? <p className="im-field-hint">{hint}</p> : null}
+    </div>
+  )
+}
 
 export interface SettingsDialogProps {
   config: ImagoraConfig | null
@@ -18,7 +45,6 @@ export interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDialogProps) {
-  const ui = primitives()
   const provider = config?.provider
   const usingPlugin = config?.source === 'plugin'
 
@@ -112,36 +138,57 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
           {usingPlugin ? '当前用的是插件内配置。' : '当前用的是本机 Imagora 的配置。'}
         </p>
 
-        <ui.SettingsValueField
+        {/* 三个字段用自己的 input + .im-field，不再借宿主的 SettingsValueField：
+            那组组件是宿主设置页的排版，塞进画布弹窗里行高与标签位置都不一致，
+            而且密钥框的「已配置 / 未配置」语义我们自己一行小字就能表达清楚。 */}
+        <Field
           id="imagora-provider-base-url"
           label="接口地址"
           hint="OpenAI 兼容的图片接口根地址，通常以 /v1 结尾，例如 https://api.example.com/v1"
-          text={baseUrl}
-          placeholder="https://api.example.com/v1"
-          disabled={busy}
-          onEdit={(text: string) => setBaseUrl(text)}
-        />
+        >
+          <input
+            id="imagora-provider-base-url"
+            className="im-field"
+            value={baseUrl}
+            placeholder="https://api.example.com/v1"
+            disabled={busy}
+            onChange={event => setBaseUrl(event.target.value)}
+          />
+        </Field>
 
-        <ui.SettingsSecretField
+        <Field
           id="imagora-provider-api-key"
           label="API Key"
           hint="只存在本机 ~/.dsh/imagora/settings.json，不会回传页面，也不会进日志"
-          text={apiKey}
-          configured={Boolean(provider?.apiKeyConfigured)}
-          stateLabel={provider?.apiKeyConfigured ? '已配置（留空则保持不变）' : '未配置'}
-          disabled={busy}
-          onEdit={(text: string) => setApiKey(text)}
-        />
+          state={provider?.apiKeyConfigured ? '已配置（留空则保持不变）' : '未配置'}
+          stateTone={provider?.apiKeyConfigured ? 'ok' : 'warn'}
+        >
+          <input
+            id="imagora-provider-api-key"
+            className="im-field"
+            type="password"
+            value={apiKey}
+            autoComplete="off"
+            placeholder={provider?.apiKeyConfigured ? '留空则不修改' : '粘贴 API Key'}
+            disabled={busy}
+            onChange={event => setApiKey(event.target.value)}
+          />
+        </Field>
 
-        <ui.SettingsValueField
+        <Field
           id="imagora-provider-model"
           label="模型名"
           hint="上游要求的模型 id，例如 gpt-image-2.5-flare 或 doubao-seedream-5-0-pro-260628"
-          text={model}
-          placeholder="gpt-image-2.5-flare"
-          disabled={busy}
-          onEdit={(text: string) => setModel(text)}
-        />
+        >
+          <input
+            id="imagora-provider-model"
+            className="im-field"
+            value={model}
+            placeholder="gpt-image-2.5-flare"
+            disabled={busy}
+            onChange={event => setModel(event.target.value)}
+          />
+        </Field>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <button type="button" className="im-btn-ghost im-btn-sm" disabled={busy} onClick={() => void probe()}>
