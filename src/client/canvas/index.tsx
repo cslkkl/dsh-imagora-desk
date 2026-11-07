@@ -468,7 +468,16 @@ export function CanvasApp() {
           onOpenDefaultOutputDir={() => setDialog({ kind: 'settings' })}
           onSwitchProfile={name => void switchProfile(name)}
           onSwitchModel={model => void switchModel(model)}
-          onOpenSave={() => setDialog({ kind: 'save' })}
+          onOpenSave={async () => {
+            // 保存弹窗要列出已有工作流（同名可覆盖），所以先取一次列表；
+            // 读不到也照样能存 —— 只是少了「覆盖已有」这条捷径。
+            try {
+              const data = await listWorkflows()
+              setDialog({ kind: 'save', workflows: data.workflows })
+            } catch {
+              setDialog({ kind: 'save' })
+            }
+          }}
           onOpenLoad={async () => {
             try {
               const data = await listWorkflows()
@@ -667,7 +676,11 @@ export function CanvasApp() {
         />
         <PreviewOverlay preview={preview} onClose={() => setPreview(null)} />
         {dialog?.kind === 'save' ? (
-          <SaveDialog onCancel={() => setDialog(null)} onSubmit={name => void doSave(name)} />
+          <SaveDialog
+            workflows={dialog.workflows ?? []}
+            onCancel={() => setDialog(null)}
+            onSubmit={name => void doSave(name)}
+          />
         ) : null}
         {dialog?.kind === 'load' ? (
           <LoadDialog
