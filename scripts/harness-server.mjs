@@ -17,7 +17,13 @@ const MIME = {
   '.json': 'application/json; charset=utf-8',
 }
 
-// 占位图：优先 harness/dist/sample.png，缺失时退回内嵌 PNG。
+// 占位图：优先仓库里的 harness/sample.png（1600×1200，进版本控制），
+// 其次本地生成的 harness/dist/sample.png，最后才退回内嵌 PNG。
+//
+// 为什么必须有真尺寸的那张：内嵌兜底只有 64×64，所有与图片尺寸相关的验收
+// （缩放读数、适应窗口 vs 实际大小、缩略图比例）都会失去意义——
+// 曾因此把「读数恒 100%」误判成组件 bug。
+const SAMPLE_CANDIDATES = [join(ROOT, 'harness', 'sample.png'), join(ROOT, 'harness', 'dist', 'sample.png')]
 const FALLBACK_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAXklEQVR42u3OMQEAAAgDoC251a3gLwSgOXLVkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkiRJkqQvBw6hAAF3lVhIAAAAAElFTkSuQmCC',
   'base64',
@@ -33,8 +39,8 @@ const server = createServer(async (req, res) => {
   if (path.startsWith('/imagora/')) {
     const body = defineConfig(path, url)
     if (body === 'png') {
-      const samplePath = join(ROOT, 'harness', 'dist', 'sample.png')
-      const bytes = existsSync(samplePath) ? readFileSync(samplePath) : FALLBACK_PNG
+      const samplePath = SAMPLE_CANDIDATES.find(candidate => existsSync(candidate))
+      const bytes = samplePath ? readFileSync(samplePath) : FALLBACK_PNG
       res.setHeader('content-type', 'image/png')
       res.setHeader('cache-control', 'no-store')
       res.setHeader('content-length', bytes.length)
