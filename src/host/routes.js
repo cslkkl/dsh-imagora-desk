@@ -1,13 +1,16 @@
-// /imagora/* 接口：配置、上传、文件、生成任务、工作流、恢复快照。
+// /imagora/* 接口：配置、上传、文件、生成任务、工作流、恢复快照、生成历史。
+import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
-import { extname, join } from 'node:path'
+import { extname, isAbsolute, join, resolve } from 'node:path'
 import { applyProviderPatch } from './config.js'
 import { humanizeError, listModels } from './generate.js'
+import { collectAll, readLedger, readRaw, summarize } from './history.js'
 import { pickDirectory } from './picker.js'
 import { MIME, extOf } from './store.js'
 
 const MAX_JSON = 8_000_000
 const MAX_UPLOAD = 120_000_000
+const MAX_HISTORY_LIMIT = 500
 
 function json(res, status, body) {
   res.statusCode = status
@@ -97,6 +100,86 @@ function publicConfig(config) {
 export function createRouter({ store, pool, getConfig, getSettings, applySettings }) {
   /** registryId → absPath：给 hydrate 补节点上没存的路径用。 */
   const assetIndex = () => store.assetIndex()
+
+  /**
+   * 把账本一行里的路径解析成可用的绝对路径（照原版 resolve_history_asset_path）。
+   *
+   * 优先级：`outputAssetIds` → 注册表（`output/.assets` 里的永久副本）→ 回退 `output` 字段。
+   * 为什么注册表优先：原版的 output 路径指向「用户当时的导出目录」，那块最容易被
+   * 挪走/删掉；而 .assets 里那份是它的副本、不会跟着动。反过来判会把好图报成缺失。
+   *
+   * 回退路有个已知近似：原版用 `WORK_ROOT = Path.cwd()` 解析相对路径，我们不知道
+   * 原版进程当时的 cwd，只能用 imagora 目录近似。影响面被上一条压得很小
+   * （有 outputAssetIds 的行完全不看 output 字段）。
+   */
+  const resolveLedgerPath = (record, entries, imagoraRoot) => {
+    const rawIds = record.outputAssetIds
+    if (Array.isArray(rawIds)) {
+      for (const id of rawIds) {
+        const abs = entries.get(String(id))
+        if (abs && existsSync(abs)) return { absPath: abs, assetId: String(id) }
+      }
+    }
+    const raw = String(record.output || '').trim()
+    if (!raw) return { absPath: '', assetId: '' }
+    const abs = isAbsolute(raw) ? resolve(raw) : resolve(join(String(imagoraRoot || ''), raw))
+    return { absPath: existsSync(abs) ? abs : '', assetId: '' }
+  }
+
+  /** 一条账本记录 → 前端要的形状（含图片可用性、参考图、缺参考图标记）。 */
+  const presentRecord = (record, entries, imagoraRoot) => {
+    const output = resolveLedgerPath(record, entries, imagoraRoot)
+    const exists = Boolean(output.absPath)
+    // 图片走 id 时用 id 路由；只有路径走 path 路由（都由 store 的放行规则兜底）
+    const url = !exists
+      ? ''
+      : output.assetId
+        ? `/imagora/file?id=${encodeURIComponent(output.assetId)}`
+        : store.allowPath(output.absPath)
+          ? `/imagora/file?path=${encodeURIComponent(output.absPath)}`
+          : ''
+
+    const inputRefs = []
+    const rawIds = record.inputAssetIds
+    if (Array.isArray(rawIds)) {
+      for (const id of rawIds) {
+        const abs = entries.get(String(id))
+        if (!abs || !existsSync(abs)) continue
+        inputRefs.push({
+          id: String(id),
+          path: abs,
+          url: `/imagora/file?id=${encodeURIComponent(String(id))}`,
+        })
+      }
+    }
+    // 「声明了参考图却一张都找不回」：这条只能提示，没法重跑
+    const inputRefMissing =
+      record.mode === 'img2img' && (Number.parseInt(String(record.refs ?? 0), 10) || 0) > 0 && inputRefs.length === 0
+
+    // 只把列表要用的字段发出去：prompt 可能上千字，但它是历史的主要内容，
+    // 必须给；账本里其余字段（submissionId / win 等）对界面无用，不传。
+    return {
+      time: String(record.time ?? ''),
+      mode: String(record.mode ?? ''),
+      refs: Number.parseInt(String(record.refs ?? 0), 10) || 0,
+      prompt: String(record.prompt ?? ''),
+      size: String(record.size ?? ''),
+      quality: String(record.quality ?? ''),
+      status: String(record.status ?? ''),
+      cost: Number(record.cost) || 0,
+      seconds: Number(record.seconds) || 0,
+      output: String(record.output ?? ''),
+      exists,
+      path: output.absPath,
+      url,
+      // 有资产副本时给 id：前端据此把「导入画布」接回注册表条目
+      // （画布节点只存 registryId，没有 id 就没法建档 —— 只有路径的旧行只能看不能导）
+      assetId: exists ? output.assetId : '',
+      inputRefs,
+      inputRefMissing,
+    }
+  }
+
   return async function route(req, res) {
     const url = new URL(req.url || '/', 'http://local')
     const path = url.pathname.replace(/^\/imagora/, '') || '/'
@@ -209,8 +292,84 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
       return json(res, 200, { ok: removed })
     }
 
+    if (path === '/history' && method === 'GET') {
+      // 生成历史：读**账本**（logs/generation.jsonl），不是资产注册表。
+      // 两者不是一回事：账本一条 = 一次生成尝试（含失败、带提示词/成本/耗时），
+      // 注册表一条 = 一个存在的图片文件（无提示词）。原版历史列表读的是账本。
+      const config = getConfig()
+      const imagoraRoot = String(config.imagoraRoot || '').trim()
+      const limit = Math.min(MAX_HISTORY_LIMIT, Math.max(1, Number(url.searchParams.get('limit')) || 60))
+      const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0)
+      const query = url.searchParams.get('query') || ''
+      const status = url.searchParams.get('status') || ''
+
+      const { file, records } = await readLedger(imagoraRoot)
+      // 没有账本（没设 imagora 目录 / 原版没生成过图）：说清楚，让前端回落资产网格。
+      // 静默返回空列表会让用户以为「历史被清空了」。
+      if (!records.length) {
+        return json(res, 200, {
+          source: 'none',
+          ledgerPath: file,
+          items: [],
+          total: 0,
+          hasMore: false,
+        })
+      }
+      // 聚合后的完整列表：offset/limit 都作用在**聚合后**的数组上（与原版分页语义一致，
+      // 前端按已加载条数推进 offset 即可，不受聚合压缩影响）
+      const all = collectAll(records, { query, status })
+      const page = all.slice(offset, offset + limit)
+      // 注册表一次读入复用：逐条 resolve 每条都读盘会是卡顿主要来源
+      const entries = await assetIndex()
+      return json(res, 200, {
+        source: 'ledger',
+        ledgerPath: file,
+        items: page.map(record => presentRecord(record, entries, imagoraRoot)),
+        total: all.length,
+        hasMore: offset + page.length < all.length,
+      })
+    }
+
+    if (path === '/history/stats' && method === 'GET') {
+      // 成本看板：账本**原始行**聚合（不聚合、不截断）—— 每个成功行都真花过钱
+      const config = getConfig()
+      const imagoraRoot = String(config.imagoraRoot || '').trim()
+      const days = Number(url.searchParams.get('days')) || 14
+      const { records } = await readLedger(imagoraRoot)
+      const stats = summarize(readRaw(records), days)
+      const budget = Number(getSettings()?.budget ?? 0)
+      return json(res, 200, {
+        ...stats,
+        budget: {
+          limit: Number.isFinite(budget) && budget > 0 ? budget : 0,
+          spentToday: stats.todayCost,
+          remaining:
+            Number.isFinite(budget) && budget > 0 ? Math.round(Math.max(0, budget - stats.todayCost) * 100) / 100 : 0,
+        },
+      })
+    }
+
     if (path === '/file') {
       const id = url.searchParams.get('id') || ''
+      // 按路径取图：账本里没有 outputAssetIds 的旧行只有路径（原版同样按路径发图）。
+      // 放行规则与 id 那条同源（store.allowPath 只认 assets/ 与 output/ 之下），
+      // 所以用户在别的目录（比如「图片」文件夹）里的旧图会被拒绝 —— 这与原版的
+      // 「文件已移动」是同一件事，不是 bug。
+      const rawPath = url.searchParams.get('path') || ''
+      if (!id && rawPath) {
+        if (!store.allowPath(rawPath)) return json(res, 403, { error: '路径不在允许范围内' })
+        const absPath = resolve(rawPath)
+        const type = MIME[extname(absPath).toLowerCase()] || 'application/octet-stream'
+        res.setHeader('content-type', type)
+        res.setHeader('cache-control', 'private, max-age=3600')
+        res.setHeader('x-content-type-options', 'nosniff')
+        if (method === 'HEAD') return res.end()
+        store
+          .stream(absPath)
+          .on('error', () => res.end())
+          .pipe(res)
+        return undefined
+      }
       const entry = await store.assetById(id)
       if (!entry) return json(res, 404, { error: '图片不存在' })
       if (!store.allowPath(entry.absPath)) return json(res, 403, { error: '路径不在允许范围内' })
