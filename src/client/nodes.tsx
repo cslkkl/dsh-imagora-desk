@@ -30,6 +30,25 @@ export interface NodeActions {
 
 export const NodeActionContext = createContext<NodeActions | null>(null)
 
+/**
+ * LOD 抽象模式标志：缩到 10% 以下时节点降级为轻量卡片。
+ *
+ * **为什么走 context 而不是给每个节点传 prop**：`NODE_TYPES` 是模块级的稳定对象，
+ * 节点类型一旦变化，React Flow 会把**所有节点重挂载** —— 入场动画重播、节点上的
+ * 输入框失焦、正在敲的提示词丢掉。原版是把 `lod` 塞进 nodeTypes 的工厂函数里
+ * （每帧重建），他们那边节点组件是纯展示的，代价小；我们这里节点内有 textarea
+ * 与下拉框，重挂载的代价肉眼可见。
+ *
+ * 所以：**nodeTypes 保持稳定，lod 从 context 进来**。context 变化只触发重渲染，
+ * 不触发重挂载。
+ */
+export const LodContext = createContext(false)
+
+/** 读 LOD 标志（默认 false = 完整渲染） */
+function useLod(): boolean {
+  return useContext(LodContext)
+}
+
 function useActions(): NodeActions {
   const value = useContext(NodeActionContext)
   if (!value) throw new Error('dsh-imagora: 节点缺少画布上下文')
@@ -89,6 +108,7 @@ export type ImageFlowNode = Node<CanvasImageNodeData, 'image'>
 
 export const ImageNode = memo(function ImageNode({ id, data, selected }: NodeProps<ImageFlowNode>) {
   const actions = useActions()
+  const lod = useLod()
   const [broken, setBroken] = useState(false)
   const missing = data.missing || broken
   return (
@@ -128,30 +148,34 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
           蒙版
         </button>
       ) : null}
-      {/* 图片操作区：顺序与标签照原版（预览 → 裁剪 → 放大 → 切分 → 蒙版 → 替换 → 删除） */}
-      <Rail>
-        <RailButton label="预览大图" onClick={() => actions.zoomImage(id)}>
-          <Icon name="eye" />
-        </RailButton>
-        <RailButton label="裁剪图片" onClick={() => actions.cropImage(id)}>
-          <Icon name="crop" />
-        </RailButton>
-        <RailButton label="放大图片" onClick={() => actions.upscaleImage(id)}>
-          <Icon name="expand" />
-        </RailButton>
-        <RailButton label="切分图片" onClick={() => actions.splitImage(id)}>
-          <Icon name="grid" />
-        </RailButton>
-        <RailButton label="蒙版重绘" onClick={() => actions.maskImage(id)}>
-          <Icon name="wand" />
-        </RailButton>
-        <RailButton label="替换图片" onClick={() => actions.replaceImage(id)}>
-          <Icon name="image" />
-        </RailButton>
-        <RailButton label="删除图片" danger onClick={() => actions.deleteNode(id)}>
-          <Icon name="trash" />
-        </RailButton>
-      </Rail>
+      {/* LOD 抽象模式：去掉右侧操作栏（7 个 30px 按钮在 10% 下每颗不到 3px，
+          既点不到也看不清，却照样参与布局与合成）。缩略图、名称、引用行都留着 ——
+          缩远了要看的是「哪张图连着什么」，不是能对它做什么。 */}
+      {lod ? null : (
+        <Rail>
+          <RailButton label="预览大图" onClick={() => actions.zoomImage(id)}>
+            <Icon name="eye" />
+          </RailButton>
+          <RailButton label="裁剪图片" onClick={() => actions.cropImage(id)}>
+            <Icon name="crop" />
+          </RailButton>
+          <RailButton label="放大图片" onClick={() => actions.upscaleImage(id)}>
+            <Icon name="expand" />
+          </RailButton>
+          <RailButton label="切分图片" onClick={() => actions.splitImage(id)}>
+            <Icon name="grid" />
+          </RailButton>
+          <RailButton label="蒙版重绘" onClick={() => actions.maskImage(id)}>
+            <Icon name="wand" />
+          </RailButton>
+          <RailButton label="替换图片" onClick={() => actions.replaceImage(id)}>
+            <Icon name="image" />
+          </RailButton>
+          <RailButton label="删除图片" danger onClick={() => actions.deleteNode(id)}>
+            <Icon name="trash" />
+          </RailButton>
+        </Rail>
+      )}
       {/* 固定展示框：避免图片加载后撑高节点，object-contain 保留完整画面 */}
       <div
         className="im-thumb"
@@ -210,6 +234,7 @@ const STACK_STEP_PX = 4
 
 export const GroupNode = memo(function GroupNode({ id, data, selected }: NodeProps<GroupFlowNode>) {
   const actions = useActions()
+  const lod = useLod()
   const mb = data.totalSize > 0 ? (data.totalSize / (1024 * 1024)).toFixed(1) : '0.0'
   const dup = data.duplicateCount ?? 0
   const stackCount = Math.min(Math.max(data.imageCount - 1, 0), 3)
@@ -217,11 +242,14 @@ export const GroupNode = memo(function GroupNode({ id, data, selected }: NodePro
   return (
     <div className={`im-group-node${selected ? ' is-selected' : ''}`}>
       <Handles />
-      <Rail>
-        <RailButton label="删除图片组" danger onClick={() => actions.deleteNode(id)}>
-          <Icon name="trash" />
-        </RailButton>
-      </Rail>
+      {/* LOD 抽象模式：去掉悬停删除栏，只保留组本体（组节点本身已经足够轻量） */}
+      {lod ? null : (
+        <Rail>
+          <RailButton label="删除图片组" danger onClick={() => actions.deleteNode(id)}>
+            <Icon name="trash" />
+          </RailButton>
+        </Rail>
+      )}
       {/* 叠卡与卡面同处一个定位父级：错开量落在根节点 padding 的预留区里，不越界 */}
       <div className="im-group-stack">
         {Array.from({ length: stackCount }, (_, index) => (
@@ -267,8 +295,36 @@ const STATUS_TEXT: Record<string, string> = {
   failed: '失败',
 }
 
+/**
+ * LOD 抽象模式下的提示词摘要（照搬原版 `promptStatusSummary`）：
+ * 一行大字说状态，title 里带完整信息。
+ *
+ * 为什么"完成"要带张数：缩到这个倍率时节点卡本身只有屏幕上一两厘米，
+ * 能读到的只有中心和几个字。只写「完成」看不出生成了几张，得再点进去 ——
+ * 而抽象模式存在的意义恰恰是「扫一眼就知道全局跑到哪了」。
+ */
+function promptStatusSummary(data: CanvasPromptNodeData): { text: string; detail: string; tone: string } {
+  switch (data.status) {
+    case 'queued':
+      return { text: '排队中', detail: '排队中', tone: 'is-queued' }
+    case 'running':
+      return { text: '生成中', detail: '生成中', tone: 'is-running' }
+    case 'done':
+      return {
+        text: `完成 · ${data.resultCount ?? 0} 张`,
+        detail: `完成 · ${data.resultCount ?? 0} 张`,
+        tone: 'is-done',
+      }
+    case 'failed':
+      return { text: '失败', detail: data.message ? `失败：${data.message}` : '失败', tone: 'is-failed' }
+    default:
+      return { text: '就绪', detail: '就绪', tone: 'is-idle' }
+  }
+}
+
 export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeProps<PromptFlowNode>) {
   const actions = useActions()
+  const lod = useLod()
   const config = actions.config
   const busy = data.status === 'queued' || data.status === 'running'
   const sizes = config?.sizes ?? []
@@ -278,6 +334,28 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
       ? sizes
       : [...sizes, { value: data.size, label: `${data.size}（自定义）`, cost: 0 }]
   const qualityEffective = config?.qualityEffective !== false
+
+  /* LOD 抽象模式（照搬原版 PromptNode 的 lod 分支）：标题大字 + 状态居中，
+     不渲染表单、不出运行按钮；连接把手与拖拽照旧。
+     卡面尺寸不变（原版也是 `!w-[380px] min-h-[320px]`）—— 一缩尺寸，
+     进/出抽象模式时相邻节点会互相挤动，整块画布跳一下。 */
+  if (lod) {
+    const summary = promptStatusSummary(data)
+    return (
+      <div
+        className={`im-panel-card im-node-lod${selected ? ' is-selected' : ''}`}
+        style={{ width: 380, minHeight: 320, padding: 12, boxSizing: 'border-box' }}
+      >
+        <Handles />
+        <div className="im-lod-title" title={data.title ?? '提示词生成'}>
+          {data.title ?? '提示词生成'}
+        </div>
+        <div className={`im-lod-status ${summary.tone}`} title={summary.detail}>
+          {data.status === 'running' ? <Elapsed from={data.startedAtMs} /> : summary.text}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div

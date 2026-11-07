@@ -43,19 +43,33 @@ export function defineConfig(path, url) {
   }
 
   if (path === '/imagora/recovery/latest') {
+    // ⚠️ 这里的 edges **故意照抄原版 Imagora 真实存档的形态**：
+    // 每条边都带 `style.stroke: "var(--edge-stroke-idle)"` 与 `animated: true`。
+    // 原版从 edgeStyle 那次提交起把连线外观内联进 JSON，导出的工作流长这样。
+    // 插件没有 `--edge-stroke-*` 这组变量名，加载时如果不清洗，`var()` 解析失败会让
+    // 整条 stroke 声明作废 → 线整个消失（用户报的「新的工作流没有线」就是这个）。
+    // 夹具保留这份形态，验收台每渲染一次就等于跑一遍 sanitizeEdges 的回归。
+    const legacyEdge = (id, source, target) => ({
+      id,
+      source,
+      target,
+      className: '',
+      style: { stroke: 'var(--edge-stroke-idle)', strokeWidth: 1.5, opacity: 1 },
+      animated: true,
+    })
     return {
       ok: true,
       name: '自动恢复 验收台',
       savedAt: '2026-11-06T13:20:00.000Z',
       edges: [
-        { id: 'img-ref-1->prompt-1', source: 'img-ref-1', target: 'prompt-1', animated: true },
-        { id: 'img-ref-2->prompt-1', source: 'img-ref-2', target: 'prompt-1', animated: true },
+        legacyEdge('img-ref-1->prompt-1', 'img-ref-1', 'prompt-1'),
+        legacyEdge('img-ref-2->prompt-1', 'img-ref-2', 'prompt-1'),
         // 图片组：两张图汇进组，组自己再连到提示词卡（张数与大小由边聚合推导）
-        { id: 'img-ref-1->group-1', source: 'img-ref-1', target: 'group-1', animated: true },
-        { id: 'img-ref-2->group-1', source: 'img-ref-2', target: 'group-1', animated: true },
-        { id: 'img-out-1->group-1', source: 'img-out-1', target: 'group-1', animated: true },
-        { id: 'group-1->prompt-1', source: 'group-1', target: 'prompt-1', animated: true },
-        { id: 'prompt-1->img-out-1', source: 'prompt-1', target: 'img-out-1', animated: true },
+        legacyEdge('img-ref-1->group-1', 'img-ref-1', 'group-1'),
+        legacyEdge('img-ref-2->group-1', 'img-ref-2', 'group-1'),
+        legacyEdge('img-out-1->group-1', 'img-out-1', 'group-1'),
+        legacyEdge('group-1->prompt-1', 'group-1', 'prompt-1'),
+        legacyEdge('prompt-1->img-out-1', 'prompt-1', 'img-out-1'),
       ],
       nodes: [
         {

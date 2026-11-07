@@ -182,6 +182,41 @@ if (cssStart >= 0) {
   check('设计层 CSS 括号平衡', depth === 0 && !broke, `净深度 ${depth}`)
   // 末尾几条规则（浮层/胶囊/动效）最容易被前面的花括号事故连坐，抽查一条
   check('设计层尾部规则还在（落点胶囊）', cssText.includes('.im-drop-chip-host'))
+
+  /* ---------------- 连线：三条一起守 ----------------
+   *
+   * 这三条对应一次真事故：原版存档把连线外观内联成 `stroke: var(--edge-stroke-idle)`，
+   * 而插件把变量名收口成了 `--im-*`。`var()` 引用不存在的变量又没兜底 → 整条声明作废
+   * → stroke 回到 initial 的 none → **连线整条消失**，而且没有任何报错。
+   * 用户当时说的是「新的工作流加载后看不见线，旧的却能看见」——
+   * 差别就在于 10 月之后保存的那几份存档里带了这个内联值。 */
+
+  // 断言前先把注释剥掉：本文件里的规则**故意**在注释里引用了 `stroke-dasharray` 与
+  // `.react-flow__edge.animated` 来解释历史，直接扫原文会把解释文字当成真规则
+  // （踩过一次：断言红、代码是对的，白查一轮）。与 surfaceAudit 的做法一致。
+  const cssRules = cssText.replace(/\/\*[\s\S]*?\*\//g, '')
+
+  // 1) 旧变量名必须有别名兜底：任何一条漏掉，引用它的元素就会无声消失
+  for (const name of ['idle', 'hovered', 'selected']) {
+    check(
+      `旧连线 token 有别名兜底 --edge-stroke-${name}`,
+      new RegExp(`--edge-stroke-${name}:\\s*var\\(--im-edge-`).test(cssRules),
+    )
+  }
+
+  // 2) 流动虚线的画法交给 @xyflow/react，本层不许自己写 dasharray。
+  //    写过 6 4（选择器更具体，压过库里的 5），线段比原版长 20%、节奏也对不上。
+  check(
+    '设计层不覆盖 animated 连线的 stroke-dasharray（交给库的默认画法）',
+    !/\.react-flow__edge\.animated[^{]*\{[^}]*stroke-dasharray/.test(cssRules),
+  )
+
+  // 3) LOD 抽象模式的样式必须在（节点降级只改渲染，样式缺了就等于没做）
+  check('LOD 抽象卡样式在（.im-node-lod）', cssRules.includes('.im-node-lod'))
+  check(
+    'LOD 状态四色齐备',
+    ['is-queued', 'is-running', 'is-done', 'is-failed'].every(s => cssRules.includes(`.im-lod-status.${s}`)),
+  )
 }
 
 check('注册了 effect 清理', effects.length >= 2, effects.join(' | '))

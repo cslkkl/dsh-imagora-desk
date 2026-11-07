@@ -148,6 +148,60 @@ export function canvasEntriesToNodes(
   return created;
 }
 
+/** 存档里可能被写进 JSON 的「表现层字段」。原版 Imagora 从 edgeStyle 那次提交之后，
+ *  保存工作流时会把连线外观**内联进 JSON**：
+ *
+ *      "style": { "stroke": "var(--edge-stroke-idle)", "strokeWidth": 1.5, "opacity": 1 }
+ *
+ *  这些值是**原版自己的 CSS 变量名**。插件把设计层收口到 `--im-*` 之后并没有
+ *  `--edge-stroke-idle`，而 `var()` 没有兜底值、变量又不存在时，浏览器判整条声明
+ *  「计算值无效」→ `stroke` 回落到 initial 的 `none` → **连线整条消失**。
+ *
+ *  这不是猜的：实测同一条 path 上写 `stroke: var(--edge-stroke-idle)` 计算值是 `none`，
+ *  换成 `var(--im-edge-idle)` 立刻是 `rgb(129,133,140)`。用户看到的「新的工作流没有线、
+ *  旧的却有」正是这个 —— 10 月之后（原版加上 edgeStyle 之后）保存的 5 份存档里带这个
+ *  内联值，更早的存档没写，于是走我们的 CSS，一切正常。
+ *
+ *  处理方式：**加载时把这些字段全部丢掉**，不试图翻译颜色。
+ *  理由是职责划分 —— 连线的四态（idle / hover / selected / 降权）在插件里由
+ *  `styles.ts` 的 CSS 与 `LOD` 统一驱动，存档里那份快照是原版当时那一刻的**状态**
+ *  （可能恰好停在 hovered 上），照搬会把「保存瞬间鼠标停在哪儿」变成「这条线的永久颜色」。
+ *  丢掉之后所有连线回到同一个来源，也就不存在「老存档新存档长得不一样」。 */
+export interface PersistedEdgeStyle {
+  style?: Record<string, unknown>;
+  className?: unknown;
+  animated?: unknown;
+  markerEnd?: unknown;
+  markerStart?: unknown;
+}
+
+/** 剥掉连线上的表现层字段（纯函数：没有可剥的就返回原引用，避免无谓重渲染） */
+export function sanitizeEdges<E extends PersistedEdgeStyle>(edges: readonly E[]): E[] {
+  let changed = false;
+  const next = edges.map((edge) => {
+    const extras = edge as PersistedEdgeStyle;
+    const dirty =
+      extras.style !== undefined ||
+      extras.className !== undefined ||
+      extras.animated !== undefined ||
+      extras.markerEnd !== undefined ||
+      extras.markerStart !== undefined;
+    if (!dirty) return edge;
+    changed = true;
+    const cleaned = { ...edge } as PersistedEdgeStyle;
+    // 逐个 delete：`{...edge, style: undefined}` 会留下一个值为 undefined 的键，
+    // 而 React Flow 用 `{...defaultEdgeOptions, ...edge}` 合并 —— 值为 undefined 的键
+    // 会把默认值**覆盖成 undefined**，arrow/animated 这类默认项反而被抹掉。
+    delete cleaned.style;
+    delete cleaned.className;
+    delete cleaned.animated;
+    delete cleaned.markerEnd;
+    delete cleaned.markerStart;
+    return cleaned as E;
+  });
+  return changed ? next : (edges as E[]);
+}
+
 /** 工作流加载结果转画布：按 missing 列表给对应图片节点打标（红框提示文件缺失）；
  *  prompt 节点归一化（重置运行状态为 idle，位置/参数无损保留） */
 export function workflowToCanvas(
@@ -180,7 +234,7 @@ export function workflowToCanvas(
     }
     return base;
   });
-  return { nodes: marked, edges };
+  return { nodes: marked, edges: sanitizeEdges(edges) };
 }
 
 /** 更新单个提示词节点的 data（纯函数：不匹配/非提示词节点原样返回，避免无谓新引用）。
