@@ -56,11 +56,13 @@
   },
   "homepage": "https://github.com/cslkkl/dsh-imagora-desk#readme",
   "bugs": "https://github.com/cslkkl/dsh-imagora-desk/issues",
+  "icon": "./icon.svg",
   "files": [
     "src",
     "dist",
     "build.mjs",
     "cordis.patch.yml",
+    "icon.svg",
     "README.md",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md"

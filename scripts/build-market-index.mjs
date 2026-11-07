@@ -12,7 +12,7 @@
 // 用法：node scripts/build-market-index.mjs
 // 输出：market/index.json（提交进仓库，jsDelivr 直接可读，不用开 Pages）
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -95,6 +95,9 @@ const STAMP = commitTimestamp(COMMIT)
  * 图标：format 1 接受 base64 data URL 或绝对 URL。要控制体积，
  * 这里用相对路径，读取方会按索引 URL 解析成绝对地址。
  */
+// 图标只有一份：包根目录的 icon.svg（package.json 的 "icon" 也指向它）。
+// 这里把它同步到 market/ 下，索引里的相对路径才能解析到实际文件 ——
+// 两份手抄必然分叉，之前 market/icon.svg 就和包根那份长得不一样。
 const ICON = './icon.svg'
 
 const index = {
@@ -148,6 +151,16 @@ const outDir = join(ROOT, 'market')
 mkdirSync(outDir, { recursive: true })
 const outFile = join(outDir, 'index.json')
 writeFileSync(outFile, `${JSON.stringify(index, null, 2)}\n`, 'utf8')
+
+// 图标与包根那份保持一致：从根复制，而不是在 market/ 里另维护一份
+const iconSrc = join(ROOT, 'icon.svg')
+const iconDst = join(outDir, 'icon.svg')
+if (existsSync(iconSrc)) {
+  writeFileSync(iconDst, readFileSync(iconSrc))
+} else {
+  console.error('build-market-index: 包根缺少 icon.svg')
+  process.exit(1)
+}
 
 console.log(`[market] ${pkg.name}@${pkg.version} → market/index.json`)
 console.log(
