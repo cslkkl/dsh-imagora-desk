@@ -5,7 +5,6 @@
 //
 // 与 Imagora 的对应关系（改这里前先看上游同名类，别各写一份）：
 //   .im-toolbar      ← 顶栏：胶囊按钮一行，次要行动是 brand 文字 + hover 涟漪
-//   .im-hint         ← 顶栏下的操作提示条（画布 / 节点 / 连线 / 快捷键）
 //   .im-panel-card   ← .panel-card：白底、细边框、圆角 16、柔和双层阴影
 //   .im-btn-primary  ← .btn-primary：胶囊实底白字，hover 白色涟漪从中心向左右展开
 //   .im-btn-ghost    ← .btn-ghost：无边框胶囊、brand 文字，hover 涟漪填充 + 反白
@@ -87,19 +86,6 @@ body {
   flex: none;
 }
 
-/* 操作提示条：与 Imagora 一样常驻一行小字，把画布/节点/连线的用法摆在眼前 */
-.im-hint {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 14px;
-  padding: 6px 12px 7px;
-  font-size: 11.5px;
-  line-height: 1.6;
-  color: var(--im-ink-3);
-  background: var(--im-surface);
-  border-bottom: 1px solid var(--im-line);
-}
-.im-hint b { color: var(--im-ink-2); font-weight: 600; }
 
 /* ---------------- 行动按钮体系（照搬 btn-primary / btn-ghost 两档） ----------------
    两档同源：胶囊圆角 + 主体色 + hover 涟漪反转。

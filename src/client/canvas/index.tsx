@@ -71,7 +71,8 @@ export function CanvasApp() {
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null)
   const [zoom, setZoom] = useState(1)
-  const [minimapOpen, setMinimapOpen] = useState(true)
+  // 小地图默认关（与 Imagora 一致：卡片铺开了才需要它，平时白占地方）
+  const [minimapOpen, setMinimapOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [snapEnabled, setSnapEnabled] = useState(() => readSnapEnabled())
@@ -417,21 +418,9 @@ export function CanvasApp() {
           onOpenHelp={() => setDialog({ kind: 'help' })}
         />
         {configError ? <Banner tone="error">{configError}</Banner> : null}
-        {/* 操作提示条：与 Imagora 一样常驻一行小字，把画布/节点/连线/快捷键的用法摆在眼前 */}
-        <div className="im-hint">
-          <span>
-            <b>画布</b> 滚轮缩放 · 左键拖空白平移 · Shift+拖拽框选 · 双击图片放大
-          </span>
-          <span>
-            <b>节点</b> 悬停右侧操作栏 · Del 删除选中
-          </span>
-          <span>
-            <b>连线</b> 图片/图片组 → 提示词（参考图）· 提示词 → 图片（产出）
-          </span>
-          <span>
-            <b>快捷键</b> Ctrl+A 全选 · Ctrl+Z/Y 撤销恢复 · Ctrl+S 保存
-          </span>
-        </div>{' '}
+        {/* 不设常驻提示条：Imagora 把这一行删了（占画布高度、浮层还会被画布盖住），
+            用法收进左下角控件坞的「帮助」弹窗里 */}
+
         {restored && !configError ? (
           <Banner
             tone="warn"
@@ -522,8 +511,18 @@ export function CanvasApp() {
           >
             <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
             <Controls position="bottom-left" showInteractive={false} />
+            {/* 小地图放左上（Imagora 的位置）：右下角留给日志，那是「刚刚发生了什么」的即时反馈，
+                被小地图压住就读不到了；左下角是缩放控件栈，右上角是选中操作栏。 */}
             {minimapOpen ? (
-              <MiniMap pannable zoomable position="bottom-right" style={{ width: 160, height: 110 }} />
+              <MiniMap
+                pannable
+                zoomable
+                position="top-left"
+                style={{ width: 160, height: 110 }}
+                nodeColor={node => (node.type === 'prompt' ? 'var(--im-brand)' : 'var(--im-ink-3)')}
+                maskColor="rgba(31, 41, 55, 0.08)"
+                nodeStrokeWidth={2}
+              />
             ) : null}
             <SnapGuideLayer guides={guides} />
           </ReactFlow>
