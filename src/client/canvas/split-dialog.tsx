@@ -82,7 +82,7 @@ export function SplitDialog({ src, onClose, onConfirm }: SplitDialogProps) {
   const total = cols * rows
 
   return (
-    <ui.Modal open onClose={onClose} title="切分图片" className="im-modal">
+    <ui.Modal open onClose={onClose} title="切分图片">
       <div style={{ display: 'grid', gap: 12, width: 640, maxWidth: '84vw' }}>
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
           <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
@@ -174,13 +174,13 @@ export function SplitDialog({ src, onClose, onConfirm }: SplitDialogProps) {
           <span style={{ marginRight: 'auto', fontSize: 11.5, color: 'var(--im-ink-3)' }}>
             切出来的每一块都会作为独立图片节点放入画布
           </span>
-          <ui.Button type="button" size="sm" variant="toolbar" className="im-secondary" onClick={onClose}>
+          <ui.Button type="button" size="sm" variant="toolbar" onClick={onClose}>
             取消
           </ui.Button>
           <ui.Button
             type="button"
             size="sm"
-            className="im-primary"
+
             disabled={busy || !size || total < 2}
             onClick={() => void confirm()}
           >

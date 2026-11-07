@@ -134,7 +134,7 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
   const pxH = size ? Math.round(crop.height * size.height) : 0
 
   return (
-    <ui.Modal open onClose={onClose} title="裁剪图片" className="im-modal">
+    <ui.Modal open onClose={onClose} title="裁剪图片">
       <div style={{ display: 'grid', gap: 12, width: 720, maxWidth: '86vw' }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={{ fontSize: 12, color: 'var(--im-ink-3)' }}>比例</span>
@@ -143,8 +143,7 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
               key={row.label}
               type="button"
               size="sm"
-              variant="toolbar"
-              className={row.ratio === ratio ? 'im-primary' : 'im-secondary'}
+              variant={row.ratio === ratio ? 'primary' : 'toolbar'}
               onClick={() => applyRatio(row.ratio)}
             >
               {row.label}
@@ -222,13 +221,13 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
         {error ? <p style={{ margin: 0, fontSize: 12, color: 'var(--im-danger)' }}>{error}</p> : null}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <ui.Button type="button" size="sm" variant="toolbar" className="im-secondary" onClick={onClose}>
+          <ui.Button type="button" size="sm" variant="toolbar" onClick={onClose}>
             取消
           </ui.Button>
           <ui.Button
             type="button"
             size="sm"
-            className="im-primary"
+
             disabled={busy || !size || pxW < 8 || pxH < 8}
             onClick={() => void confirm()}
           >

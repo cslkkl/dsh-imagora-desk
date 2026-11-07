@@ -1,5 +1,6 @@
 // 三类画布节点：图片 / 提示词 / 图片组。
-// 画布把回调放在 context 里，节点组件只认 NodeProps —— 与 React Flow 的约定一致。
+// 标记照搬 Imagora 的 CanvasNodes.tsx（panel-card + 右侧 hover 操作栏 + 状态灯），
+// 只把取数与动作换成画布 context —— 这是跑在插件里必须改的一处。
 import { createContext, memo, useContext, useEffect, useState } from 'react'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import type { CanvasGroupNodeData, CanvasImageNodeData, CanvasPromptNodeData } from './lib/types'
@@ -39,8 +40,9 @@ function Handles() {
   )
 }
 
+/** 右侧竖排操作栏：竖排只占右侧一条窄带，不会在 380px 宽的卡片上方压住邻居节点。 */
 function Rail({ children }: { children: React.ReactNode }) {
-  return <div className="im-rail">{children}</div>
+  return <div className="im-rail nodrag">{children}</div>
 }
 
 function RailButton({
@@ -79,17 +81,17 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
   const missing = data.missing || broken
   return (
     <div
-      className={`im-card im-card--image${selected ? ' is-selected' : ''}${missing ? ' is-missing' : ''}`}
+      className={`im-panel-card${selected ? ' is-selected' : ''}${missing ? ' is-missing' : ''}`}
       style={{ padding: 8, width: 148 }}
     >
       <Handles />
       {missing ? (
-        <span className="im-chip is-danger" style={{ position: 'absolute', right: 6, top: 6, zIndex: 2 }}>
+        <span className="im-chip is-danger" style={{ position: 'absolute', right: 6, top: 6, zIndex: 20 }}>
           文件缺失
         </span>
       ) : null}
       {data.maskDataUrl ? (
-        <span className="im-chip is-brand" style={{ position: 'absolute', left: 6, top: 6, zIndex: 2 }}>
+        <span className="im-chip is-brand" style={{ position: 'absolute', left: 6, top: 6, zIndex: 20 }}>
           蒙版
         </span>
       ) : null}
@@ -116,6 +118,7 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
           <Icon name="trash" />
         </RailButton>
       </Rail>
+      {/* 固定展示框：避免图片加载后撑高节点，object-contain 保留完整画面 */}
       <div
         className="im-thumb"
         onDoubleClick={event => {
@@ -138,20 +141,10 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
           </span>
         )}
       </div>
-      <div
-        style={{
-          marginTop: 5,
-          fontSize: 11,
-          color: 'var(--im-ink-2)',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-        title={data.name}
-      >
+      <div className="im-thumb-label" title={data.name}>
         {data.name}
       </div>
-      <div style={{ fontSize: 11, color: data.refCount > 0 ? 'var(--im-prompt)' : 'var(--im-ink-3)' }}>
+      <div style={{ fontSize: 11, color: data.refCount > 0 ? 'var(--im-brand)' : 'var(--im-ink-3)' }}>
         {data.refCount > 0 ? `引用 ${data.refCount} 处` : '未引用'}
       </div>
     </div>
@@ -167,8 +160,8 @@ export const GroupNode = memo(function GroupNode({ id, data, selected }: NodePro
   const dup = data.duplicateCount ?? 0
   return (
     <div
-      className={`im-card im-card--group${selected ? ' is-selected' : ''}`}
-      style={{ width: 196, padding: 14, background: 'var(--im-group-soft)' }}
+      className={`im-panel-card im-panel-card--group${selected ? ' is-selected' : ''}`}
+      style={{ width: 196, padding: 14 }}
     >
       <Handles />
       <Rail>
@@ -177,12 +170,12 @@ export const GroupNode = memo(function GroupNode({ id, data, selected }: NodePro
         </RailButton>
       </Rail>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--im-group)' }}>{data.imageCount} 张图</div>
+        <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--im-brand-dark)' }}>{data.imageCount} 张图</div>
         <div style={{ marginTop: 3, fontSize: 12 }} className="im-muted">
           {mb} MB
         </div>
         {dup > 0 ? (
-          <span className="im-chip is-brand" style={{ marginTop: 5 }}>
+          <span className="im-chip is-brand" style={{ marginTop: 6 }}>
             去重 {dup}
           </span>
         ) : null}
@@ -225,23 +218,25 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
   const qualityEffective = config?.qualityEffective !== false
 
   return (
-    <div className={`im-card im-card--prompt${selected ? ' is-selected' : ''}`} style={{ width: 340, padding: 10 }}>
+    <div
+      className={`im-panel-card${selected ? ' is-selected' : ''}`}
+      style={{ width: 380, padding: 12, boxSizing: 'border-box' }}
+    >
       <Handles />
+      {/* 右侧操作区：状态灯 + 删除 */}
       <Rail>
-        {' '}
         <span className={`im-dot is-${data.status}`} title={STATUS_TEXT[data.status] ?? ''} />
         <RailButton label="删除提示词" danger onClick={() => actions.deleteNode(id)}>
           <Icon name="trash" />
         </RailButton>
       </Rail>
 
-      <div className="im-row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
-        <span className="im-node-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {data.title ?? '提示词生成'}
-        </span>
-        <span className="im-chip is-brand">
-          {data.status === 'running' ? <Elapsed from={data.startedAtMs} /> : (STATUS_TEXT[data.status] ?? '就绪')}
-        </span>
+      {/* 标题只做定位标签：完整提示词就在下方 textarea 里可见可编辑 */}
+      <div
+        className="im-node-title"
+        style={{ marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+      >
+        {data.title ?? '提示词生成'}
       </div>
 
       <textarea
@@ -254,9 +249,14 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
 
       <div
         className="nodrag"
-        style={{ display: 'grid', gap: 6, gridTemplateColumns: qualityEffective ? '1fr 84px' : '1fr', marginTop: 6 }}
+        style={{
+          display: 'grid',
+          gap: 8,
+          gridTemplateColumns: qualityEffective ? '7fr 3fr' : '1fr',
+          marginTop: 8,
+        }}
       >
-        <div>
+        <div style={{ minWidth: 0 }}>
           <span className="im-label">尺寸</span>
           <select
             className="im-select"
@@ -272,7 +272,7 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
           </select>
         </div>
         {qualityEffective ? (
-          <div>
+          <div style={{ minWidth: 0 }}>
             <span className="im-label">质量</span>
             <select
               className="im-select"
@@ -290,7 +290,7 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
         ) : null}
       </div>
 
-      <div className="nodrag" style={{ marginTop: 6 }}>
+      <div className="nodrag" style={{ marginTop: 8 }}>
         <span className="im-label">输出路径（留空 = 只留在画布）</span>
         <input
           className="im-field"
@@ -304,10 +304,10 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
         <div style={{ marginTop: 6, fontSize: 11, color: 'var(--im-danger)', lineHeight: 1.5 }}>{data.message}</div>
       ) : null}
 
-      <div className="nodrag im-row" style={{ marginTop: 8 }}>
+      <div className="nodrag" style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
         <button
           type="button"
-          className="im-btn is-primary nodrag"
+          className="im-btn-primary im-btn-sm nodrag"
           style={{ flex: 1 }}
           disabled={busy || !data.prompt.trim()}
           onClick={event => {
@@ -315,7 +315,6 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
             actions.runPrompt(id)
           }}
         >
-          <Icon name="play" />
           {data.status === 'running' ? (
             <Elapsed from={data.startedAtMs} />
           ) : data.status === 'queued' ? (
@@ -327,7 +326,7 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
         {busy ? (
           <button
             type="button"
-            className="im-btn nodrag"
+            className="im-btn-ghost im-btn-sm nodrag"
             disabled={data.cancelRequested === true}
             title="排队中的不会再发出去；生成中的会等当前这张跑完才作废"
             onClick={event => {

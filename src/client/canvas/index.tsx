@@ -416,18 +416,27 @@ export function CanvasApp() {
           onOpenHistory={() => setDialog({ kind: 'history' })}
           onOpenHelp={() => setDialog({ kind: 'help' })}
         />
-
         {configError ? <Banner tone="error">{configError}</Banner> : null}
+        {/* 操作提示条：与 Imagora 一样常驻一行小字，把画布/节点/连线/快捷键的用法摆在眼前 */}
+        <div className="im-hint">
+          <span>
+            <b>画布</b> 滚轮缩放 · 左键拖空白平移 · Shift+拖拽框选 · 双击图片放大
+          </span>
+          <span>
+            <b>节点</b> 悬停右侧操作栏 · Del 删除选中
+          </span>
+          <span>
+            <b>连线</b> 图片/图片组 → 提示词（参考图）· 提示词 → 图片（产出）
+          </span>
+          <span>
+            <b>快捷键</b> Ctrl+A 全选 · Ctrl+Z/Y 撤销恢复 · Ctrl+S 保存
+          </span>
+        </div>{' '}
         {restored && !configError ? (
           <Banner
             tone="warn"
             action={
-              <button
-                type="button"
-                className="im-btn is-ghost"
-                style={{ height: 22 }}
-                onClick={() => setRestored(null)}
-              >
+              <button type="button" className="im-btn-ghost im-btn-xs" onClick={() => setRestored(null)}>
                 知道了
               </button>
             }
@@ -435,7 +444,6 @@ export function CanvasApp() {
             已恢复上次画布
           </Banner>
         ) : null}
-
         <div className="im-canvas" ref={flowRef} onDragOver={event => event.preventDefault()} onDrop={onDrop}>
           <ReactFlow
             nodes={renderNodes}
@@ -524,7 +532,6 @@ export function CanvasApp() {
           <LogPanel logs={logs} onClear={() => setLogs([])} />
           <Toast text={toast} />
         </div>
-
         <input
           ref={fileInputRef}
           type="file"
@@ -537,9 +544,7 @@ export function CanvasApp() {
             void addImages(files, createPosition())
           }}
         />
-
         <PreviewOverlay preview={preview} onClose={() => setPreview(null)} />
-
         {dialog?.kind === 'save' ? (
           <SaveDialog onCancel={() => setDialog(null)} onSubmit={name => void doSave(name)} />
         ) : null}
