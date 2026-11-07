@@ -39,7 +39,7 @@ export function SelectionInspector(props: InspectorProps) {
       <button
         type="button"
         className="im-btn-ghost im-btn-sm nodrag"
-        title="局部整理选中的节点，其余保持原位"
+        title="局部整理选中的节点，其余保持原位（同层提示词卡片按左上角标题从左到右）"
         onClick={props.onAutoLayout}
       >
         自动整理{suffix(selectedCount)}
@@ -63,12 +63,7 @@ export function SelectionInspector(props: InspectorProps) {
           {pickingOutputDir ? '选择中…' : `设置输出路径${suffix(selectedPromptCount)}`}
         </button>
       ) : null}
-      <button
-        type="button"
-        className="im-btn-ghost im-btn-danger im-btn-sm nodrag"
-        title="删除选中的所有节点（含图片、图片组）"
-        onClick={props.onDeleteSelected}
-      >
+      <button type="button" className="im-btn-ghost im-btn-danger im-btn-sm nodrag" onClick={props.onDeleteSelected}>
         删除所选{suffix(selectedCount)}
       </button>
     </div>

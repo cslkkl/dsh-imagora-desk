@@ -597,6 +597,7 @@ export function CanvasApp() {
                 被小地图压住就读不到了；左下角是缩放控件栈，右上角是选中操作栏。 */}
             {minimapOpen ? (
               <MiniMap
+                ariaLabel="画布小地图"
                 pannable
                 zoomable
                 position="top-left"

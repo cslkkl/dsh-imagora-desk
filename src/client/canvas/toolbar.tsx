@@ -51,14 +51,20 @@ export function CanvasToolbar(props: ToolbarProps) {
   const { config, promptCount, runnableIds, busyIds, canUndo, canRestore } = props
 
   /** 次要行动：原版的 .btn-ghost（胶囊 + 主体色文字 + hover 涟漪反白） */
-  const tool = (label: string, onClick: () => void, extra?: Record<string, unknown>) => (
+  /**
+   * 次要行动：原版的 `.btn-ghost`（胶囊 + 主体色文字 + hover 涟漪反白）。
+   *
+   * 提示文案必传、且必须是「补充信息」：原版只给语义不明的控件挂 title，
+   * 按钮上已经写着的字再重复一遍是噪音。所以这里没有 `title={label}` 的默认值——
+   * 有默认值就一定会有人漏传，然后退回成噪音。
+   */
+  const tool = (label: string, onClick: () => void, opts: { title: string; disabled?: boolean; primary?: boolean }) => (
     <button
       type="button"
-      className="im-btn-ghost im-btn-sm nodrag"
-      title={label}
-      aria-label={label}
+      className={`${opts.primary ? 'im-btn-primary' : 'im-btn-ghost'} im-btn-sm nodrag`}
+      title={opts.title}
+      disabled={opts.disabled}
       onClick={onClick}
-      {...extra}
     >
       {label}
     </button>
@@ -114,7 +120,12 @@ export function CanvasToolbar(props: ToolbarProps) {
       {/* ---------- 第二行：画布工具栏（左创建 / 右工作流，与 Imagora 同序） ---------- */}
       <div className="im-toolbar">
         <div className="im-toolbar-group">
-          {tool('上传图片', props.onPickFiles, { title: '从本机选图片放上画布（也可直接拖入或粘贴）' })}
+          {/* 原版这里只有「上传图片」是主行动（btn-primary），其余都是次要的 ghost。
+              之前把它做成 ghost、反而把「全部运行」做成 primary，视觉重心落在了错误的一侧。 */}
+          {tool('上传图片', props.onPickFiles, {
+            title: '从本机选图片放上画布（也可直接拖入或粘贴）',
+            primary: true,
+          })}
           {tool('粘贴导入', props.onPasteImport, { title: '粘贴模型回复，按行解析成多张提示词卡片' })}
           {/* 这两个可以拖进画布：松开的位置就是新节点的位置 */}
           <button
@@ -152,16 +163,12 @@ export function CanvasToolbar(props: ToolbarProps) {
             title: '按位置补齐明显的连线：图片/图片组 → 提示词，提示词 → 图片',
           })}
 
-          <button
-            type="button"
-            className="im-btn-primary im-btn-sm nodrag"
-            title="运行所有提示词卡片"
-            aria-label="全部运行"
-            disabled={!promptCount}
-            onClick={() => props.onRun(runnableIds)}
-          >
-            全部运行
-          </button>
+          {/* 全部运行是次要行动（原版走 ToolbarButton = btn-ghost btn-sm）：
+              主行动的位置留给「上传图片」，否则工具栏的重心会落在错误的一侧。 */}
+          {tool('全部运行', () => props.onRun(runnableIds), {
+            title: '运行所有提示词卡片',
+            disabled: !promptCount,
+          })}
           {busyIds > 0 ? (
             <button
               type="button"

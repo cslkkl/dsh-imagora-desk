@@ -252,7 +252,7 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
           灯包一层居中容器（原版是 flex justify-center py-0.5）：
           直接放在 flex 列里会被 align-items 拉伸成一条横杠，间隙也会跟着走形。 */}
       <Rail>
-        <span className="im-rail-dot" title={STATUS_TEXT[data.status] ?? ''}>
+        <span className="im-rail-dot" title={STATUS_TEXT[data.status] ?? '就绪'}>
           <span className={`im-dot is-${data.status}`} />
         </span>
         <RailButton label="删除提示词" danger onClick={() => actions.deleteNode(id)}>
