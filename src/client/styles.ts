@@ -307,17 +307,19 @@ body {
   box-shadow: var(--im-shadow-card);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+/* 选中态：原版是 outline 2px + offset 1px，不是 box-shadow 环 ——
+   outline 不占布局、也不被圆角裁，卡片密集时不会互相挤。 */
 .im-panel-card.is-selected {
-  border-color: var(--im-brand);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--im-brand) 16%, transparent), var(--im-shadow-card);
+  outline: 2px solid var(--im-brand);
+  outline-offset: 1px;
 }
 .im-panel-card.is-missing { border-color: var(--im-danger); }
-/* 图片组是一组东西的集合：给一层内嵌底，和单张图区分开 */
-.im-panel-card--group { background: var(--im-surface-inset); }
+/* 图片组卡面：原版是 bg-brand/5 + border-brand/15，不是纯中性底 */
 
 .im-thumb {
+  /* 原版 h-40 w-32：宽 128、高 160 —— 竖构图也放得下，不会把卡面压扁 */
   width: 128px;
-  height: 128px;
+  height: 160px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -378,7 +380,8 @@ body {
   text-align: center;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--im-brand) 15%, transparent);
-  background: var(--im-surface);
+  /* 原版 bg-brand/5：卡面本身带一层极浅的主体色，与叠卡同族 */
+  background: color-mix(in srgb, var(--im-brand) 5%, transparent);
 }
 .im-group-count {
   font-size: 20px;
