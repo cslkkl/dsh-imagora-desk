@@ -140,19 +140,15 @@ export function LoadDialog({
       }
     >
       {workflows.length ? (
-        <div style={{ display: 'grid', gap: 2 }}>
+        // 原版加载弹窗用 .workflow-list（index.css:776-780）：一个带边框的容器 +
+        // 每行 9px 12px / 12px 字，右边 meta 11px 等宽数字。与保存弹窗那套
+        // （.im-pick-row，6px 12px / meta 10px）是**两套**，原版自己就没统一 ——
+        // 照着各自的原样来，别为了"统一"把它们合成一套。
+        <div className="im-workflow-list">
           {workflows.map(row => (
-            <button
-              key={row.name}
-              type="button"
-              className="im-btn-ghost im-btn-sm"
-              style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}
-              onClick={() => onPick(row.name)}
-            >
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</span>
-              <span style={{ color: 'var(--im-ink-3)', fontSize: 11, flex: 'none' }}>
-                {new Date(row.modified).toLocaleString()}
-              </span>
+            <button key={row.name} type="button" className="im-workflow-list__item" onClick={() => onPick(row.name)}>
+              <span className="im-workflow-list__name">{row.name}</span>
+              <span className="im-workflow-list__meta">{new Date(row.modified).toLocaleString()}</span>
             </button>
           ))}
         </div>
@@ -160,7 +156,7 @@ export function LoadDialog({
         // 空列表必须自证「读过哪里」：用户报过「点开里面什么都没有」，
         // 真正的原因是读错了目录（没跟着设置里的 imagora 根走），不是真没有。
         <>
-          <p style={{ margin: 0, fontSize: 12 }}>这个目录里还没有工作流。</p>
+          <div className="im-modal-empty">这个目录里还没有工作流</div>
           <p className="im-modal-note">读的是 {where}</p>
         </>
       )}
