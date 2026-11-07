@@ -67,6 +67,9 @@ body {
   /* 阴影走宿主 elevation：写死 rgba 在深色主题下等于没有阴影 */
   --im-shadow-card: var(--dsw-elevation-soft, 0 1px 2px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(0, 0, 0, 0.04));
   --im-shadow-float: var(--dsw-elevation-panel, 0 6px 22px rgba(0, 0, 0, 0.12));
+  --im-shadow-modal: var(--dsw-elevation-prominent, 0 24px 70px rgba(15, 20, 25, 0.26));
+  /* 弹窗遮罩：半透明纯色，不与任何前景配对 */
+  --im-scrim: var(--dsw-alias-bg-mask-1, rgba(0, 0, 0, 0.32));
 }
 
 .im-root {
@@ -82,7 +85,10 @@ body {
   min-height: 0;
   background: var(--im-surface-inset);
   color: var(--im-ink);
-  padding-top: 8px;
+  /* 三层（页头 / 工具栏 / 画布）之间的间距由 gap 统一提供，
+     不靠各自的 margin 相加 —— 原版就是 flex flex-col gap-2（8px）。 */
+  gap: 8px;
+  padding: 8px 12px 12px;
   font-family: var(--dsw-font-family, system-ui, sans-serif);
   font-size: 13px;
   letter-spacing: -0.01em;
@@ -140,7 +146,6 @@ body {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin: 12px 12px 0;
   padding: 10px 14px;
   border: 1px solid var(--im-edge-idle);
   border-radius: var(--im-r-card);
@@ -153,7 +158,6 @@ body {
   gap: 8px;
   flex-wrap: wrap;
   /* 与页头同为卡片容器，但圆角略小（原版 .studio-toolbar 13px） */
-  margin: 8px 12px 0;
   padding: 9px 10px;
   position: relative;
   border: 1px solid var(--im-edge-idle);
@@ -280,7 +284,10 @@ body {
 .im-icon-btn:hover { background: var(--im-hover); color: var(--im-ink); }
 .im-icon-btn.is-danger { color: var(--im-danger); }
 .im-icon-btn.is-danger:hover {
-  background: var(--dsw-alias-interactive-bg-hover-danger, rgba(220, 38, 38, 0.12));
+  /* 底色必须从同一个 --im-danger 派生：直接用宿主的 hover-danger token，
+     它会和这里的 --im-danger 文字色来自两套体系，暗色主题下容易撞成看不清
+     （同类事故见提示条「黑底黑字」）。 */
+  background: color-mix(in srgb, var(--im-danger) 12%, transparent);
 }
 
 .im-zoom {
@@ -385,8 +392,10 @@ body {
 .im-select-root {
   position: relative;
   display: inline-block;
+  /* 宽度交给触发器自己的内容：写死 max-width 会把「火山方舟官方」这种中文名
+     截成「火山方舟官...」。上限只作兜底，防止超长模型 ID 把整行撑破。 */
   min-width: 0;
-  max-width: 260px;
+  max-width: 320px;
 }
 
 /* 触发器：外形沿用输入控件（等高、同边框、同底色），加上图标与省略号 */
@@ -699,7 +708,8 @@ body {
   position: relative;
   flex: 1;
   min-height: 0;
-  margin: 0 12px 12px;
+  /* 间距由 .im-root 的 gap 提供，这里不自留边距 */
+  margin: 0;
   border: 1px solid var(--im-line);
   /* 原版 .studio-canvas 是 18px（不是 --r-card 的 16） */
   border-radius: var(--im-r-surface);
@@ -786,7 +796,7 @@ body {
   display: grid;
   place-items: center;
   padding: clamp(12px, 2vw, 24px);
-  background: var(--dsw-alias-bg-mask-1, rgba(0, 0, 0, 0.32));
+  background: var(--im-scrim);
   backdrop-filter: blur(3px);
 }
 .im-modal-panel {
@@ -800,7 +810,7 @@ body {
   border-radius: var(--im-r-card);
   outline: none;
   background: var(--im-surface);
-  box-shadow: var(--dsw-elevation-prominent, 0 24px 70px rgba(15, 20, 25, 0.26));
+  box-shadow: var(--im-shadow-modal);
 }
 .im-modal-panel--sm { width: min(100%, 26rem); }
 .im-modal-panel--md { width: min(100%, 35rem); }
