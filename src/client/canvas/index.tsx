@@ -32,6 +32,8 @@ import {
 import type { WorkflowEdge, WorkflowNode } from '../lib/types'
 import { errMessage } from '../lib/format'
 import { buildPromptNodes } from '../lib/promptImportFormat'
+import { applySnapToChanges, readSnapEnabled, saveSnapEnabled, snapBoxOf } from '../lib/snapDrag'
+import { snapToNeighbors, type SnapGuide } from '../lib/snapGuide'
 import { NodeActionContext } from '../nodes'
 import { CANVAS_CSS } from '../styles'
 import { NODE_TYPES } from './node-types'
@@ -39,6 +41,7 @@ import { CanvasToolbar } from './toolbar'
 import { Banner, EmptyState, LogPanel, PreviewOverlay, Toast } from './overlays'
 import { HelpDialog, LoadDialog, SaveDialog } from './dialogs'
 import { HistoryDialog } from './history-dialog'
+import { SnapGuideLayer } from './snap-guides'
 import { PromptImportDialog } from './prompt-import-dialog'
 import { SettingsDialog } from './settings-dialog'
 import { connectEdge, useCanvasImages } from './use-canvas-images'
@@ -64,6 +67,8 @@ export function CanvasApp() {
   const [minimapOpen, setMinimapOpen] = useState(true)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
+  const [snapEnabled, setSnapEnabled] = useState(() => readSnapEnabled())
+  const [guides, setGuides] = useState<SnapGuide[]>([])
   const [restored, setRestored] = useState<string | null>(null)
 
   const flowRef = useRef<HTMLDivElement>(null)
@@ -329,6 +334,7 @@ export function CanvasApp() {
           selectedIds={selectedIds}
           busyIds={busyIds}
           minimapOpen={minimapOpen}
+          snapEnabled={snapEnabled}
           zoom={zoom}
           onAddPrompt={addPromptNode}
           onPickFiles={() => fileInputRef.current?.click()}
@@ -341,6 +347,15 @@ export function CanvasApp() {
           onSwitchProfile={name => void switchProfile(name)}
           onSwitchModel={model => void switchModel(model)}
           onToggleMinimap={() => setMinimapOpen(value => !value)}
+          onToggleSnap={() =>
+            setSnapEnabled(value => {
+              const next = !value
+              saveSnapEnabled(next)
+              if (!next) setGuides([])
+              flash(next ? '吸附已开：拖动时会贴齐邻居' : '吸附已关：自由摆放')
+              return next
+            })
+          }
           onFitView={() => instanceRef.current?.fitView({ padding: 0.2, duration: 300 })}
           onOpenSave={() => setDialog({ kind: 'save' })}
           onOpenLoad={async () => {
@@ -380,7 +395,13 @@ export function CanvasApp() {
             nodes={renderNodes}
             edges={edges}
             nodeTypes={NODE_TYPES}
-            onNodesChange={(changes: NodeChange<WorkflowNode>[]) => onNodesChangeBase(changes)}
+            onNodesChange={(changes: NodeChange<WorkflowNode>[]) => {
+              // 拖拽时按邻居对齐（与 Imagora 同一套 snapGuide/snapDrag 纯函数）。
+              // 只修正 position change，其余变更原样交给 React Flow。
+              const outcome = applySnapToChanges(changes, nodesRef.current, snapEnabled)
+              setGuides(outcome.guides)
+              onNodesChangeBase(outcome.changes as NodeChange<WorkflowNode>[])
+            }}
             onEdgesChange={(changes: EdgeChange<Edge>[]) => onEdgesChangeBase(changes)}
             onConnect={connectEdge(setEdges)}
             isValidConnection={connection =>
@@ -391,6 +412,19 @@ export function CanvasApp() {
             }
             onInit={instance => {
               instanceRef.current = instance
+            }}
+            onNodeDragStop={(_event, node) => {
+              setGuides([])
+              if (!snapEnabled) return
+              // React Flow 松手时会再发一帧 dragging:false 的 position change，
+              // 那一帧不走吸附，落点会退回未对齐的坐标。这里按最终位置再对齐一次。
+              const moving = snapBoxOf(node as WorkflowNode)
+              const others = nodesRef.current.filter(row => row.id !== node.id).map(snapBoxOf)
+              const snapped = snapToNeighbors(moving, others)
+              if (snapped.x === moving.x && snapped.y === moving.y) return
+              setNodes(current =>
+                current.map(row => (row.id === node.id ? { ...row, position: { x: snapped.x, y: snapped.y } } : row)),
+              )
             }}
             onMove={(_, viewport) => setZoom(viewport.zoom)}
             onEdgeDoubleClick={(_event, edge) => {
@@ -432,6 +466,7 @@ export function CanvasApp() {
             {minimapOpen ? (
               <MiniMap pannable zoomable position="bottom-right" style={{ width: 160, height: 110 }} />
             ) : null}
+            <SnapGuideLayer guides={guides} />
           </ReactFlow>
 
           {nodes.length === 0 ? <EmptyState /> : null}

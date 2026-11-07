@@ -12,6 +12,7 @@ export interface ToolbarProps {
   selectedIds: string[]
   busyIds: string[]
   minimapOpen: boolean
+  snapEnabled: boolean
   zoom: number
   onAddPrompt: () => void
   onPickFiles: () => void
@@ -24,6 +25,7 @@ export interface ToolbarProps {
   onSwitchProfile: (name: string) => void
   onSwitchModel: (model: string) => void
   onToggleMinimap: () => void
+  onToggleSnap: () => void
   onFitView: () => void
   onOpenSave: () => void
   onOpenLoad: () => void
@@ -97,6 +99,7 @@ export function CanvasToolbar(props: ToolbarProps) {
       ) : null}
 
       {toolButton(minimapOpen ? '小地图·开' : '小地图·关', props.onToggleMinimap)}
+      {toolButton(props.snapEnabled ? '吸附·开' : '吸附·关', props.onToggleSnap)}
       <span className="im-zoom" title="当前缩放">
         {Math.round(zoom * 100)}%
       </span>
