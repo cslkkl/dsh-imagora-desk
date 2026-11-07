@@ -10,8 +10,12 @@ DSH 的 Discover 支持**自定义插件索引**：用户加一个 URL 就能搜
 **索引地址**
 
 ```text
-https://cdn.jsdelivr.net/gh/cslkkl/dsh-imagora-desk@main/market/index.json
+https://cdn.jsdelivr.net/gh/cslkkl/dsh-imagora-desk@v0.1.0/market/index.json
 ```
+
+地址钉在 tag 上而不是 `@main`：jsDelivr 对 `@main` 有缓存，改完要等一段时间才更新；
+钉 tag 之后内容和 tag 一样是不动的，用户拿到的就是发布时那份。
+发新版本时把 URL 里的 tag 换掉即可。
 
 **给别人用的步骤**
 

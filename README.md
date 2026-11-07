@@ -35,7 +35,7 @@
 `插件 → 打开「自定义插件索引」→ 插件 → 发现 → 添加索引源`，粘贴：
 
 ```text
-https://cdn.jsdelivr.net/gh/cslkkl/dsh-imagora-desk@main/market/index.json
+https://cdn.jsdelivr.net/gh/cslkkl/dsh-imagora-desk@v0.1.0/market/index.json
 ```
 
 也可以直接用命令行装：
