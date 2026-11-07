@@ -23,7 +23,7 @@ export function PromptImportDialog({ sizes, onCancel, onConfirm }: PromptImportD
   const issues = parsed.issues ?? []
 
   return (
-    <ui.Modal open onClose={onCancel} title="粘贴导入提示词">
+    <ui.Modal open onClose={onCancel} title="粘贴导入提示词" className="im-modal">
       <div style={{ display: 'grid', gap: 12, width: 560, maxWidth: '80vw' }}>
         <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.7, color: 'var(--im-ink-3)' }}>
           一张卡一块：标题行 <code>=== 名字 ===</code>，围栏里第一行写 <code>ratio: 3:2</code>，空行之后是提示词正文。
@@ -76,12 +76,13 @@ export function PromptImportDialog({ sizes, onCancel, onConfirm }: PromptImportD
         ) : null}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <ui.Button type="button" size="sm" variant="toolbar" onClick={onCancel}>
+          <ui.Button type="button" size="sm" variant="toolbar" className="im-secondary" onClick={onCancel}>
             取消
           </ui.Button>
           <ui.Button
             type="button"
             size="sm"
+            className="im-primary"
             disabled={!cards.length || issues.length > 0}
             onClick={() => onConfirm(cards)}
           >

@@ -79,7 +79,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
   }
 
   return (
-    <ui.Modal open onClose={onClose} title="画布设置">
+    <ui.Modal open onClose={onClose} title="画布设置" className="im-modal">
       <div style={{ display: 'grid', gap: 14, minWidth: 420 }}>
         <p style={{ margin: 0, fontSize: 12.5, color: 'var(--im-ink-3)', lineHeight: 1.7 }}>
           填一次接口地址和 API Key 就能用，不需要本机装 Imagora。
@@ -118,7 +118,14 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
         />
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <ui.Button type="button" size="sm" variant="toolbar" disabled={busy} onClick={() => void probe()}>
+          <ui.Button
+            type="button"
+            size="sm"
+            variant="toolbar"
+            className="im-secondary"
+            disabled={busy}
+            onClick={() => void probe()}
+          >
             测试连通
           </ui.Button>
           {probeResult ? <span style={{ fontSize: 12, color: 'var(--im-ink-2)' }}>{probeResult}</span> : null}
@@ -152,14 +159,34 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           {usingPlugin ? (
-            <ui.Button type="button" size="sm" variant="toolbar" disabled={busy} onClick={() => void reset()}>
+            <ui.Button
+              type="button"
+              size="sm"
+              variant="toolbar"
+              className="im-secondary"
+              disabled={busy}
+              onClick={() => void reset()}
+            >
               清空并回到 Imagora 配置
             </ui.Button>
           ) : null}
-          <ui.Button type="button" size="sm" variant="toolbar" disabled={busy} onClick={onClose}>
+          <ui.Button
+            type="button"
+            size="sm"
+            variant="toolbar"
+            className="im-secondary"
+            disabled={busy}
+            onClick={onClose}
+          >
             取消
           </ui.Button>
-          <ui.Button type="button" size="sm" disabled={busy || !baseUrl.trim()} onClick={() => void save()}>
+          <ui.Button
+            type="button"
+            size="sm"
+            className="im-primary"
+            disabled={busy || !baseUrl.trim()}
+            onClick={() => void save()}
+          >
             保存
           </ui.Button>
         </div>

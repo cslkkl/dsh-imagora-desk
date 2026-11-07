@@ -115,6 +115,29 @@ export const CANVAS_CSS = `
 .im-toolbar button.im-tone-run:hover:not(:disabled) {
   filter: brightness(1.08) saturate(1.05);
 }
+/* 弹窗里的按钮同理：主操作（保存/设为默认/建卡/放入画布）用渐变，
+   次要操作用浅青底，避免一打开弹窗又是一片灰。
+   这里**必须用固定色值**，不能引用 --im-* 变量：宿主 Modal 的内容挂在 portal 里，
+   不在 .im-root 之下，变量解析不到会让整条 background 失效（表现为按钮完全透明）。 */
+button.im-primary {
+  background: linear-gradient(135deg, #7c5cff, #12a4b8) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  box-shadow: 0 2px 10px rgba(124, 92, 255, 0.26);
+}
+button.im-primary:hover:not(:disabled) { filter: brightness(1.08) saturate(1.05); }
+button.im-primary:disabled { opacity: .45; box-shadow: none; }
+button.im-secondary {
+  background: color-mix(in srgb, #12a4b8 10%, transparent) !important;
+  color: #12a4b8 !important;
+  border-color: color-mix(in srgb, #12a4b8 26%, transparent) !important;
+}
+button.im-secondary:hover:not(:disabled) { filter: brightness(0.97) saturate(1.12); }
+button.im-danger-tone {
+  background: color-mix(in srgb, #d93a3a 12%, transparent) !important;
+  color: #d93a3a !important;
+  border-color: color-mix(in srgb, #d93a3a 30%, transparent) !important;
+}
 .im-zoom {
   font-variant-numeric: tabular-nums;
   font-size: 12px;

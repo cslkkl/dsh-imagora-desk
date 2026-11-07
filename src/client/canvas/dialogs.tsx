@@ -11,7 +11,7 @@ export function SaveDialog({ onCancel, onSubmit }: { onCancel: () => void; onSub
   const ui = primitives()
   const [name, setName] = useState(`画布 ${new Date().toISOString().slice(5, 16).replace('T', ' ')}`)
   return (
-    <ui.Modal open onClose={onCancel} title="保存工作流">
+    <ui.Modal open onClose={onCancel} title="保存工作流" className="im-modal">
       <div style={{ display: 'grid', gap: 12, minWidth: 360 }}>
         <ui.Input
           autoFocus
@@ -21,10 +21,16 @@ export function SaveDialog({ onCancel, onSubmit }: { onCancel: () => void; onSub
           onChange={(event: { target: { value: string } }) => setName(event.target.value)}
         />
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <ui.Button type="button" size="sm" variant="toolbar" onClick={onCancel}>
+          <ui.Button type="button" size="sm" variant="toolbar" className="im-secondary" onClick={onCancel}>
             取消
           </ui.Button>
-          <ui.Button type="button" size="sm" disabled={!name.trim()} onClick={() => onSubmit(name.trim())}>
+          <ui.Button
+            type="button"
+            size="sm"
+            className="im-primary"
+            disabled={!name.trim()}
+            onClick={() => onSubmit(name.trim())}
+          >
             保存
           </ui.Button>
         </div>
@@ -44,7 +50,7 @@ export function LoadDialog({
 }) {
   const ui = primitives()
   return (
-    <ui.Modal open onClose={onCancel} title="加载工作流">
+    <ui.Modal open onClose={onCancel} title="加载工作流" className="im-modal">
       <div style={{ display: 'grid', gap: 10, minWidth: 400 }}>
         {workflows.length ? (
           <div style={{ maxHeight: 300, overflow: 'auto', display: 'grid', gap: 2 }}>
@@ -68,7 +74,7 @@ export function LoadDialog({
           <p style={{ margin: 0, fontSize: 12, color: 'var(--im-ink-3)' }}>还没有保存过的工作流。</p>
         )}
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <ui.Button type="button" size="sm" variant="toolbar" onClick={onCancel}>
+          <ui.Button type="button" size="sm" variant="toolbar" className="im-secondary" onClick={onCancel}>
             关闭
           </ui.Button>
         </div>
@@ -90,7 +96,7 @@ const HELP_ROWS: [string, string][] = [
 export function HelpDialog({ onClose, config }: { onClose: () => void; config: ImagoraConfig | null }) {
   const ui = primitives()
   return (
-    <ui.Modal open onClose={onClose} title="自由画布">
+    <ui.Modal open onClose={onClose} title="自由画布" className="im-modal">
       <div style={{ display: 'grid', gap: 12, minWidth: 480 }}>
         <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
           <tbody>
@@ -119,7 +125,7 @@ export function HelpDialog({ onClose, config }: { onClose: () => void; config: I
           </p>
         ) : null}
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <ui.Button type="button" size="sm" variant="toolbar" onClick={onClose}>
+          <ui.Button type="button" size="sm" variant="toolbar" className="im-secondary" onClick={onClose}>
             关闭
           </ui.Button>
         </div>

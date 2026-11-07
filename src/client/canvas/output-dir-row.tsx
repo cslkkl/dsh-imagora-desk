@@ -44,18 +44,33 @@ export function OutputDirRow({ config, onSaved, onFlash }: OutputDirRowProps) {
         onEdit={(text: string) => setDraft(text)}
       />
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <ui.Button type="button" size="sm" variant="toolbar" disabled={busy} onClick={() => void revealPath(current)}>
+        <ui.Button
+          type="button"
+          size="sm"
+          variant="toolbar"
+          className="im-secondary"
+          disabled={busy}
+          onClick={() => void revealPath(current)}
+        >
           打开目录
         </ui.Button>
         <ui.Button
           type="button"
           size="sm"
+          className="im-primary"
           disabled={busy || !draft.trim() || draft.trim() === current}
           onClick={() => void apply(draft.trim())}
         >
           设为默认
         </ui.Button>
-        <ui.Button type="button" size="sm" variant="toolbar" disabled={busy} onClick={() => void apply('')}>
+        <ui.Button
+          type="button"
+          size="sm"
+          variant="toolbar"
+          className="im-secondary"
+          disabled={busy}
+          onClick={() => void apply('')}
+        >
           回到默认
         </ui.Button>
       </div>
