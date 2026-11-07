@@ -2,9 +2,14 @@
 // 但画布自己有一套**带彩**的强调色：三类节点各一个色相，连线与状态另有色。
 // 只靠黑白灰会让画布分不清主次，这里用紫 / 青 / 琥珀三色分工：
 //   提示词卡 = 紫（思考）· 图片 = 青（素材）· 图片组 = 琥珀（集合）
+// 变量定义在 body 上（不是 .im-root）：宿主的 Modal 把内容 portal 到 body，
+// 挂在 .im-root 上的自定义属性它解析不到。
 // 前缀 im- 保证不和宿主样式打架；xyflow 自带样式在 index.tsx 里一并注入。
 export const CANVAS_CSS = `
-.im-root {
+/* 变量定义在 body 上，不放在 .im-root 里：宿主的 Modal 把内容 portal 到 body 下，
+   挂在 .im-root 上的自定义属性它解析不到，整条 background 简写会失效（按钮变全透明）。
+   body 是这些变量的唯一产地，画布与弹窗共用同一套。 */
+body {
   --im-line: var(--dsw-alias-border-l2, rgba(0,0,0,.12));
   --im-line-strong: var(--dsw-alias-border-l3, rgba(0,0,0,.2));
   --im-bg: var(--dsw-alias-bg-base, #fff);
@@ -33,7 +38,8 @@ export const CANVAS_CSS = `
   --im-running: #2f7cf6;
   --im-edge: #8b9bff;
   --im-edge-active: #7c5cff;
-
+}
+.im-root {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -115,28 +121,26 @@ export const CANVAS_CSS = `
 .im-toolbar button.im-tone-run:hover:not(:disabled) {
   filter: brightness(1.08) saturate(1.05);
 }
-/* 弹窗里的按钮同理：主操作（保存/设为默认/建卡/放入画布）用渐变，
-   次要操作用浅青底，避免一打开弹窗又是一片灰。
-   这里**必须用固定色值**，不能引用 --im-* 变量：宿主 Modal 的内容挂在 portal 里，
-   不在 .im-root 之下，变量解析不到会让整条 background 失效（表现为按钮完全透明）。 */
+/* 弹窗里的按钮：主操作走渐变，次要操作走浅底。
+   变量定义在 body 上（见文件顶部），portal 里的弹窗同样解析得到，这里直接引用即可。 */
 button.im-primary {
-  background: linear-gradient(135deg, #7c5cff, #12a4b8) !important;
+  background: linear-gradient(135deg, var(--im-prompt), var(--im-image)) !important;
   color: #fff !important;
   border-color: transparent !important;
-  box-shadow: 0 2px 10px rgba(124, 92, 255, 0.26);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--im-prompt) 26%, transparent);
 }
 button.im-primary:hover:not(:disabled) { filter: brightness(1.08) saturate(1.05); }
 button.im-primary:disabled { opacity: .45; box-shadow: none; }
 button.im-secondary {
-  background: color-mix(in srgb, #12a4b8 10%, transparent) !important;
-  color: #12a4b8 !important;
-  border-color: color-mix(in srgb, #12a4b8 26%, transparent) !important;
+  background: var(--im-image-soft) !important;
+  color: var(--im-image) !important;
+  border-color: color-mix(in srgb, var(--im-image) 26%, transparent) !important;
 }
 button.im-secondary:hover:not(:disabled) { filter: brightness(0.97) saturate(1.12); }
 button.im-danger-tone {
-  background: color-mix(in srgb, #d93a3a 12%, transparent) !important;
-  color: #d93a3a !important;
-  border-color: color-mix(in srgb, #d93a3a 30%, transparent) !important;
+  background: color-mix(in srgb, var(--im-danger) 12%, transparent) !important;
+  color: var(--im-danger) !important;
+  border-color: color-mix(in srgb, var(--im-danger) 30%, transparent) !important;
 }
 .im-zoom {
   font-variant-numeric: tabular-nums;

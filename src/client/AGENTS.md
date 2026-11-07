@@ -15,8 +15,8 @@
 
 ## 本目录特有的坑
 
-- 弹窗内容挂在宿主 Modal 的 portal 里，不在 `.im-root` 子树内：`var(--im-*)` 在那里解析不到，整条 `background` 简写会失效（按钮变全透明）。弹窗内样式必须用固定色值。
-- 宿主 `Button` 的 variant 类走 CSS Modules（`_button_1ulci_2` 这类），覆盖它要 `!important`。
+- 弹窗内容挂在宿主 Modal 的 portal 里，不在 `.im-root` 子树内：`.im-root` 上定义的自定义属性它继承不到。所以 `--im-*` 一律在 `body` 上定义（`styles.ts` 顶部），弹窗与画布共用同一套，两边都不要另写固定色值。
+- 宿主 `Button` 的 variant 类走 CSS Modules（`_button_1ulci_2` 这类）。主次层级用组件库自己的 `variant`（默认 / `toolbar`）表达，不覆写它的颜色；确实要压时才知道得用 `!important`。
 
 ## 测试
 
