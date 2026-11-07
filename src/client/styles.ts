@@ -85,6 +85,27 @@ body {
 /* ---------------- 顶栏 ----------------
    与 Imagora 一样两行：上面一行页头（来源 / 模型 / 成本 / 设置），下面一行画布动作。
    行间距 2px、按钮间距 8px 都照原版（gap-2 / flex-col gap-2）。 */
+/* 品牌区：logo + 标题并排，与原版 studio-header 左端一致 */
+.im-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--im-h-ctl);
+  padding: 0 6px 0 0;
+  border: 0;
+  background: transparent;
+  color: var(--im-ink);
+  cursor: pointer;
+  flex: none;
+}
+.im-brand-title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--im-ink);
+}
+.im-brand:hover .im-brand-title { color: var(--im-brand); }
+
 .im-header {
   display: flex;
   align-items: center;
@@ -307,17 +328,19 @@ body {
   box-shadow: var(--im-shadow-card);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+/* 选中态：原版是 outline 2px + offset 1px，不是 box-shadow 环 ——
+   outline 不占布局、也不被圆角裁，卡片密集时不会互相挤。 */
 .im-panel-card.is-selected {
-  border-color: var(--im-brand);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--im-brand) 16%, transparent), var(--im-shadow-card);
+  outline: 2px solid var(--im-brand);
+  outline-offset: 1px;
 }
 .im-panel-card.is-missing { border-color: var(--im-danger); }
-/* 图片组是一组东西的集合：给一层内嵌底，和单张图区分开 */
-.im-panel-card--group { background: var(--im-surface-inset); }
+/* 图片组卡面：原版是 bg-brand/5 + border-brand/15，不是纯中性底 */
 
 .im-thumb {
+  /* 原版 h-40 w-32：宽 128、高 160 —— 竖构图也放得下，不会把卡面压扁 */
   width: 128px;
-  height: 128px;
+  height: 160px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -338,9 +361,10 @@ body {
   z-index: 30;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 3px 3px 3px 8px;
-  border-radius: 10px;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 4px 8px;
+  border-radius: 8px;
   background: var(--im-surface-float);
   border: 1px solid var(--im-line);
   box-shadow: var(--im-shadow-float);
@@ -355,6 +379,10 @@ body {
    宽 224（原版 w-56）、错开步长 4px 由 nodes.tsx 的 STACK_STEP_PX 控制。 */
 .im-group-node {
   position: relative;
+  /* 原版 w-56 = 224px 且全局 border-box，所以 padding 算在 224 里；
+     不写 box-sizing 的话内容 224 + padding 12 会撑到 236，
+     外壳与卡面就"尺寸对不上"了。 */
+  box-sizing: border-box;
   width: 224px;
   padding: 12px 0 0 12px;
 }
@@ -373,7 +401,8 @@ body {
   text-align: center;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--im-brand) 15%, transparent);
-  background: var(--im-surface);
+  /* 原版 bg-brand/5：卡面本身带一层极浅的主体色，与叠卡同族 */
+  background: color-mix(in srgb, var(--im-brand) 5%, transparent);
 }
 .im-group-count {
   font-size: 20px;
@@ -603,16 +632,28 @@ body {
 }
 .im-canvas .react-flow__controls-button:hover { background: var(--im-hover); }
 
-/* 图片组节点外层由 xyflow 画了一圈深灰边框，改成宿主中性描边 */
-.react-flow__node-group {
-  border: 1px dashed var(--im-line-strong);
-  border-radius: var(--im-r-card);
-  background: transparent;
-  padding: 10px;
+/* React Flow 会给自定义节点类型套内置默认样式（固定 width:150px + 深色边框），
+   导致外壳比内部卡片小、黑框错位割裂。我们的节点自带尺寸与样式，覆盖掉库默认。
+   原版 index.css 也是这么做的，且是 width/min-width/border/background 四条一起覆盖。 */
+.react-flow__node-image,
+.react-flow__node-group,
+.react-flow__node-prompt {
+  width: auto !important;
+  min-width: 0 !important;
+  border: none !important;
+  background: transparent !important;
 }
-.react-flow__node-group.selected { outline: 2px solid color-mix(in srgb, var(--im-brand) 40%, transparent); }
 
 /* 状态灯：排队琥珀 / 生成中主体色呼吸 / 完成绿 / 失败红 —— 与 Imagora 的 StatusLight 同族 */
+/* 状态灯的居中容器（原版 flex justify-center py-0.5）：
+   有了它，圆点在操作栏里才不会被视为可拉伸的 flex 项。 */
+.im-rail-dot {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2px 0;
+  line-height: 0;
+}
 /* 状态指示灯：原版就是一个 10px 圆点，**没有**光晕环 —— 环会在密集画布上糊成一片。
    就绪灰 / 排队琥珀 / 生成中品牌色呼吸 / 完成绿 / 失败红。 */
 .im-dot {
@@ -628,12 +669,57 @@ body {
 .im-dot.is-failed { background: var(--im-danger); }
 @keyframes im-pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.35 } }
 
+/* ============ 画布自定义鼠标指针（一套四态，原样照搬 Imagora） ============
+ * 无限画布底色浅、节点稀疏时系统箭头容易"视觉丢失"，这里把画布内所有状态都换成
+ * 自定义高对比光标：深灰（#1e293b）图形 + 白色外描边，品牌蓝点缀——
+ * 空白画布 = 十字准星（中心品牌色加号，与拖拽落点示意同款图形）；
+ * 节点悬浮 = 四向移动（可拖拽）；节点拖拽中 / 画布平移 = 四向 + 实心中心（按下态）；
+ * 连线悬浮 = 经典箭头（可点选/双击删除/端点接线）。
+ * data URI 无法引用 CSS 变量，点缀色用固定蓝；节点内输入框/按钮保留各自光标。
+ * 文件拖拽悬停在画布上时（.canvas-drop-active）切系统 copy 光标，比准星更明确"可以放进来"。
+ * !important 保证覆盖 @xyflow/react 自带样式（依赖注入顺序不受 import 位置控制）。 */
+.react-flow__pane {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M12 2v6M12 16v6M2 12h6M16 12h6' stroke='%23ffffff' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M12 2v6M12 16v6M2 12h6M16 12h6' stroke='%231e293b' stroke-width='2.2' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='12' r='4.6' fill='%23ffffff' stroke='%231e293b' stroke-width='1'/%3E%3Cpath d='M12 10.2v3.6M10.2 12h3.6' stroke='%233b82f6' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E")
+      12 12,
+    crosshair !important;
+}
+/* 节点悬浮：四向移动（图片/图片组/提示词卡片均可拖拽） */
+.react-flow__node {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5' stroke='%23ffffff' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5' stroke='%231e293b' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3' stroke='%231e293b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E")
+      12 12,
+    grab !important;
+}
+/* 节点拖拽中 / 左键拖拽平移中：四向 + 实心中心（按下状态） */
+.react-flow__node.dragging,
+.react-flow__pane.dragging {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5' stroke='%23ffffff' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5' stroke='%231e293b' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3' stroke='%231e293b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3Ccircle cx='12' cy='12' r='3.6' fill='%23ffffff' stroke='%231e293b' stroke-width='1.4'/%3E%3Ccircle cx='12' cy='12' r='1.8' fill='%233b82f6'/%3E%3C/svg%3E")
+      12 12,
+    grabbing !important;
+}
+/* 连线悬浮：经典箭头（可点选/双击删除/端点接线） */
+.react-flow__edge {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M4.5 2.5 20 12l-7.2 1.5 3.1 7.3-3.6 1.5-3.1-7.3-4.7 4.6z' stroke='%23ffffff' stroke-width='4' stroke-linejoin='round' fill='none'/%3E%3Cpath d='M4.5 2.5 20 12l-7.2 1.5 3.1 7.3-3.6 1.5-3.1-7.3-4.7 4.6z' fill='%231e293b' stroke='%231e293b' stroke-width='1.4' stroke-linejoin='round'/%3E%3C/svg%3E")
+      4 3,
+    pointer !important;
+}
+/* 节点内交互元素保留各自光标：输入类 = 文本，按钮 = 手型（不被节点移动光标覆盖） */
+.react-flow__node :is(input, textarea, select, [contenteditable]) {
+  cursor: text;
+}
+.react-flow__node button {
+  cursor: pointer;
+}
+/* 文件拖拽悬停在画布上：系统 copy 光标（!important 需压过上面的准星规则） */
+.im-canvas.is-drop-active .react-flow__pane {
+  cursor: copy !important;
+
 /* ---------------- 浮层 ---------------- */
 /* 提示条：中性表面 + 只有图标着色。整块色底在暗色主题下很脏，也像报错页。 */
 .im-banner {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
+  min-height: 30px;
   padding: 8px 12px;
   font-size: 12px;
   line-height: 1.6;

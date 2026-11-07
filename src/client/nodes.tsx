@@ -95,24 +95,25 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
           蒙版
         </span>
       ) : null}
+      {/* 图片操作区：顺序与标签照原版（预览 → 裁剪 → 放大 → 切分 → 蒙版 → 替换 → 删除） */}
       <Rail>
         <RailButton label="预览大图" onClick={() => actions.zoomImage(id)}>
           <Icon name="eye" />
         </RailButton>
-        <RailButton label="换一张图" onClick={() => actions.replaceImage(id)}>
-          <Icon name="image" />
-        </RailButton>
-        <RailButton label="裁剪" onClick={() => actions.cropImage(id)}>
+        <RailButton label="裁剪图片" onClick={() => actions.cropImage(id)}>
           <Icon name="crop" />
         </RailButton>
-        <RailButton label="切分" onClick={() => actions.splitImage(id)}>
-          <Icon name="grid" />
-        </RailButton>
-        <RailButton label="放大" onClick={() => actions.upscaleImage(id)}>
+        <RailButton label="放大图片" onClick={() => actions.upscaleImage(id)}>
           <Icon name="expand" />
+        </RailButton>
+        <RailButton label="切分图片" onClick={() => actions.splitImage(id)}>
+          <Icon name="grid" />
         </RailButton>
         <RailButton label="蒙版重绘" onClick={() => actions.maskImage(id)}>
           <Icon name="wand" />
+        </RailButton>
+        <RailButton label="替换图片" onClick={() => actions.replaceImage(id)}>
+          <Icon name="image" />
         </RailButton>
         <RailButton label="删除图片" danger onClick={() => actions.deleteNode(id)}>
           <Icon name="trash" />
@@ -247,9 +248,13 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
       style={{ width: 380, padding: 12, boxSizing: 'border-box' }}
     >
       <Handles />
-      {/* 右侧操作区：状态灯 + 删除 */}
+      {/* 右侧操作区：状态灯 + 删除。
+          灯包一层居中容器（原版是 flex justify-center py-0.5）：
+          直接放在 flex 列里会被 align-items 拉伸成一条横杠，间隙也会跟着走形。 */}
       <Rail>
-        <span className={`im-dot is-${data.status}`} title={STATUS_TEXT[data.status] ?? ''} />
+        <span className="im-rail-dot" title={STATUS_TEXT[data.status] ?? ''}>
+          <span className={`im-dot is-${data.status}`} />
+        </span>
         <RailButton label="删除提示词" danger onClick={() => actions.deleteNode(id)}>
           <Icon name="trash" />
         </RailButton>

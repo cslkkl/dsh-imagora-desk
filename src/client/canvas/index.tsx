@@ -40,6 +40,7 @@ import { NODE_TYPES } from './node-types'
 import { CanvasToolbar } from './toolbar'
 import { CanvasDock } from './dock'
 import { useCanvasDrop } from './use-canvas-drop'
+import { readMinimapVisible, saveMinimapVisible } from '../lib/canvasPrefs'
 import { SelectionInspector } from './inspector'
 import { Banner, EmptyState, LogPanel, PreviewOverlay, Toast } from './overlays'
 import { HelpDialog, LoadDialog, SaveDialog } from './dialogs'
@@ -75,7 +76,8 @@ export function CanvasApp() {
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null)
   const [zoom, setZoom] = useState(1)
   // 小地图默认关（与 Imagora 一致：卡片铺开了才需要它，平时白占地方）
-  const [minimapOpen, setMinimapOpen] = useState(false)
+  // 小地图默认关；开关状态存本机（原版也是这么存的，刷新后保持）
+  const [minimapOpen, setMinimapOpen] = useState(() => readMinimapVisible())
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [snapEnabled, setSnapEnabled] = useState(() => readSnapEnabled())
@@ -323,6 +325,7 @@ export function CanvasApp() {
   // 文件拖进来 -> 建图片节点；工具栏按钮拖进来 -> 在落点建提示词卡 / 图片组。
   // 落点胶囊全局跟随光标，落在画布外即取消（与 Imagora 的 useCanvasDrop 同一套语义）。
   const {
+    dropIntent,
     dragHandlers: dropHandlers,
     startToolbarDrag,
     dropChip,
@@ -458,6 +461,7 @@ export function CanvasApp() {
             }
           }}
           onOpenSettings={() => setDialog({ kind: 'settings' })}
+          onOpenHelp={() => setDialog({ kind: 'help' })}
           onOpenHistory={() => setDialog({ kind: 'history' })}
         />
         {/* 配置缺失：逐条列出来 + 一个直达设置的按钮，不做整块色底 */}
@@ -478,21 +482,6 @@ export function CanvasApp() {
           </Banner>
         ) : null}
 
-        {/* 右上角选中操作栏：只在选中 ≥1 个节点时出现（与 Imagora 同一位置与条件） */}
-        <SelectionInspector
-          selectedCount={selectedIds.length}
-          selectedPromptCount={selectedIds.filter(id => nodes.some(n => n.id === id && n.type === 'prompt')).length}
-          selectedRunnableIds={runnableIds.filter(id => selectedIds.includes(id))}
-          pickingOutputDir={false}
-          onRunSelected={() => runMany(runnableIds.filter(id => selectedIds.includes(id)))}
-          onAutoLayout={arrangeSelected}
-          onAutoConnectSelected={autoConnectSelected}
-          onSetOutputDir={setSelectedOutputDir}
-          onDeleteSelected={() => {
-            removeNodes(selectedIds)
-            setSelectedIds([])
-          }}
-        />
         {/* 不设常驻提示条：Imagora 把这一行删了（占画布高度、浮层还会被画布盖住），
             用法收进左下角控件坞的「帮助」弹窗里 */}
 
@@ -508,8 +497,25 @@ export function CanvasApp() {
             已恢复上次画布
           </Banner>
         ) : null}
-        <div className="im-canvas" ref={flowRef} {...dropHandlers}>
-          {' '}
+        <div className={`im-canvas${dropIntent ? ` is-drop-active` : ``}`} ref={flowRef} {...dropHandlers}>
+          {/* 选中操作栏：相对**画布**右上角定位（原版挂在 .studio-canvas 里）。
+              放到 .im-root 上会跑到整个面板的右上角，离画布边距、工具栏都错开。 */}
+          <SelectionInspector
+            selectedCount={selectedIds.length}
+            selectedPromptCount={
+              selectedIds.filter(id => nodes.some(node => node.id === id && node.type === 'prompt')).length
+            }
+            selectedRunnableIds={runnableIds.filter(id => selectedIds.includes(id))}
+            pickingOutputDir={false}
+            onRunSelected={() => runMany(runnableIds.filter(id => selectedIds.includes(id)))}
+            onAutoLayout={arrangeSelected}
+            onAutoConnectSelected={autoConnectSelected}
+            onSetOutputDir={setSelectedOutputDir}
+            onDeleteSelected={() => {
+              removeNodes(selectedIds)
+              setSelectedIds([])
+            }}
+          />
           <ReactFlow
             nodes={renderNodes}
             edges={edges}
@@ -627,7 +633,13 @@ export function CanvasApp() {
                 return next
               })
             }
-            onToggleMinimap={() => setMinimapOpen(value => !value)}
+            onToggleMinimap={() =>
+              setMinimapOpen(value => {
+                const next = !value
+                saveMinimapVisible(next)
+                return next
+              })
+            }
             onOpenHelp={() => setDialog({ kind: 'help' })}
           />
           {nodes.length === 0 ? <EmptyState /> : null}

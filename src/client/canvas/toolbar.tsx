@@ -8,6 +8,7 @@
 // 这一行里绝不能混进依赖选区的动作（运行所选 / 自动整理 /……）——那些在右上角
 // 选中操作栏里（inspector.tsx），混进来会被误读成「对整张画布生效」。
 import { primitives } from '../ui'
+import { BrandHeader } from '../brand'
 import { CostBadge, type CostSummary } from './cost'
 import type { ImagoraConfig } from '../api'
 
@@ -39,6 +40,7 @@ export interface ToolbarProps {
   onOpenLoad: () => void
   onOpenHistory: () => void
   onOpenSettings: () => void
+  onOpenHelp: () => void
 }
 
 export function CanvasToolbar(props: ToolbarProps) {
@@ -58,6 +60,9 @@ export function CanvasToolbar(props: ToolbarProps) {
     <>
       {/* ---------- 第一行：出图配置（原版页头那一排里与本插件相关的部分） ---------- */}
       <div className="im-header">
+        {/* 品牌区：logo + 标题（原版页头左侧就是这两件，点开是帮助） */}
+        <BrandHeader onClick={props.onOpenHelp} />
+
         {config && (config.profiles?.length ?? 0) > 1 ? (
           <select
             className="im-select"
