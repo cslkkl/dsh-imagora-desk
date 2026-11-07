@@ -12,11 +12,14 @@ export function SaveDialog({
   workflows = [],
   onCancel,
   onSubmit,
+  imagoraRoot,
 }: {
   /** 已有工作流：原版保存弹窗会列出来，点一下就把名字填进去（同名 = 覆盖） */
   workflows?: { name: string; modified: string }[]
   onCancel: () => void
   onSubmit: (name: string) => void
+  /** 已配置的 imagora 目录：存到哪儿要写清楚，别让人猜 */
+  imagoraRoot?: string
 }) {
   const [name, setName] = useState(`画布 ${new Date().toISOString().slice(5, 16).replace('T', ' ')}`)
   /** 待确认覆盖的名字：原版是同名覆盖前先确认一次，避免手滑盖掉别人的画布 */
@@ -85,6 +88,12 @@ export function SaveDialog({
           if (event.key === 'Enter') submit()
         }}
       />
+      {/* 存到哪儿：原版的占位符里就写着「存到 output/workflows/」。
+          插件这边的落点会随「有没有设 imagora 目录」变，所以不能写死一句。 */}
+      <p className="im-modal-note" style={{ marginTop: 8 }}>
+        存到 {imagoraRoot ? `${imagoraRoot}\\output\\workflows` : '插件自己的数据目录（未设置 imagora 目录）'}
+        {imagoraRoot ? '（与原版共用一份）' : ''}
+      </p>
       {/* 已有工作流：点一下填名字。原版保存弹窗就是这块列表（WorkflowModals.tsx:46-60） */}
       {workflows.length ? (
         <>
@@ -109,11 +118,15 @@ export function LoadDialog({
   workflows,
   onCancel,
   onPick,
+  imagoraRoot,
 }: {
   workflows: { name: string; modified: string }[]
   onCancel: () => void
   onPick: (name: string) => void
+  /** 已配置的 imagora 目录：列表为空时要说清楚「去哪个目录找过了」 */
+  imagoraRoot?: string
 }) {
+  const where = imagoraRoot ? `${imagoraRoot}\\output\\workflows` : '插件自己的数据目录（未设置 imagora 目录）'
   return (
     <ModalShell
       title="加载工作流"
@@ -144,7 +157,12 @@ export function LoadDialog({
           ))}
         </div>
       ) : (
-        <p style={{ margin: 0, fontSize: 12, color: 'var(--im-ink-3)' }}>还没有保存过的工作流。</p>
+        // 空列表必须自证「读过哪里」：用户报过「点开里面什么都没有」，
+        // 真正的原因是读错了目录（没跟着设置里的 imagora 根走），不是真没有。
+        <>
+          <p style={{ margin: 0, fontSize: 12 }}>这个目录里还没有工作流。</p>
+          <p className="im-modal-note">读的是 {where}</p>
+        </>
       )}
     </ModalShell>
   )

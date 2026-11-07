@@ -1,7 +1,8 @@
 // 本地冒烟：用假的 Cordis 上下文挂起 host 半片，再用真实 HTTP 打一遍接口。
 // 不提交真实生图任务（不花钱），只验证配置解析、上传、文件服务、错误分支与工作流落盘。
+import { createHash } from 'node:crypto'
 import { createServer } from 'node:http'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { resolveApiPaths } from '../src/host/config.js'
@@ -372,6 +373,165 @@ try {
     body: JSON.stringify({ prompt: 'smoke mask', size: '1024x1024', refIds: [uploaded.image.id], mask: '' }),
   })
   check('POST /generate 空蒙版当作不带', maskEmpty.status === 200, String(maskEmpty.status))
+
+  // ---------------- 与原版共用一份：工作流 / 生成历史必须读得到 ----------------
+  //
+  // 这是用户报的原始缺陷：「生成历史点开什么都没有，工作流也是空的，明明 imagora 里有」。
+  // 根因是那两处只读插件自己的目录，没跟着 settings.imagoraRoot 走。
+  // 这里造一份**原版磁盘布局**来锁住这条契约：
+  //   <root>/output/.assets/registry.json   v2 格式（images 字典 + relPath，无 absPath）
+  //   <root>/output/.assets/canv_<id>.png
+  //   <root>/output/workflows/<名字>.json   v2 格式（图片节点只存 registryId）
+  // 断言四件事：列表看得见、加载补得出 url、文件服务放行、工作流里不残留派生路径。
+  const SHARED_ROOT = mkdtempSync(join(tmpdir(), 'imagora-shared-'))
+  const sharedAssetDir = join(SHARED_ROOT, 'output', '.assets')
+  const sharedWorkflowDir = join(SHARED_ROOT, 'output', 'workflows')
+  mkdirSync(sharedAssetDir, { recursive: true })
+  mkdirSync(sharedWorkflowDir, { recursive: true })
+  // id 按原版的算法来：内容 sha1 前 12 位。夹具直接用真 sha1，
+  // 后面那条「同内容去重」才有意义 —— 否则断言的是巧合。
+  const SHARED_ID = createHash('sha1').update(PNG).digest('hex').slice(0, 12)
+  writeFileSync(join(sharedAssetDir, `canv_${SHARED_ID}.png`), PNG)
+  writeFileSync(
+    join(sharedAssetDir, 'registry.json'),
+    JSON.stringify(
+      {
+        schemaVersion: 2,
+        images: {
+          [SHARED_ID]: {
+            id: SHARED_ID,
+            relPath: `.assets/canv_${SHARED_ID}.png`,
+            name: '来自原版的图.png',
+            size: PNG.length,
+            ext: 'png',
+            createdAt: '2026-11-01 12:00:00',
+            kind: 'canvas',
+          },
+        },
+      },
+      null,
+      2,
+    ),
+  )
+  writeFileSync(
+    join(sharedWorkflowDir, '原版工作流.json'),
+    JSON.stringify(
+      {
+        version: 2,
+        name: '原版工作流',
+        savedAt: '2026-11-01 12:00:00',
+        nodes: [
+          {
+            id: 'img-1',
+            type: 'image',
+            position: { x: 0, y: 0 },
+            data: { registryId: SHARED_ID, name: '来自原版的图.png', size: PNG.length, ext: 'png', refCount: 0 },
+          },
+        ],
+        edges: [],
+      },
+      null,
+      2,
+    ),
+  )
+
+  const sharedOn = await fetch(`${base}/settings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ imagoraRoot: SHARED_ROOT }),
+  }).then(res => res.json())
+  check('POST /settings 记住 imagora 根', sharedOn.imagoraRoot === SHARED_ROOT, sharedOn.imagoraRoot)
+
+  const sharedAssets = await fetch(`${base}/assets`).then(res => res.json())
+  const sharedRow = sharedAssets.images.find(row => row.id === SHARED_ID)
+  check(
+    '共用模式：/assets 列出原版注册表里的图',
+    Boolean(sharedRow),
+    sharedRow?.name ?? `${sharedAssets.images.length} 条`,
+  )
+  check(
+    '共用模式：v2 的 relPath 换算成绝对路径',
+    Boolean(sharedRow?.absPath && existsSync(sharedRow.absPath)),
+    sharedRow?.absPath ?? '',
+  )
+
+  const sharedFile = await fetch(`${base}/file?id=${SHARED_ID}`)
+  const sharedBytes = Buffer.from(await sharedFile.arrayBuffer())
+  check(
+    '共用模式：/file 能出原版 .assets 里的文件',
+    sharedFile.ok && sharedBytes.equals(PNG),
+    `${sharedFile.status} ${sharedBytes.length} bytes`,
+  )
+
+  const sharedList = await fetch(`${base}/workflow/list`).then(res => res.json())
+  check(
+    '共用模式：工作流列表读的是原版 output/workflows',
+    sharedList.workflows.some(row => row.name === '原版工作流'),
+    sharedList.workflows.map(row => row.name).join(', '),
+  )
+
+  const sharedLoad = await fetch(`${base}/workflow/load?name=${encodeURIComponent('原版工作流')}`).then(res =>
+    res.json(),
+  )
+  check(
+    '共用模式：原版工作流加载后补出 url（节点只存 registryId）',
+    Boolean(sharedLoad.nodes?.[0]?.data?.url),
+    sharedLoad.nodes?.[0]?.data?.url ?? JSON.stringify(sharedLoad.missing ?? []),
+  )
+  // 「缺失」必须按**解析结果**算，不能按「节点上有没有 absPath」算：原版存档里图片节点
+  // 只存 registryId，解析前看字段必然为空，那样判会把健康存档整批判成缺失
+  // （实测一个 12 图的存档报了 12 张，实际全都能取到）。
+  check(
+    '共用模式：只存 registryId 的存档不误报缺失',
+    Array.isArray(sharedLoad.missing) && sharedLoad.missing.length === 0,
+    JSON.stringify(sharedLoad.missing ?? []),
+  )
+
+  // 存一份回共用目录：必须写进原版那个 workflows/，且图片节点不带派生路径
+  const sharedSave = await fetch(`${base}/workflow/save`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: '插件写回的工作流', nodes: sharedLoad.nodes ?? [], edges: [] }),
+  }).then(res => res.json())
+  check('共用模式：保存落到原版 workflows/', sharedSave.ok === true, sharedSave.path ?? '')
+  const written = JSON.parse(readFileSync(join(sharedWorkflowDir, '插件写回的工作流.json'), 'utf8'))
+  check('共用模式：写入的是 v2 结构', written.version === 2, String(written.version))
+  check(
+    '共用模式：落盘剥掉派生路径（url / absPath）',
+    !('url' in (written.nodes?.[0]?.data ?? {})) && !('absPath' in (written.nodes?.[0]?.data ?? {})),
+    JSON.stringify(Object.keys(written.nodes?.[0]?.data ?? {})),
+  )
+
+  // 插件新上传的图也要进原版那张注册表（同内容去重，文件名 canv_<sha1>）
+  const sharedUpload = await fetch(`${base}/upload?name=插件上传.png`, { method: 'POST', body: PNG }).then(res =>
+    res.json(),
+  )
+  const sharedRegistry = JSON.parse(readFileSync(join(sharedAssetDir, 'registry.json'), 'utf8'))
+  check(
+    '共用模式：上传注册进原版 registry.json',
+    Boolean(sharedRegistry.images?.[sharedUpload.image?.id]),
+    sharedUpload.image?.id ?? '',
+  )
+  check(
+    '共用模式：同内容按 sha1 去重（与原版同 id）',
+    sharedUpload.image?.id === SHARED_ID,
+    `${sharedUpload.image?.id} vs ${SHARED_ID}`,
+  )
+
+  // 切回去：插件独用，不该再看见原版那份
+  const sharedOff = await fetch(`${base}/settings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ imagoraRoot: '' }),
+  }).then(res => res.json())
+  check('POST /settings 清空 imagora 根', sharedOff.imagoraRoot === '', sharedOff.imagoraRoot)
+  const ownList = await fetch(`${base}/workflow/list`).then(res => res.json())
+  check(
+    '切回插件独用：不再列出原版工作流',
+    !ownList.workflows.some(row => row.name === '原版工作流'),
+    ownList.workflows.map(row => row.name).join(', ') || '(空)',
+  )
+  rmSync(SHARED_ROOT, { recursive: true, force: true })
 } finally {
   server.close()
   for (const dir of [SANDBOX, FIXTURE_ROOT]) {

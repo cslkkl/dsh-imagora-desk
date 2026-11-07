@@ -2,7 +2,7 @@
 // 一份数据两边共用 —— 不复制、不建 junction。
 //
 // 两个路径都靠宿主弹系统文件夹对话框来选：浏览器侧的 <input webkitdirectory>
-// 只能拿到相对名，拿不到 `D:\ProjectSomething\imagora` 这种绝对路径。
+// 只能拿到相对名，拿不到 `C:\imagora` 这种绝对路径。
 // 手填也保留：远程/无桌面会话时对话框弹不出来，这时仍能粘贴路径。
 import { useState } from 'react'
 import { pickFolder, revealPath, setImagoraRoot, setOutputDir, type ImagoraConfig } from '../api'
@@ -77,7 +77,7 @@ export function ImagoraRootRow({ config, onSaved, onFlash }: ImagoraRootRowProps
           id="imagora-root"
           className="im-field"
           value={rootDraft === '' ? currentRoot : rootDraft}
-          placeholder="例如 D:\ProjectSomething\imagora（含 config.json 与 .env）"
+          placeholder="例如 D:\imagora（含 config.json 与 .env）"
           disabled={busy}
           onChange={event => setRootDraft(event.target.value)}
         />

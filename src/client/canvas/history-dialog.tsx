@@ -11,6 +11,15 @@ import { ModalShell } from './modal-shell'
 export interface HistoryDialogProps {
   onClose: () => void
   onImport: (entries: AssetEntry[]) => void
+  /** 已配置的 imagora 目录：它决定这一屏到底读的是哪份注册表 */
+  imagoraRoot?: string
+}
+
+/** 这一屏的取数位置说明：空白时最需要的正是这条信息（用户报的「点开里面什么都没有」）。 */
+function sourceLine(imagoraRoot: string | undefined, count: number, filter: string, picked: number): string {
+  const where = imagoraRoot ? `${imagoraRoot}\\output\\.assets` : '插件自己的数据目录（未设置 imagora 目录）'
+  const head = `共 ${count} 张${filter.trim() ? '（已筛选）' : ''}${picked ? ` · 选中 ${picked}` : ''}`
+  return `${head} · 读的是 ${where}`
 }
 
 const GRID = {
@@ -19,7 +28,7 @@ const GRID = {
   gap: 10,
 }
 
-export function HistoryDialog({ onClose, onImport }: HistoryDialogProps) {
+export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogProps) {
   const [images, setImages] = useState<AssetEntry[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [picked, setPicked] = useState<string[]>([])
@@ -76,12 +85,11 @@ export function HistoryDialog({ onClose, onImport }: HistoryDialogProps) {
       }
     >
       <div style={{ display: 'grid', gap: 12 }}>
-        {/* 计数放内容顶部（原版在 header）：它说的是「这一屏有什么」，
-            跟着按钮跑到 footer 会让人以为它是操作结果 */}
-        <p className="im-modal-note">
-          共 {shown.length} 张{filter.trim() ? '（已筛选）' : ''}
-          {picked.length ? ` · 选中 ${picked.length}` : ''}
-        </p>
+        {/* 计数 + **取数位置**放内容顶部（原版在 header）：
+            它说的是「这一屏有什么、从哪来」，跟着按钮跑到 footer 会让人以为它是操作结果。
+            「空的时候也要说清楚读的是哪」—— 用户报过「点开什么都没有」，
+            真正的原因是读错了目录，把位置印出来就不用猜了。 */}
+        <p className="im-modal-note">{sourceLine(imagoraRoot, shown.length, filter, picked.length)}</p>
         <input
           type="search"
           value={filter}

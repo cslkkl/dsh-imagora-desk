@@ -29,11 +29,16 @@ export default {
   apply(ctx) {
     const store = new Store(ROOT)
     let settings = readSettings(ROOT)
+    // 一开始就按设置里的 imagora 目录切过去：这样打开插件看到的就是原版那份
+    // 工作流 / 生成历史，不是空列表（用户反馈的正是「点开里面什么都没有」）。
+    store.setSharedRoot(settings.imagoraRoot)
 
     const getConfig = () => loadImagoraConfig(settings)
     const getSettings = () => settings
     const applySettings = patch => {
       settings = writeSettings(ROOT, patch)
+      // 目录指针可能刚被改过：立刻同步给 store，否则要重启插件才生效
+      store.setSharedRoot(settings.imagoraRoot)
       return settings
     }
     const pool = new TaskPool({ getConfig, store, concurrency: 3 })

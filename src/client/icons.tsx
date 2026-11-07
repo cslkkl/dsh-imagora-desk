@@ -35,10 +35,13 @@ const PATHS: Record<string, string> = {
 export function Icon({
   name,
   size = 14,
+  strokeWidth = 1.7,
   style,
 }: {
   name: keyof typeof PATHS | string
   size?: number
+  /** 只给「用圆头点当图形」的图标加粗用（原版拖拽把手是 `strokeWidth={2.5}`）。 */
+  strokeWidth?: number
   style?: CSSProperties
 }) {
   const d = PATHS[name] || PATHS.help
@@ -49,7 +52,7 @@ export function Icon({
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.7"
+      strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
