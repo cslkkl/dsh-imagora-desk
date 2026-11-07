@@ -40,7 +40,10 @@ import { NODE_TYPES } from './node-types'
 import { CanvasToolbar } from './toolbar'
 import { Banner, EmptyState, LogPanel, PreviewOverlay, Toast } from './overlays'
 import { HelpDialog, LoadDialog, SaveDialog } from './dialogs'
+import { CropDialog } from './crop-dialog'
 import { HistoryDialog } from './history-dialog'
+import { SplitDialog } from './split-dialog'
+import { UpscaleDialog } from './upscale-dialog'
 import { useCostSummary } from './cost'
 import { SnapGuideLayer } from './snap-guides'
 import { PromptImportDialog } from './prompt-import-dialog'
@@ -53,8 +56,10 @@ import { useCanvasKeys } from './use-canvas-keys'
 import { useCanvasWorkflow } from './use-canvas-workflow'
 
 type DialogState = {
-  kind: 'save' | 'load' | 'help' | 'settings' | 'import' | 'history'
+  kind: 'save' | 'load' | 'help' | 'settings' | 'import' | 'history' | 'crop' | 'split' | 'upscale'
   workflows?: { name: string; modified: string }[]
+  /** 图片加工类对话框要处理的那张图 */
+  target?: { nodeId: string; src: string; name: string }
 }
 
 export function CanvasApp() {
@@ -106,7 +111,7 @@ export function CanvasApp() {
     settingsPrompted.current = true
     setDialog({ kind: 'settings' })
   }, [config])
-  const { addImages, replaceImage, openPreview } = useCanvasImages({
+  const { addImages, replaceImage, openPreview, addDataUrl } = useCanvasImages({
     nodesRef,
     setNodes,
     createPosition: () => createPositionRef.current(),
@@ -310,6 +315,30 @@ export function CanvasApp() {
     hasPreview: Boolean(preview),
   })
 
+  /* ---------------- 图片加工：裁剪 / 切分 / 放大 ---------------- */
+  // 三个动作都只是「打开对应对话框，把要处理的那张图带过去」，
+  // 真正的像素处理在对话框里（本地 canvas，不走接口、不花钱）。
+  const openImageOp = useCallback(
+    (kind: 'crop' | 'split' | 'upscale') => (nodeId: string) => {
+      const node = nodesRef.current.find(row => row.id === nodeId)
+      if (!node || node.type !== 'image' || !node.data.url) {
+        flash('这张图还没有可用的文件')
+        return
+      }
+      setDialog({ kind, target: { nodeId, src: node.data.url, name: node.data.name } })
+    },
+    [nodesRef, flash],
+  )
+
+  const imageOps = useMemo(
+    () => ({
+      cropImage: openImageOp('crop'),
+      splitImage: openImageOp('split'),
+      upscaleImage: openImageOp('upscale'),
+    }),
+    [openImageOp],
+  )
+
   /* ---------------- 节点上下文 ---------------- */
   const actions = useMemo(
     () => ({
@@ -323,9 +352,10 @@ export function CanvasApp() {
       deleteNode,
       zoomImage: openPreview,
       replaceImage,
+      ...imageOps,
       config,
     }),
-    [updatePrompt, runPrompt, cancelPrompt, deleteNode, openPreview, replaceImage, config],
+    [updatePrompt, runPrompt, cancelPrompt, deleteNode, openPreview, replaceImage, imageOps, config],
   )
 
   return (
@@ -516,6 +546,50 @@ export function CanvasApp() {
             workflows={dialog.workflows ?? []}
             onCancel={() => setDialog(null)}
             onPick={name => void doLoad(name)}
+          />
+        ) : null}
+        {dialog?.kind === 'crop' && dialog.target ? (
+          <CropDialog
+            src={dialog.target.src}
+            name={dialog.target.name}
+            onClose={() => setDialog(null)}
+            onConfirm={async (dataUrl, note) => {
+              history.record()
+              await addDataUrl(dataUrl, `${dialog.target!.name.replace(/\.[^.]+$/, '')}_crop_${Date.now()}.png`)
+              setDialog(null)
+              flash(note)
+            }}
+          />
+        ) : null}
+        {dialog?.kind === 'split' && dialog.target ? (
+          <SplitDialog
+            src={dialog.target.src}
+            onClose={() => setDialog(null)}
+            onConfirm={async parts => {
+              history.record()
+              const base = dialog.target!.name.replace(/\.[^.]+$/, '')
+              const origin = createPosition()
+              for (const [index, part] of parts.entries()) {
+                await addDataUrl(part.dataUrl, `${base}_${index + 1}.png`, {
+                  x: origin.x + index * 160,
+                  y: origin.y,
+                })
+              }
+              setDialog(null)
+              flash(`已切出 ${parts.length} 张`)
+            }}
+          />
+        ) : null}
+        {dialog?.kind === 'upscale' && dialog.target ? (
+          <UpscaleDialog
+            src={dialog.target.src}
+            onClose={() => setDialog(null)}
+            onConfirm={async (dataUrl, note) => {
+              history.record()
+              await addDataUrl(dataUrl, `${dialog.target!.name.replace(/\.[^.]+$/, '')}_up_${Date.now()}.png`)
+              setDialog(null)
+              flash(note)
+            }}
           />
         ) : null}
         {dialog?.kind === 'help' ? <HelpDialog config={config} onClose={() => setDialog(null)} /> : null}

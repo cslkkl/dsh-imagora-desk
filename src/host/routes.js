@@ -71,6 +71,15 @@ function publicConfig(config) {
  * @param {(patch: object) => void} deps.applySettings
  */
 export function createRouter({ store, pool, getConfig, getSettings, applySettings }) {
+  /** registryId → absPath：给 hydrate 补节点上没存的路径用。 */
+  const assetIndex = async () => {
+    const registry = await store.readRegistry()
+    const map = new Map()
+    for (const entry of registry.assets) {
+      if (entry?.id && entry.absPath) map.set(String(entry.id), String(entry.absPath))
+    }
+    return map
+  }
   return async function route(req, res) {
     const url = new URL(req.url || '/', 'http://local')
     const path = url.pathname.replace(/^\/imagora/, '') || '/'
@@ -232,7 +241,7 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
 
     if (path === '/workflow/save' && method === 'POST') {
       const body = await readJson(req)
-      const nodes = store.hydrate(body.nodes)
+      const nodes = store.hydrate(body.nodes, await assetIndex())
       const saved = await store.saveWorkflow(body.name, { nodes, edges: body.edges || [] })
       return json(res, 200, saved)
     }
@@ -256,7 +265,7 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
       })
       return json(res, 200, {
         name: data.name || name,
-        nodes: store.hydrate(nodes),
+        nodes: store.hydrate(nodes, await assetIndex()),
         edges: Array.isArray(data.edges) ? data.edges : [],
         missing,
       })
@@ -264,7 +273,10 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
 
     if (path === '/recovery/save' && method === 'POST') {
       const body = await readJson(req)
-      const saved = await store.saveRecovery({ nodes: store.hydrate(body.nodes), edges: body.edges || [] })
+      const saved = await store.saveRecovery({
+        nodes: store.hydrate(body.nodes, await assetIndex()),
+        edges: body.edges || [],
+      })
       return json(res, 200, saved)
     }
 
@@ -275,7 +287,7 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
         ok: true,
         name: data.name,
         savedAt: data.savedAt,
-        nodes: store.hydrate(data.nodes),
+        nodes: store.hydrate(data.nodes, await assetIndex()),
         edges: Array.isArray(data.edges) ? data.edges : [],
         missing: [],
       })

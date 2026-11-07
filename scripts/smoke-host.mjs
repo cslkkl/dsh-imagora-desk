@@ -319,6 +319,39 @@ try {
     body: JSON.stringify({ budget: 0 }),
   }).then(res => res.json())
   check('POST /settings 0 表示不设上限', clearBudget.budget === 0, String(clearBudget.budget))
+
+  // 节点上没存 absPath 时，hydrate 要能从 registry 补回来：否则好文件被误判「缺失」，
+  // url 被抹掉，图片节点的裁剪/切分/放大/预览全部哑掉。
+  // 一张 1×1 的透明 PNG：冒烟只需要「是张能读的图」
+  const PIXEL_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+  const uploaded = await fetch(`${base}/upload?name=hydrate-check.png`, {
+    method: 'POST',
+    headers: { 'content-type': 'image/png' },
+    body: Buffer.from(PIXEL_PNG, 'base64'),
+  }).then(res => res.json())
+  const noPath = await fetch(`${base}/recovery/save`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      nodes: [
+        {
+          id: 'img-nopath',
+          type: 'image',
+          position: { x: 0, y: 0 },
+          // 故意不写 absPath / file
+          data: { registryId: uploaded.image.id, name: uploaded.image.name, size: 1, ext: 'png', refCount: 0 },
+        },
+      ],
+      edges: [],
+    }),
+  })
+  const nopath = await fetch(`${base}/recovery/latest`).then(res => res.json())
+  const node = nopath.nodes?.find(row => row.id === 'img-nopath')
+  check('节点没存 absPath 时从 registry 补回', Boolean(node?.data?.absPath), node?.data?.absPath ?? '')
+  check('补齐后 url 不被抹掉', Boolean(node?.data?.url), node?.data?.url ?? '')
+  check('补齐后不误判 missing', node?.data?.missing === false, String(node?.data?.missing))
+
+  check('POST /recovery/save 未报错', noPath.status === 200)
 } finally {
   server.close()
   for (const dir of [SANDBOX, FIXTURE_ROOT]) {

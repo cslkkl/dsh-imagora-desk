@@ -14,6 +14,10 @@ export interface NodeActions {
   deleteNode: (nodeId: string) => void
   zoomImage: (nodeId: string) => void
   replaceImage: (nodeId: string) => void
+  /** 图片加工：分别打开裁剪 / 切分 / 放大对话框 */
+  cropImage: (nodeId: string) => void
+  splitImage: (nodeId: string) => void
+  upscaleImage: (nodeId: string) => void
   config: ImagoraConfig | null
 }
 
@@ -94,6 +98,15 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
         </RailButton>
         <RailButton label="换一张图" onClick={() => actions.replaceImage(id)}>
           <Icon name="image" />
+        </RailButton>
+        <RailButton label="裁剪" onClick={() => actions.cropImage(id)}>
+          <Icon name="crop" />
+        </RailButton>
+        <RailButton label="切分" onClick={() => actions.splitImage(id)}>
+          <Icon name="grid" />
+        </RailButton>
+        <RailButton label="放大" onClick={() => actions.upscaleImage(id)}>
+          <Icon name="expand" />
         </RailButton>
         <RailButton label="删除图片" danger onClick={() => actions.deleteNode(id)}>
           <Icon name="trash" />

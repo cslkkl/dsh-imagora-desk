@@ -201,12 +201,19 @@ export class Store {
     return { ok: true, ...data }
   }
 
-  /** 给节点补 url / absPath：文件被用户删掉时标 missing，画布画红框而不是整张卡消失。 */
-  hydrate(nodes) {
+  /**
+   * 给节点补 url / absPath：文件被用户删掉时标 missing，画布画红框而不是整张卡消失。
+   *
+   * `byId` 是 registry 索引（registryId → absPath）。节点上没存 absPath 时要靠它补——
+   * 手工写的或旧版本的快照就属于这种，只认节点字段会把好文件误判成「缺失」，
+   * 连带 url 被抹掉，图片节点的操作（裁剪/切分/放大/预览）就全哑了。
+   */
+  hydrate(nodes, byId = new Map()) {
     return (Array.isArray(nodes) ? nodes : []).map(node => {
       if (node?.type !== 'image' || !node.data) return node
       const data = node.data
-      const abs = data.absPath || data.file || ''
+      const fromRegistry = byId.get(String(data.registryId ?? '')) || ''
+      const abs = data.absPath || data.file || fromRegistry
       const exists = abs ? existsSync(abs) : false
       return {
         ...node,

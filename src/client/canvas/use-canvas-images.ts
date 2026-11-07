@@ -109,7 +109,29 @@ export function useCanvasImages({ nodesRef, setNodes, createPosition, log, flash
     [nodesRef, setPreview],
   )
 
-  return { addImages, dropFiles, replaceImage, openPreview }
+  /**
+   * 把一段 data URL（裁剪 / 切分 / 放大的产物）落成资产并加节点。
+   * 走的是和上传同一条路：先转成 Blob 存进 assets，再建节点——
+   * 这样它和别的图一样有 registry 记录、能在生成历史里找回、也能被 @ 引用。
+   */
+  const addDataUrl = useCallback(
+    async (dataUrl: string, name: string, position?: { x: number; y: number }) => {
+      const blob = await fetch(dataUrl).then(res => res.blob())
+      const fileName = name.endsWith('.png') ? name : `${name}.png`
+      const entry = await uploadImage(blob, fileName)
+      const at = position ?? createPosition()
+      const node = buildImageNode(
+        { ...entry, relPath: entry.name, createdAt: entry.createdAt ?? new Date().toISOString() },
+        at,
+      )
+      setNodes(current => [...current, node])
+      log(`已添加 ${entry.name}`)
+      return entry
+    },
+    [setNodes, log, createPosition],
+  )
+
+  return { addImages, dropFiles, replaceImage, openPreview, addDataUrl }
 }
 
 /** 连线：source→target 合法时补一条边（id 固定，重复连接不会叠多条）。 */

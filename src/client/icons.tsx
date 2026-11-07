@@ -19,6 +19,9 @@ const PATHS: Record<string, string> = {
   close: 'M6 6l12 12M18 6L6 18',
   wand: 'M5 19l9-9M14 5l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM19 12l.7 1.3L21 14l-1.3.7L19 16l-.7-1.3L17 14l1.3-.7z',
   layers: 'M12 4l8 4-8 4-8-4 8-4zM4 12l8 4 8-4M4 16l8 4 8-4',
+  crop: 'M6 3v13a2 2 0 002 2h13M3 6h13a2 2 0 012 2v13',
+  grid: 'M4 4h16v16H4zM9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16',
+  expand: 'M9 4H4v5M15 20h5v-5M4 4l6 6M20 20l-6-6',
 }
 
 export function Icon({
