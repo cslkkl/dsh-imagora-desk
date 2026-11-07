@@ -304,6 +304,20 @@ body {
   margin-bottom: 5px;
 }
 /* 字段级说明小字：与原版配置弹窗同一档（11px / 三级文字色） */
+/* 一组同类字段的容器：参数说明里成组出现（接口三项、目录两项） */
+.im-fieldset {
+  display: grid;
+  gap: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--im-line);
+}
+/* 字段下面那排按钮：按钮多时自动换行，不挤成一条 */
+.im-field-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
 .im-field-hint {
   margin: 5px 0 0;
   font-size: 11px;

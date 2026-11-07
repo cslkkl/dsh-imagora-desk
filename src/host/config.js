@@ -113,14 +113,22 @@ function resolveBudget(settings) {
   return Number.isFinite(raw) && raw > 0 ? raw : 0
 }
 
-/** 默认输出目录：设置里填过就用它，否则落在 `<插件数据目录>/output`。 */
-function resolveOutputDir(settings, root) {
+/**
+ * 默认输出目录，优先级：显式设置 > imagora 目录下的 output > 插件数据目录下的 output。
+ *
+ * 中间那档是「共用一份」的关键：填了 imagora 目录就等于和原版共用同一个 output，
+ * 原版出过的图和新出的图都在一处，不用复制也不用链接。
+ */
+function resolveOutputDir(settings, root, imagoraRoot) {
   const custom = typeof settings?.outputDir === 'string' ? settings.outputDir.trim() : ''
-  return custom ? resolve(custom) : join(root || homedir(), 'output')
+  if (custom) return resolve(custom)
+  const shared = String(imagoraRoot || '').trim()
+  if (shared) return resolve(join(shared, 'output'))
+  return join(root || homedir(), 'output')
 }
 
 /** 自带 provider 生效时用它解析，不看本机 Imagora。 */
-function resolveFromProvider(provider, settings, root) {
+function resolveFromProvider(provider, settings, root, imagoraRoot) {
   const modelId = provider.model || String(settings?.model || '').trim()
   const sizes = provider.sizes.length ? provider.sizes : FALLBACK_SIZES
   const qualities = provider.qualities.length ? provider.qualities : FALLBACK_QUALITIES
@@ -131,6 +139,8 @@ function resolveFromProvider(provider, settings, root) {
   return {
     source: 'plugin',
     root,
+    imagoraRoot: String(settings?.imagoraRoot || '').trim(),
+    outputDirOverride: String(settings?.outputDir || '').trim(),
     profile: 'plugin',
     profileLabel: '插件内配置',
     profiles: [],
@@ -144,7 +154,7 @@ function resolveFromProvider(provider, settings, root) {
     qualities,
     qualityEffective: qualities.length > 1,
     outputFormats: ['png', 'jpeg', 'webp'],
-    defaultOutputDir: resolveOutputDir(settings, root),
+    defaultOutputDir: resolveOutputDir(settings, root, imagoraRoot),
     budget: resolveBudget(settings),
     issues,
     providerView: providerView({ provider }),
@@ -168,7 +178,9 @@ export function locateImagoraRoot(settings) {
 export function loadImagoraConfig(settings) {
   const root = locateImagoraRoot(settings)
   const provider = normalizeProvider(settings?.provider)
-  if (provider) return resolveFromProvider(provider, settings, root)
+  // imagora 目录同时是「输出目录与共享数据的落点」，自带 provider 也要能用到它
+  const sharedRoot = String(settings?.imagoraRoot || '').trim()
+  if (provider) return resolveFromProvider(provider, settings, root, sharedRoot)
 
   const configPath = root ? join(root, 'config.json') : ''
   const cfg = (configPath && readJson(configPath)) || {}
@@ -211,7 +223,7 @@ export function loadImagoraConfig(settings) {
     ? model.quality_options
     : profile.quality_options || ['low', 'medium', 'high']
 
-  const defaultOutputDir = resolveOutputDir(settings, root)
+  const defaultOutputDir = resolveOutputDir(settings, root, root)
   const issues = []
   if (!cfg.profiles) issues.push('没读到 imagora 的 config.json（也没在插件里填过接口地址）')
   if (!apiKey) issues.push(`当前 profile「${profileName || '未命名'}」没有配置密钥`)
@@ -220,6 +232,8 @@ export function loadImagoraConfig(settings) {
   return {
     source: 'imagora',
     root,
+    imagoraRoot: String(settings?.imagoraRoot || '').trim(),
+    outputDirOverride: String(settings?.outputDir || '').trim(),
     profile: profileName,
     profileLabel: profile.label || profileName,
     profiles: Object.entries(profiles).map(([name, row]) => ({ name, label: row?.label || name })),

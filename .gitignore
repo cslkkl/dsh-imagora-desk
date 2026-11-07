@@ -1,12 +1,22 @@
-# 构建产物 dist/client.js 要进仓库：装插件时它就是浏览器半端，克隆下来即可用。
-# 验收台的 vendor 是本地现生成的，不上传。
+# 构建产物：dist/client.js 要进仓库（它就是浏览器半端），只忽略本地生成的 vendor
 harness/dist/
-node_modules/
-.agent/
-.playwright-mcp/
+*.tgz
 *.log
 harness/*.out
 harness/*.err
 
-# pnpm pack 的产物，发版时上传到 Release，不进仓库
-*.tgz
+# 依赖
+node_modules/
+.venv/
+
+# 密钥与本机状态：插件不往仓库里写这些，条目只是防御
+.env
+.env.*
+!.env.example
+.agent/
+.playwright-mcp/
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
