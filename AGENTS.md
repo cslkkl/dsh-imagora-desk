@@ -43,12 +43,8 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 
 - [x] 市场可搜索：自托管索引 + GitHub Pages，实测搜到并安装成功。发 npm 只是可选增强（`dsh plugin add dsh-imagora-desk` 直接装）
 - [ ] 未做自动化 UI 测试，验收台靠手工脚本驱动
-- [ ] 提示词卡缺原版的「生成中秒数占位块」（现在秒数塞在运行按钮文字里）
 - [ ] 预览遮罩只是「一张图 + 点击关闭」，原版 ZoomModal 有缩放/平移/复制/新标签
-- [ ] 图片节点蒙版角标不可点击：原版点一下清除，插件目前挂了蒙版就无法撤销
 - [ ] 保存弹窗缺「已有工作流列表」（原版可点选覆盖）
-- [ ] 生成历史计数在 footer，原版在 header；裁剪信息行在 body，原版在 footer 左侧
-- [ ] 可拖出按钮缺 grip 把手与呼吸光环（原版 hover 时右侧浮出圆形把手）
 
 功能对照全表 → [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md)
 
