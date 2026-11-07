@@ -4,12 +4,65 @@
     <meta charset="utf-8" />
     <title>dsh-imagora 渲染验收台</title>
     <style>
+      /* ---------------- 宿主设计 token（照抄 DSH 的真值） ----------------
+       * 插件里所有 `--im-*` 都从这些 `--dsw-*` 派生。验收台此前**一个都没定义**，
+       * 于是每个 `--im-*` 都退到它自己的兜底值 —— 结果就是：
+       *   1. 验收台看到的颜色不是宿主里的颜色；
+       *   2. **暗色主题根本没法验**（宿主靠 body[data-ds-dark-theme] 整体翻转，
+       *      我们没搬就永远是"浅色"）。
+       * 值取自宿主 ui-theme 的 design-platform.css（浅色）与它同文件的
+       * `body[data-ds-dark-theme]` 段（深色），静态色板 → alias 的两级引用已展开。
+       * 改这里要对着宿主那份核，不要按观感调。 */
+      :root {
+        color-scheme: light;
+        --dsw-alias-brand-primary-new-colorprimary-new-color: #4176e6;
+        --dsw-alias-label-primary: #0f1115;
+        --dsw-alias-label-primary-foreground: #ffffff;
+        --dsw-alias-label-secondary: #61666b;
+        --dsw-alias-label-tertiary: #81858c;
+        --dsw-alias-bg-base: #ffffff;
+        --dsw-alias-bg-layer-1: #ffffff;
+        --dsw-alias-bg-layer-2: #ffffff;
+        --dsw-alias-bg-module-platform: #f9fafb;
+        --dsw-alias-border-l2: #0000001a;
+        --dsw-alias-border-l3: #0000001f;
+        --dsw-alias-interactive-bg-hover: #2631480f;
+        --dsw-alias-state-error-primary: #ec1313;
+        --dsw-alias-state-warn-primary: #f59e0b;
+        --dsw-alias-state-success-primary: #22c55e;
+        --dsw-alias-bg-mask-1: #0000003d;
+        --dsw-elevation-stroke-color: var(--dsw-alias-border-l3);
+        --dsw-elevation-stroke: 0 0 0 0.5px var(--dsw-elevation-stroke-color);
+        --dsw-elevation-soft: var(--dsw-elevation-stroke), 0 4px 16px 0 #00000008, 0 0 24px 0 #00000008;
+        --dsw-elevation-panel: var(--dsw-elevation-stroke), 0 3px 8px 0 #00000008, 0 0 16px 0 #00000005;
+        --dsw-elevation-prominent: var(--dsw-elevation-stroke), 0 3px 8px 0 #0000000a, 0 0 20px 0 #0000000d;
+        --dsw-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      }
+      body[data-ds-dark-theme] {
+        color-scheme: dark;
+        --dsw-alias-brand-primary-new-colorprimary-new-color: #5686fe;
+        --dsw-alias-label-primary: #f9fafb;
+        --dsw-alias-label-primary-foreground: #0f1115;
+        --dsw-alias-label-secondary: #cfd3d6;
+        --dsw-alias-label-tertiary: #adb2b8;
+        --dsw-alias-bg-base: #151517;
+        --dsw-alias-bg-layer-1: #232324;
+        --dsw-alias-bg-layer-2: #2c2c2e;
+        --dsw-alias-bg-module-platform: #353638;
+        --dsw-alias-border-l2: #ffffff1f;
+        --dsw-alias-border-l3: #ffffff29;
+        --dsw-alias-interactive-bg-hover: #ffffff14;
+        --dsw-alias-state-error-primary: #f25a5a;
+        --dsw-alias-state-warn-primary: #f59e0b;
+        --dsw-alias-state-success-primary: #22c55e;
+        --dsw-alias-bg-mask-1: #00000080;
+      }
       html,
       body {
         margin: 0;
         height: 100%;
-        background: #f4f5f7;
-        color: #1b1b1b;
+        background: var(--dsw-alias-bg-base, #f4f5f7);
+        color: var(--dsw-alias-label-primary, #1b1b1b);
         font-family:
           system-ui,
           -apple-system,
@@ -62,6 +115,14 @@
     </style>
   </head>
   <body>
+    <script>
+      // 暗色主题开关：`?dark=1` 给 body 挂上宿主那套属性，插件的 token 就会整体翻转。
+      // 必须在上面的样式生效后、bundle 渲染前执行 —— 插件读 token 是渲染时求值的。
+      // 也支持在控制台里 `document.body.toggleAttribute('data-ds-dark-theme')` 手动切。
+      if (new URLSearchParams(location.search).get('dark') === '1') {
+        document.body.setAttribute('data-ds-dark-theme', '')
+      }
+    </script>
     <div id="root"><div class="boot">正在加载画布 bundle…</div></div>
     <script src="/harness/dist/vendor.js"></script>
     <script>
