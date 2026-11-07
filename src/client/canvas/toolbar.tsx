@@ -120,7 +120,10 @@ export function CanvasToolbar(props: ToolbarProps) {
             primary: true,
           })}
           {tool('粘贴导入', props.onPasteImport, { title: '粘贴模型回复，按行解析成多张提示词卡片' })}
-          {/* 这两个可以拖进画布：松开的位置就是新节点的位置 */}
+          {/* 这两个可以拖进画布：松开的位置就是新节点的位置。
+              右侧那枚圆形徽标是原版 `.btn-drag-grip` 的完整形态（16px 圆 + 品牌色描边 +
+              白色底 + 6 点抓手），只是常态透明、hover 才 `drag-grip-in` 浮上来。
+              光有 grab 光标不够：旁边几个按钮也是 pointer，用户看不出差别。 */}
           <button
             type="button"
             className="im-btn-ghost im-btn-sm nodrag im-drag-source"
@@ -130,7 +133,9 @@ export function CanvasToolbar(props: ToolbarProps) {
             onClick={props.onAddPrompt}
           >
             新建提示词卡片
-            <Icon name="grip" size={12} />
+            <span className="im-drag-grip">
+              <Icon name="grip" size={10} strokeWidth={2.5} />
+            </span>
           </button>
           <button
             type="button"
@@ -141,7 +146,9 @@ export function CanvasToolbar(props: ToolbarProps) {
             onClick={props.onAddGroup}
           >
             新建图片组
-            <Icon name="grip" size={12} />
+            <span className="im-drag-grip">
+              <Icon name="grip" size={10} strokeWidth={2.5} />
+            </span>
           </button>
         </div>
 

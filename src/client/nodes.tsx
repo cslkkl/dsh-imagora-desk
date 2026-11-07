@@ -50,6 +50,13 @@ function Rail({ children }: { children: React.ReactNode }) {
   return <div className="im-rail nodrag">{children}</div>
 }
 
+/**
+ * 操作栏按钮：原版是 `btn-ghost btn-icon btn-icon--sm` 三个类叠出来的
+ * —— ghost 给「主体色图标 + hover 涟漪反白」，btn-icon--sm 给 30×30 / 圆角 8。
+ * 所以这里也叠 `im-btn-ghost` + `im-icon-btn`，而不是另写一套中性灰按钮：
+ * 两套并存会让「节点上的图标」和「工具栏上的按钮」是两种观感。
+ * 危险项叠 `im-btn-danger`（原版是同名修饰类）。
+ */
 function RailButton({
   label,
   onClick,
@@ -64,7 +71,7 @@ function RailButton({
   return (
     <button
       type="button"
-      className={`im-icon-btn nodrag${danger ? ' is-danger' : ''}`}
+      className={`im-icon-btn im-btn-ghost nodrag${danger ? ' im-btn-danger' : ''}`}
       title={label}
       aria-label={label}
       onClick={event => {
@@ -197,7 +204,7 @@ export const GroupNode = memo(function GroupNode({ id, data, selected }: NodePro
   const stackCount = Math.min(Math.max(data.imageCount - 1, 0), 3)
 
   return (
-    <div className={`im-group-node${selected ? ' is-selected' : ''}`}>
+    <div className={`im-panel-card im-group-node${selected ? ' is-selected' : ''}`}>
       <Handles />
       <Rail>
         <RailButton label="删除图片组" danger onClick={() => actions.deleteNode(id)}>

@@ -72,6 +72,11 @@ body {
   --im-shadow-card: var(--dsw-elevation-soft, 0 1px 2px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(0, 0, 0, 0.04));
   --im-shadow-float: var(--dsw-elevation-panel, 0 6px 22px rgba(0, 0, 0, 0.12));
   --im-shadow-modal: var(--dsw-elevation-prominent, 0 24px 70px rgba(15, 20, 25, 0.26));
+  /* 画布节点卡专用的一档：原版 .node-pop 是「12/26 的大投影 + 顶部 1px 内高光」，
+     比普通卡片重一档（节点要浮在点阵画布之上）。内高光不能写死白色，
+     暗色主题下会是"白天看不清、夜里发光"，所以从表面色派生。 */
+  --im-shadow-node: var(--dsw-elevation-panel, 0 12px 26px rgba(33, 44, 53, 0.12)),
+    inset 0 1px color-mix(in srgb, var(--im-surface) 90%, transparent);
   /* 弹窗遮罩：半透明纯色，不与任何前景配对 */
   --im-scrim: var(--dsw-alias-bg-mask-1, rgba(0, 0, 0, 0.32));
 }
@@ -275,23 +280,16 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* 原版 .btn-icon--sm：30×30、圆角 8 */
   min-width: 30px;
   min-height: 30px;
   padding: 0;
   border: 0;
   border-radius: var(--im-r-sm);
   background: transparent;
-  color: var(--im-ink-2);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.im-icon-btn:hover { background: var(--im-hover); color: var(--im-ink); }
-.im-icon-btn.is-danger { color: var(--im-danger); }
-.im-icon-btn.is-danger:hover {
-  /* 底色必须从同一个 --im-danger 派生：直接用宿主的 hover-danger token，
-     它会和这里的 --im-danger 文字色来自两套体系，暗色主题下容易撞成看不清
-     （同类事故见提示条「黑底黑字」）。 */
-  background: color-mix(in srgb, var(--im-danger) 12%, transparent);
+  /* 颜色与 hover 涟漪交给同时挂上的 .im-btn-ghost / .im-btn-danger：
+     原版这里就是 btn-ghost btn-icon btn-icon--sm 三个类叠出来的，
+     不再另写一套中性灰。两套并存会让节点图标和工具栏按钮变成两种观感。 */
 }
 
 .im-zoom {
@@ -345,9 +343,19 @@ body {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .im-field:hover { border-color: var(--im-ink-3); }
+/* 聚焦：**只描边 + 一圈柔和光环，没有 outline**。
+ *
+ * 原版两条规则叠出来的最终形态就是这个：@layer 里的 ring-2 ring-brand/20
+ * 被后面未分层的 .field-control:focus { box-shadow: 0 0 0 4px color-mix(brand 13%) }
+ * 整条覆盖，所以实测是**4px、13% 透明度**的一圈光，不是 2px、20%。
+ *
+ * 插件这边此前多补了一条 .im-field:focus-visible { outline: 2px 实线 }（见文件末尾
+ * 的键盘可达性小节），结果点一下输入框会同时出现「4px 光环 + 2px 实线框」两圈，
+ * 看起来像重影 —— 这次一并删掉：输入类控件的焦点由这圈光环承担，与原版一致。
+ * 键盘用户照样看得见（光环就跟着 :focus 出现），不需要再加一条 outline。 */
 .im-field:focus {
   border-color: var(--im-brand);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--im-brand) 20%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--im-brand) 13%, transparent);
 }
 .im-label {
   display: flex;
@@ -559,6 +567,21 @@ body {
   font-size: 12px;
 }
 
+/* 顶栏那两个下拉（来源 / 模型）**固定宽度**。
+ *
+ * 为什么不交给内容自适应：这一行是「品牌 + 来源 + 模型 + 成本 + 弹性占位 + 设置」，
+ * 每个控件都按内容撑开时，切换来源（profile 名长度不同）会让后面整排按钮左右横跳；
+ * 而内容自适应还有另一个副作用 —— 收起时按当前值的宽度缩，换一个短名字整行又变一次。
+ * 固定宽度后位置稳定，长名字在触发器里省略号截断（完整值仍在 title 与展开列表里）。
+ *
+ * 宽度的取法：来源名最长见「火山方舟官方」（6 个汉字 ≈ 72px），模型名最长见
+ * doubao-seedream-5-0-pro-260628（28 字符）。200 / 230 是「字号 12px 下能放下
+ * 常见取值、又不至于把「设置」挤出顶栏」的实测值，别再按单个名字调窄。 */
+.im-select-profile { width: 200px; max-width: none; }
+.im-select-profile .im-select-trigger { width: 100%; }
+.im-select-model { width: 230px; max-width: none; }
+.im-select-model .im-select-trigger { width: 100%; }
+
 /* 节点内的输入/下拉用紧凑档：原版 .studio-canvas .node-pop 把字号压到 12px、
    横向内边距收成 8px —— 14px 在 7fr 列里会被截成「1024x1024 (1:1) (0…」。 */
 .im-field--compact,
@@ -572,15 +595,19 @@ body {
   padding: 8px;
 }
 
-/* ---------------- 节点卡片（照搬 .panel-card） ----------------
-   三类节点共用同一块面板，靠内容区分，不靠色相——与 Imagora 一致。 */
+/* ---------------- 节点卡片（照搬 .panel-card + .node-pop） ----------------
+   三类节点共用同一块面板，靠内容区分，不靠色相——与 Imagora 一致。
+
+   原版节点根元素同时挂 .panel-card 与 .node-pop 两个类，后者是**未分层 + !important**
+   的覆盖：底色走浮层档、边框更浅、阴影是「12/26 的大投影 + 顶部 1px 内高光」。
+   那个内高光是原版卡面看上去「有厚度」的来源，别省。 */
 .im-panel-card {
   position: relative;
   border: 1px solid var(--im-line);
   /* 原版 .panel-card 的 18px 写在未分层规则里，压过 @layer 的 rounded-xl(12) */
   border-radius: var(--im-r-surface);
-  background: var(--im-surface);
-  box-shadow: var(--im-shadow-card);
+  background: var(--im-surface-float);
+  box-shadow: var(--im-shadow-node);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 /* 选中态：原版是 outline 2px + offset 1px，不是 box-shadow 环 ——
@@ -590,7 +617,6 @@ body {
   outline-offset: 1px;
 }
 .im-panel-card.is-missing { border-color: var(--im-danger); }
-/* 图片组卡面：原版是 bg-brand/5 + border-brand/15，不是纯中性底 */
 
 .im-thumb {
   /* 原版 h-40 w-32：宽 128、高 160 —— 竖构图也放得下，不会把卡面压扁 */
@@ -631,10 +657,14 @@ body {
 .im-panel-card:hover .im-rail { opacity: 1; pointer-events: auto; }
 
 /* ---------------- 图片组节点（照搬 Imagora 的 GroupNode 叠卡） ----------------
+   结构是**两层纸**：外层是节点卡片本身（.im-panel-card，白纸 + 边框 + 阴影 + 18 圆角），
+   内层是颜色浅的主体系卡面（brand 5% 底 / brand 15% 描边），叠卡夹在中间错位露出。
+   缺了外层那层白纸就只剩一块淡蓝方块，和图片卡、提示词卡完全不是一个族 —— 这是原版
+   的关键观感，别只留内层。
+
    根节点用 padding 给叠卡预留错开空间，所以叠卡永远不会伸出节点边界。
    宽 224（原版 w-56）、错开步长 4px 由 nodes.tsx 的 STACK_STEP_PX 控制。 */
 .im-group-node {
-  position: relative;
   /* 原版 w-56 = 224px 且全局 border-box，所以 padding 算在 224 里；
      不写 box-sizing 的话内容 224 + padding 12 会撑到 236，
      外壳与卡面就"尺寸对不上"了。 */
@@ -661,17 +691,14 @@ body {
   background: color-mix(in srgb, var(--im-brand) 5%, transparent);
 }
 .im-group-count {
+  /* 原版 text-xl font-semibold leading-tight + text-brand-dark */
   font-size: 20px;
   font-weight: 600;
-  line-height: 1.15;
-  color: var(--im-ink);
+  line-height: 1.25;
+  color: var(--im-brand-dark);
 }
 .im-group-size { margin-top: 4px; font-size: 16px; color: var(--im-ink-3); }
 .im-group-dup { margin-top: 4px; }
-.im-group-node.is-selected .im-group-face {
-  outline: 2px solid var(--im-brand);
-  outline-offset: 1px;
-}
 
 /* ---------------- 小标签（照搬 .chip） ---------------- */
 .im-chip {
@@ -1078,20 +1105,50 @@ body {
 .im-banner-text { min-width: 0; }
 .im-banner-list { margin: 0; padding-left: 16px; display: grid; gap: 2px; }
 
-/* 可拖到画布上的工具栏按钮：光标提示「能拖」，悬停时轻微抬起 */
+/* ============ 可拖出按钮（工具栏：新建提示词卡片 / 新建图片组） ============
+   悬浮时暗示「这个能拖到画布」：**grab 光标 + 品牌色呼吸光晕 + 右侧圆形拖拽徽标淡入上浮**。
+   三条整组照搬原版 index.css 的 .btn-draggable / .btn-drag-grip（含两个关键帧），
+   数值一个不改：1.8s 呼吸、光晕 5px/16%、徽标 16px 圆形、入场 0.25s
+   cubic-bezier(0.22, 1, 0.36, 1) 从 (translateY 2px, scale .8) 浮上来。
+   与拖拽落点胶囊同源（都表示「拖出去放到画布」），所以同用品牌色。 */
 .im-drag-source { cursor: grab; }
 .im-drag-source:active { cursor: grabbing; }
-/* 把手：平时几乎透明，hover 才浮现（原版 .btn-drag-grip 的做法）。
-   没有它，用户看不出这个按钮和旁边那几个的区别。 */
-.im-drag-source > svg {
+.im-drag-source:hover:not(:disabled) { animation: im-drag-hint-glow 1.8s ease-in-out infinite; }
+/* 徽标：贴着按钮右缘（-right-1 = 负 4px），垂直居中，常态透明 + 不接指针。
+   按钮本身有 overflow: hidden（涟漪层要用），所以这个 -4px 会被裁掉一条边 ——
+   原版同样是这个结果（它的 .btn-ghost 也是 overflow:hidden），看起来就是「右缘露出半枚」。
+   别为了"让徽标完整"去改按钮的 overflow：那会让 hover 涟漪溢出圆角。 */
+.im-drag-grip {
+  position: absolute;
+  right: -4px;
+  top: 0;
+  bottom: 0;
+  margin-block: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 1px solid color-mix(in srgb, var(--im-brand) 30%, transparent);
+  border-radius: var(--im-r-pill);
+  /* 原版 bg-white：这里是浮层档表面（浅色=白、深色=深一档），别写死 #fff */
+  background: var(--im-surface-float);
+  box-shadow: var(--im-shadow-card);
+  color: var(--im-brand);
   opacity: 0;
-  transform: translateX(-3px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  color: var(--im-ink-3);
+  pointer-events: none;
 }
-.im-drag-source:hover > svg {
-  opacity: 1;
-  transform: translateX(0);
+.im-drag-source:hover .im-drag-grip {
+  animation: im-drag-grip-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes im-drag-hint-glow {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--im-brand) 0%, transparent); }
+  50%      { box-shadow: 0 0 0 5px color-mix(in srgb, var(--im-brand) 16%, transparent); }
+}
+@keyframes im-drag-grip-in {
+  from { opacity: 0; transform: translateY(2px) scale(0.8); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* 落点胶囊：外层只负责定位（transform 由 JS 直接写，跟着光标走），内层负责外观。
@@ -1397,18 +1454,16 @@ body {
 /* ---------------- 键盘可达性 ----------------
    宿主在 pointer 模态下把 :focus-visible 的 outline 关了，插件自绘的按钮
    （primary / ghost / icon / dock-row）如果不补焦点环，键盘用户完全看不出焦点在哪。
-   原版 index.css 也是这么补的。 */
+   原版 index.css 也是这么补的 —— 但它**只给 button / a / [role=button] /
+   [role=option] / input[type=range]** 加，输入类控件（input/textarea/select）不在名单里：
+   它们靠 .field-control:focus 那圈 4px 光环表示焦点（见上面 .im-field:focus）。
+   这里严格照这个分工，别给 .im-field 再补 outline —— 两条叠加就是「重影双环」。 */
 button:focus-visible,
 [role='button']:focus-visible,
 [role='option']:focus-visible,
 input[type='range']:focus-visible {
   outline: 2px solid var(--im-brand);
   outline-offset: 3px;
-}
-/* .im-field 自己关掉了 outline，焦点环改用 box-shadow 补 */
-.im-field:focus-visible {
-  outline: 2px solid var(--im-brand);
-  outline-offset: 1px;
 }
 
 /* ---------------- 减少动态效果 ----------------
