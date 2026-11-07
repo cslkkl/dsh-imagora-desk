@@ -37,7 +37,8 @@
     "harness": "node scripts/build-harness-vendor.mjs && node scripts/harness-server.mjs",
     "market:index": "node scripts/build-market-index.mjs",
     "market:check": "node scripts/check-market-index.mjs",
-    "market:fresh": "node scripts/check-market-freshness.mjs"
+    "market:fresh": "node scripts/check-market-freshness.mjs",
+    "market:release": "node scripts/build-market-index.mjs && node scripts/check-market-index.mjs"
   },
   "keywords": [
     "dsh",

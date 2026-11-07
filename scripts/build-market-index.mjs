@@ -34,14 +34,35 @@ function repoUrl() {
   }
 }
 
-/** 当前 HEAD 的完整 commit：format 1 要求 40 位小写 hex。 */
-function headCommit() {
-  return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim().toLowerCase()
+/**
+ * 索引该指向哪个提交？
+ *
+ * 不能是「刚提交的 HEAD」——索引文件本身也是提交的一部分，写进 HEAD 之后
+ * 那次提交又产生了新的 HEAD，索引永远落后一格（第一版就踩了这个循环）。
+ *
+ * 所以指向**发布 tag**：tag 指向的提交已经定死，不再随索引更新而移动。
+ * 取 tag 的顺序：`v<package.json version>` → 最近一个 tag → HEAD（开发期兜底）。
+ */
+function indexCommit() {
+  const wanted = `v${pkg.version}`
+  const tryRev = rev => {
+    try {
+      return execFileSync('git', ['rev-parse', '--verify', `${rev}^{commit}`], { cwd: ROOT, encoding: 'utf8' })
+        .trim()
+        .toLowerCase()
+    } catch {
+      return ''
+    }
+  }
+  const fromTag = tryRev(wanted) || tryRev('v1')
+  if (fromTag) return { commit: fromTag, ref: wanted }
+  // 没有 tag 时退回 HEAD，并在输出里说明——这样开发期也能生成一份能装的东西
+  return { commit: tryRev('HEAD'), ref: 'HEAD' }
 }
 
 /** 提交时间（Unix 秒）：format 1 的 publishTimestamp 口径。 */
-function commitTimestamp() {
-  const raw = execFileSync('git', ['show', '-s', '--format=%ct', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim()
+function commitTimestamp(rev) {
+  const raw = execFileSync('git', ['show', '-s', '--format=%ct', rev], { cwd: ROOT, encoding: 'utf8' }).trim()
   return Number(raw) || Math.floor(Date.now() / 1000)
 }
 
@@ -51,8 +72,8 @@ if (!REPO) {
   process.exit(1)
 }
 
-const COMMIT = headCommit()
-const STAMP = commitTimestamp()
+const { commit: COMMIT, ref: COMMIT_REF } = indexCommit()
+const STAMP = commitTimestamp(COMMIT)
 
 /**
  * 图标：format 1 接受 base64 data URL 或绝对 URL。要控制体积，
@@ -113,4 +134,6 @@ const outFile = join(outDir, 'index.json')
 writeFileSync(outFile, `${JSON.stringify(index, null, 2)}\n`, 'utf8')
 
 console.log(`[market] ${pkg.name}@${pkg.version} → market/index.json`)
-console.log(`[market] git source ${REPO}#${COMMIT.slice(0, 10)} (${new Date(STAMP * 1000).toISOString()})`)
+console.log(
+  `[market] git source ${REPO}#${COMMIT.slice(0, 10)}（指向 ${COMMIT_REF}，${new Date(STAMP * 1000).toISOString()}）`,
+)
