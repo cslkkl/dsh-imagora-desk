@@ -43,6 +43,10 @@ export interface ModalShellProps {
   footer?: ReactNode
   initialFocusRef?: RefObject<HTMLElement | null>
   closeOnBackdrop?: boolean
+  /** 嵌套弹窗（弹窗里再开一个）：z 抬到 60、遮罩换淡一档，照原版 .modal-shell--nested。
+   *  Esc / Tab / 点遮罩关「最上层」的判定本来就按 modalStack 走，与这个标志无关 ——
+   *  它只影响视觉的层叠。当前生产代码没有调用点，留着是为了下次真需要时不必改基座。 */
+  nested?: boolean
 }
 
 export function ModalShell({
@@ -54,6 +58,7 @@ export function ModalShell({
   footer,
   initialFocusRef,
   closeOnBackdrop = true,
+  nested = false,
 }: ModalShellProps) {
   const instanceId = `im-modal-${useId()}`
   const titleId = `${instanceId}-title`
@@ -119,7 +124,7 @@ export function ModalShell({
   }
 
   return createPortal(
-    <div className="im-modal-shell" onMouseDown={handleBackdrop}>
+    <div className={`im-modal-shell${nested ? ' im-modal-shell--nested' : ''}`} onMouseDown={handleBackdrop}>
       <section
         ref={panelRef}
         role="dialog"
