@@ -41,7 +41,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 
 ## 待办
 
-- [ ] 发布到 npm：市场索引（dsh-plugin-lab/market）由 npm 元数据生成，不发布就搜不到。需要先 `npm login`
+- [x] 市场可搜索：自托管索引 + GitHub Pages，实测搜到并安装成功。发 npm 只是可选增强（`dsh plugin add dsh-imagora-desk` 直接装）
 - [ ] 未做自动化 UI 测试，验收台靠手工脚本驱动
 
 功能对照全表 → [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md)
@@ -56,6 +56,8 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - 冒烟脚本曾经隐式依赖本机其他项目的 `node_modules`：本机绿、CI 红。脚本只允许用本项目依赖。
 - 目录被 `dsh web` 通过 Junction 持有时改不了名：先移除插件解锁，改名后再装回去。
 - github.com:443 会连不上而 api.github.com 通：push 改走 `ssh://git@ssh.github.com:443/<owner>/<repo>.git`（本仓库 push 已指向它）。
+- 索引别用 jsDelivr：JSON 请求实测 4 次挂 1 次（ECONNRESET），宿主读不到就在界面报「Could not fetch」。用 GitHub Pages（`pages.yml`），同一份文件连测 4 次全通。
+- 索引里的 commit 不能写「刚提交的 HEAD」：索引文件本身是提交的一部分，写进去那次提交又产生新 HEAD，永远落后一格。现在指向 v<version> tag 指向的提交，`market:fresh` 兜住存在性。
 
 ## 文档地图
 
