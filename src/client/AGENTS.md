@@ -13,6 +13,11 @@
 - 节点组件只认 `NodeProps`，动作走 `NodeActionContext`，不要把画布状态直接传进组件。
 - `lib/` 是移植区：不改风格、不加本项目格式规则、改动按上游语义判断。
 
+## 本目录特有的坑
+
+- 弹窗内容挂在宿主 Modal 的 portal 里，不在 `.im-root` 子树内：`var(--im-*)` 在那里解析不到，整条 `background` 简写会失效（按钮变全透明）。弹窗内样式必须用固定色值。
+- 宿主 `Button` 的 variant 类走 CSS Modules（`_button_1ulci_2` 这类），覆盖它要 `!important`。
+
 ## 测试
 
 - 改本目录必跑：`pnpm run typecheck`、`pnpm run lint`、`pnpm run build`、`pnpm run test`。
