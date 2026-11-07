@@ -194,6 +194,10 @@ export type GroupFlowNode = Node<CanvasGroupNodeData, 'group'>
  *    不同掺色叠起来会出现「底层发白、前两层发红」的割裂感。
  *
  * 夹到 3 张：张数是数据不能当渲染数量，40 张的组渲染 39 层合成层会掉帧。
+ *
+ * ⚠️ 根节点**不挂** `im-panel-card`：原版图片组的根元素只有 `.node-pop`，没有
+ * `.panel-card`（那是图片卡/提示词卡才有的），所以外层是**方角、无边框**的浮面 +
+ * 大投影，看到的那道圆角边属于内层卡面。别"顺手补个圆角卡片"——那会和原版不一样。
  */
 const STACK_STEP_PX = 4
 
@@ -204,7 +208,7 @@ export const GroupNode = memo(function GroupNode({ id, data, selected }: NodePro
   const stackCount = Math.min(Math.max(data.imageCount - 1, 0), 3)
 
   return (
-    <div className={`im-panel-card im-group-node${selected ? ' is-selected' : ''}`}>
+    <div className={`im-group-node${selected ? ' is-selected' : ''}`}>
       <Handles />
       <Rail>
         <RailButton label="删除图片组" danger onClick={() => actions.deleteNode(id)}>

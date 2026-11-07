@@ -25,13 +25,28 @@ body {
   /* 叠在品牌色实底上的前景色：浅色主题是白，深色主题是近黑 —— 不能写死 #fff */
   --im-on-brand: var(--dsw-alias-label-primary-foreground, #fff);
 
-  /* 表面材质：外层最浅，内嵌控件次之，浮层最高一档。
-     layer-1/2 在浅色主题下都是纯白（只有深色才分档），所以「内嵌一档」要用
-     bg-module-platform；「浮层」不能拿 bg-overlay —— 那一档浅色是 #e9ecf2，
-     比卡片还灰，方向是反的。 */
+  /* 表面材质：**按宿主的三层逐一映射，不要全用同一档**。
+   *
+   * 浅色主题下 layer-1/2 都是纯白（只有深色才分档），所以"全都用 layer-1"在浅色里
+   * 看不出错；一到暗色就暴露：卡片、弹窗、下拉、操作栏全是 #232324 一个颜色，
+   * 浮层完全浮不起来，整块界面糊成一团。这正是维护者说的「深色模式感觉有差异」。
+   *
+   *   卡片    → bg-layer-1（暗 #232324）
+   *   台面    → bg-layer-2（暗 #2c2c2e，比卡片亮一档）
+   *   浮层    → bg-layer-2（同上）＋ elevation-prominent 阴影
+   *   内嵌    → bg-module-platform（暗 #353638，最亮的一档，用作缩略图/输入框底）
+   *
+   * 别用 bg-layer-3：它在宿主暗色里是 #1b1b1c，比 layer-1 还深，方向是反的。
+   * 也别用 bg-overlay：浅色下是 #e9ecf2，比卡片还灰。 */
   --im-surface: var(--dsw-alias-bg-layer-1, #fff);
+  --im-surface-panel: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, #fff));
   --im-surface-inset: var(--dsw-alias-bg-module-platform, #f9fafb);
-  --im-surface-float: var(--dsw-alias-bg-layer-1, #fff);
+  --im-surface-float: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, #fff));
+  /* 页面底（.im-root）：浅色要比卡片**暗**一档（#f9fafb vs 白），暗色要比卡片**更暗**
+     （#151517 vs 卡片 #232324）—— 两个方向都是「页面在最后面」。
+     单靠一个 token 做不到：bg-module-platform 浅色是灰（对）、暗色是 #353638（比卡片还亮，反了）。
+     所以这一档用 dark 块单独改写，见下面 body[data-ds-dark-theme]。 */
+  --im-surface-page: var(--dsw-alias-bg-module-platform, #f9fafb);
 
   --im-ink: var(--dsw-alias-label-primary, #17202b);
   --im-ink-2: var(--dsw-alias-label-secondary, #556);
@@ -73,12 +88,34 @@ body {
   --im-shadow-float: var(--dsw-elevation-panel, 0 6px 22px rgba(0, 0, 0, 0.12));
   --im-shadow-modal: var(--dsw-elevation-prominent, 0 24px 70px rgba(15, 20, 25, 0.26));
   /* 画布节点卡专用的一档：原版 .node-pop 是「12/26 的大投影 + 顶部 1px 内高光」，
-     比普通卡片重一档（节点要浮在点阵画布之上）。内高光不能写死白色，
-     暗色主题下会是"白天看不清、夜里发光"，所以从表面色派生。 */
+     比普通卡片重一档（节点要浮在点阵画布之上）。
+     ⚠️ 那道内高光必须**往亮里派生**：写成「surface 90%」在浅色下是白（对），
+     到暗色下就成了近黑的 rgb(0.137 0.137 0.141)，等于给每张卡顶边压一道阴影（错）。
+     掺 10% 白就两头都对：浅色几乎看不出（原版本来就几乎看不出），暗色是一道细亮边。 */
   --im-shadow-node: var(--dsw-elevation-panel, 0 12px 26px rgba(33, 44, 53, 0.12)),
-    inset 0 1px color-mix(in srgb, var(--im-surface) 90%, transparent);
+    inset 0 1px color-mix(in srgb, var(--im-surface) 90%, #fff);
+  /* 画布台面：原版实测 0 18px 45px rgba(31,41,55,.09) + 顶部 1px 内高光 */
+  --im-shadow-canvas: var(--dsw-elevation-prominent, 0 18px 45px rgba(31, 41, 55, 0.09)),
+    inset 0 1px color-mix(in srgb, var(--im-surface) 90%, #fff);
   /* 弹窗遮罩：半透明纯色，不与任何前景配对 */
   --im-scrim: var(--dsw-alias-bg-mask-1, rgba(0, 0, 0, 0.32));
+}
+
+/* 暗色主题下**必须单独覆盖的两条**（其余 token 都会随宿主自动翻转）。
+ *
+ * 1. 页面底：浅色里 bg-module-platform 是比卡片暗的灰（对），暗色里却比卡片**亮**
+ *    （#353638 vs #232324），页面会比卡片还突出、层次整个翻过来。这里改指向
+ *    bg-base（暗 #151517），于是"页面 < 画布 < 卡片 < 浮层"由深到浅，方向正确。
+ * 2. 节点/画布卡的内高光：inset 那一层在浅色是"白色提亮"，暗色若还从表面色派生
+ *    就会变成一道暗边。暗色下改成极淡的白色（8%），只是一条能看出边界的细线。
+ *
+ * 只写这两条是有意的：能用「宿主 token 自动翻转」解决的，就不要写第二个主题块。 */
+body[data-ds-dark-theme] {
+  --im-surface-page: var(--dsw-alias-bg-base, #151517);
+  --im-shadow-node: var(--dsw-elevation-panel, 0 12px 26px rgba(0, 0, 0, 0.4)),
+    inset 0 1px color-mix(in srgb, #fff 8%, transparent);
+  --im-shadow-canvas: var(--dsw-elevation-prominent, 0 18px 45px rgba(0, 0, 0, 0.4)),
+    inset 0 1px color-mix(in srgb, #fff 8%, transparent);
 }
 
 .im-root {
@@ -92,7 +129,7 @@ body {
   box-sizing: border-box;
   height: 100%;
   min-height: 0;
-  background: var(--im-surface-inset);
+  background: var(--im-surface-page);
   color: var(--im-ink);
   /* 三层（页头 / 工具栏 / 画布）之间的间距由 gap 统一提供，
      不靠各自的 margin 相加 —— 原版就是 flex flex-col gap-2（8px）。 */
@@ -156,7 +193,9 @@ body {
   gap: 8px;
   flex-wrap: wrap;
   padding: 10px 14px;
-  border: 1px solid var(--im-edge-idle);
+  /* 原版实测：边框 rgba(31,41,55,.08) —— 比通用 --im-line(.12) 更淡一档，
+     所以用「墨色掺 8%」而不是直接拿 --im-line，否则页头两行看着比卡片还硬。 */
+  border: 1px solid color-mix(in srgb, var(--im-ink) 8%, transparent);
   border-radius: var(--im-r-card);
   background: var(--im-surface);
   box-shadow: var(--im-shadow-card);
@@ -166,10 +205,11 @@ body {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  /* 与页头同为卡片容器，但圆角略小（原版 .studio-toolbar 13px） */
+  /* 与页头同为卡片容器，但圆角略小（原版 .studio-toolbar 13px）、
+     边框再淡一点点（实测 rgba(31,41,55,.09)） */
   padding: 9px 10px;
   position: relative;
-  border: 1px solid var(--im-edge-idle);
+  border: 1px solid color-mix(in srgb, var(--im-ink) 9%, transparent);
   border-radius: var(--im-r-toolbar);
   background: var(--im-surface);
   box-shadow: var(--im-shadow-card);
@@ -280,12 +320,14 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* 原版 .btn-icon--sm：30×30、圆角 8 */
+  /* 原版 .btn-icon--sm 声明 30×30 / 圆角 8，但真机实测圆角是 **10**：
+     .btn-ghost { border-radius: 10px } 写在未分层规则里，压过了 @layer 里的
+     btn-icon--sm。两处叠用时的实际值以实测为准。 */
   min-width: 30px;
   min-height: 30px;
   padding: 0;
   border: 0;
-  border-radius: var(--im-r-sm);
+  border-radius: var(--im-r-control);
   background: transparent;
   /* 颜色与 hover 涟漪交给同时挂上的 .im-btn-ghost / .im-btn-danger：
      原版这里就是 btn-ghost btn-icon btn-icon--sm 三个类叠出来的，
@@ -343,18 +385,17 @@ body {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .im-field:hover { border-color: var(--im-ink-3); }
-/* 聚焦：**只描边 + 一圈柔和光环，没有 outline**。
+/* 聚焦：**只加一圈柔和光环，边框颜色不变、也没有 outline**。
  *
- * 原版两条规则叠出来的最终形态就是这个：@layer 里的 ring-2 ring-brand/20
- * 被后面未分层的 .field-control:focus { box-shadow: 0 0 0 4px color-mix(brand 13%) }
- * 整条覆盖，所以实测是**4px、13% 透明度**的一圈光，不是 2px、20%。
- *
- * 插件这边此前多补了一条 .im-field:focus-visible { outline: 2px 实线 }（见文件末尾
- * 的键盘可达性小节），结果点一下输入框会同时出现「4px 光环 + 2px 实线框」两圈，
- * 看起来像重影 —— 这次一并删掉：输入类控件的焦点由这圈光环承担，与原版一致。
- * 键盘用户照样看得见（光环就跟着 :focus 出现），不需要再加一条 outline。 */
+ * 以下都是原版真机实测（Chromium 计算值，不是读源码推的）：
+ *   未聚焦 box-shadow: none            border-color: rgba(31,41,55,.14)
+ *   已聚焦 box-shadow: 0 0 0 4px 品牌色 13%   border-color: rgba(31,41,55,.14)  ← 没变
+ * 也就是说原版聚焦时**不动边框**：.field-control:focus 里那条 border-brand 在
+ * @layer components 里，被未分层的 .field-control { border-color: rgba(31,41,55,.14) }
+ * 压掉了。插件此前既改边框色、又补了一条 .im-field:focus-visible { outline: 2px 实线 }，
+ * 于是点一下同时出现「变色边框 + 4px 光环 + 2px 实线框」三层，看着像重影。
+ * 现在只剩那一圈光环。 */
 .im-field:focus {
-  border-color: var(--im-brand);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--im-brand) 13%, transparent);
 }
 .im-label {
@@ -582,17 +623,19 @@ body {
 .im-select-model { width: 230px; max-width: none; }
 .im-select-model .im-select-trigger { width: 100%; }
 
-/* 节点内的输入/下拉用紧凑档：原版 .studio-canvas .node-pop 把字号压到 12px、
-   横向内边距收成 8px —— 14px 在 7fr 列里会被截成「1024x1024 (1:1) (0…」。 */
+/* 节点内的输入/下拉用紧凑档：字号压到 12px。
+ * ⚠️ 纵向内边距与左右内边距**保持 8px 20px 不变** —— 原版节点里的 textarea 实测就是
+ * padding: 8px 20px; font-size: 12px（字号是它自己挂的 text-xs，内边距没被覆盖）。
+ * 早先这里跟着收成 4px 8px，比原版紧一档，卡片里那几行提示词显得贴边。 */
 .im-field--compact,
 .im-canvas .im-field {
   height: 30px;
-  padding: 4px 8px;
+  padding: 4px 20px;
   font-size: 12px;
 }
 .im-canvas textarea.im-field {
   height: auto;
-  padding: 8px;
+  padding: 8px 20px;
 }
 
 /* ---------------- 节点卡片（照搬 .panel-card + .node-pop） ----------------
@@ -648,7 +691,9 @@ body {
   padding: 4px 4px 4px 8px;
   border-radius: var(--im-r-sm);
   background: var(--im-surface-float);
-  border: 1px solid var(--im-line);
+  /* 原版 .node-actions 实测 rgba(32,43,51,.13)，与 .node-pop 边框同值 ——
+     比通用 --im-line 略深一点点，操作栏才从画布底上「浮」得出来。 */
+  border: 1px solid color-mix(in srgb, var(--im-ink) 13%, transparent);
   box-shadow: var(--im-shadow-float);
   opacity: 0;
   pointer-events: none;
@@ -657,13 +702,19 @@ body {
 .im-panel-card:hover .im-rail { opacity: 1; pointer-events: auto; }
 
 /* ---------------- 图片组节点（照搬 Imagora 的 GroupNode 叠卡） ----------------
-   结构是**两层纸**：外层是节点卡片本身（.im-panel-card，白纸 + 边框 + 阴影 + 18 圆角），
-   内层是颜色浅的主体系卡面（brand 5% 底 / brand 15% 描边），叠卡夹在中间错位露出。
-   缺了外层那层白纸就只剩一块淡蓝方块，和图片卡、提示词卡完全不是一个族 —— 这是原版
-   的关键观感，别只留内层。
-
-   根节点用 padding 给叠卡预留错开空间，所以叠卡永远不会伸出节点边界。
-   宽 224（原版 w-56）、错开步长 4px 由 nodes.tsx 的 STACK_STEP_PX 控制。 */
+ * 结构是**三块**：外层是节点根（.node-pop，浮面 + 大投影，**方角、无边框**）、
+ * 中间是错位的叠卡、最里面是带主体色的卡面。
+ *
+ * ⚠️ 两个必须按实测来的点（原版真机计算值，别按"看起来该圆角"自己发挥）：
+ *   1. **外层根节点没有圆角也没有边框**：原版根元素只挂 .node-pop，**没挂
+ *      .panel-card**（那是图片卡与提示词卡才有的），所以 border-radius: 0、
+ *      border-width: 0，只留 --surface-float 的渐变底与那圈 12/26 的投影。
+ *      看到的那道圆角边其实是**内层卡面**的 8px。
+ *   2. **叠卡在内层卡面之下**（DOM 里写在卡面之前），所以错位露出来的那几道边是
+ *      8 圆角的浅色卡，而不是根节点的方角。
+ *
+ * 根节点用 padding 给叠卡预留错开空间，所以叠卡永远不会伸出节点边界。
+ * 宽 224（原版 w-56）、错开步长 4px 由 nodes.tsx 的 STACK_STEP_PX 控制。 */
 .im-group-node {
   /* 原版 w-56 = 224px 且全局 border-box，所以 padding 算在 224 里；
      不写 box-sizing 的话内容 224 + padding 12 会撑到 236，
@@ -671,6 +722,18 @@ body {
   box-sizing: border-box;
   width: 224px;
   padding: 12px 0 0 12px;
+  /* 方角、无边框：与原版 .node-pop（未挂 panel-card）一致 */
+  border: 0;
+  border-radius: 0;
+  background: var(--im-surface-float);
+  box-shadow: var(--im-shadow-node);
+  transition: box-shadow 0.15s ease;
+}
+/* 选中态打在外层（原版是 .react-flow__node .node-pop.node-selected）：
+   outline 不占布局，密集画布上不会把相邻卡片挤开。 */
+.im-group-node.is-selected {
+  outline: 2px solid var(--im-brand);
+  outline-offset: 1px;
 }
 .im-group-stack { position: relative; }
 .im-group-stack-card {
@@ -744,8 +807,13 @@ body {
   border: 1px solid var(--im-line);
   /* 原版 .studio-canvas 是 18px（不是 --r-card 的 16） */
   border-radius: var(--im-r-surface);
+  /* 画布是**最里面那层台面**（卡片要浮在它上面），所以取卡片那档再往下一级：
+     浅色 #fff（比页面底 #f9fafb 更白）、暗色 #232324（比页面底 #353638 更暗）。
+     两个方向都成立：四周是"墙"、画布是"台面"、卡片浮在台面上。 */
   background: var(--im-surface);
-  box-shadow: var(--im-shadow-card);
+  /* 画布台面比普通卡片重一档：原版实测 0 18px 45px rgba(31,41,55,.09) +
+     顶部 1px 内高光。整块台面要「浮」在页面之上，用 card 那档会显得贴平。 */
+  box-shadow: var(--im-shadow-canvas);
   overflow: hidden;
   /* 自成一个层叠上下文：画布里的 z-index 不许跟宿主面板抢层 */
   isolation: isolate;
@@ -840,7 +908,9 @@ body {
   border: 1px solid var(--im-line);
   border-radius: var(--im-r-card);
   outline: none;
-  background: var(--im-surface);
+  /* 弹窗是**高卡片一档**的台面（原版用 --surface-panel）：浅色下两者都是白，
+     暗色下卡片 #232324、弹窗 #2c2c2e，窗口才浮得出来。 */
+  background: var(--im-surface-panel);
   box-shadow: var(--im-shadow-modal);
 }
 .im-modal-panel--sm { width: min(100%, 26rem); }
@@ -983,12 +1053,15 @@ body {
   cursor: default;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
+  /* 读数那行在原版里也是 #52606f（和其余行同一个 .dock-row 色），不是更深的墨色。
+     用 ink-2 而不是 ink：ink 在浅色下是近黑 #0f1115，比原版那档灰深一大截。 */
+  color: var(--im-ink-2);
   color: var(--im-ink);
   border-bottom: 1px solid var(--im-line);
   border-radius: 0;
   margin-bottom: 2px;
 }
-.im-dock-row--readout:hover { background: transparent; color: var(--im-ink); }
+.im-dock-row--readout:hover { background: transparent; color: var(--im-ink-2); }
 
 .im-canvas .react-flow__controls {
   box-shadow: var(--im-shadow-card);
@@ -1106,21 +1179,25 @@ body {
 .im-banner-list { margin: 0; padding-left: 16px; display: grid; gap: 2px; }
 
 /* ============ 可拖出按钮（工具栏：新建提示词卡片 / 新建图片组） ============
-   悬浮时暗示「这个能拖到画布」：**grab 光标 + 品牌色呼吸光晕 + 右侧圆形拖拽徽标淡入上浮**。
-   三条整组照搬原版 index.css 的 .btn-draggable / .btn-drag-grip（含两个关键帧），
-   数值一个不改：1.8s 呼吸、光晕 5px/16%、徽标 16px 圆形、入场 0.25s
-   cubic-bezier(0.22, 1, 0.36, 1) 从 (translateY 2px, scale .8) 浮上来。
-   与拖拽落点胶囊同源（都表示「拖出去放到画布」），所以同用品牌色。 */
-.im-drag-source { cursor: grab; }
+   悬浮时暗示「这个能拖到画布」：**grab 光标 + 品牌色呼吸光晕 + 右侧六点把手淡入上浮**。
+   光标与两个关键帧照搬原版 .btn-draggable / .btn-drag-grip（1.8s 呼吸、光晕 5px/16%、
+   入场 0.25s cubic-bezier(0.22, 1, 0.36, 1) 从 translateY(2px) scale(.8) 浮上来）。
+
+   ⚠️ 与原文的一处**有意偏离**（维护者 2026-11-07 定）：原版把把手放在 -right-1
+   （右缘外 4px），而按钮本身是 overflow: hidden（涟漪层要用），那 4px 会被裁掉 ——
+   实测只剩半枚圆，看着像贴了个豁口。这里改成**在按钮右侧留出空隙、把手放在空隙里**：
+   右内边距加到 22px，把手 right: 3px，文字与把手之间还剩约 3px。
+   想改回"贴边缘"就把这两条数值换回来，但先确认 overflow 不再裁它。 */
+.im-drag-source {
+  padding-right: 22px;
+  cursor: grab;
+}
 .im-drag-source:active { cursor: grabbing; }
 .im-drag-source:hover:not(:disabled) { animation: im-drag-hint-glow 1.8s ease-in-out infinite; }
-/* 徽标：贴着按钮右缘（-right-1 = 负 4px），垂直居中，常态透明 + 不接指针。
-   按钮本身有 overflow: hidden（涟漪层要用），所以这个 -4px 会被裁掉一条边 ——
-   原版同样是这个结果（它的 .btn-ghost 也是 overflow:hidden），看起来就是「右缘露出半枚」。
-   别为了"让徽标完整"去改按钮的 overflow：那会让 hover 涟漪溢出圆角。 */
+/* 六点把手：16px 圆、品牌 30% 描边、浮层底、居中并占满按钮高度 */
 .im-drag-grip {
   position: absolute;
-  right: -4px;
+  right: 3px;
   top: 0;
   bottom: 0;
   margin-block: auto;
