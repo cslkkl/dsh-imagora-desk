@@ -7,7 +7,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Background,
   BackgroundVariant,
-  Controls,
   MarkerType,
   MiniMap,
   ReactFlow,
@@ -38,6 +37,7 @@ import { NodeActionContext } from '../nodes'
 import { CANVAS_CSS } from '../styles'
 import { NODE_TYPES } from './node-types'
 import { CanvasToolbar } from './toolbar'
+import { CanvasDock } from './dock'
 import { Banner, EmptyState, LogPanel, PreviewOverlay, Toast } from './overlays'
 import { HelpDialog, LoadDialog, SaveDialog } from './dialogs'
 import { CropDialog } from './crop-dialog'
@@ -375,6 +375,13 @@ export function CanvasApp() {
           snapEnabled={snapEnabled}
           canvasLocked={canvasLocked}
           cost={cost}
+          canUndo={history.canUndo}
+          canRestore={history.canRestore}
+          onUndo={() => {
+            history.record()
+            history.undo()
+          }}
+          onRestore={history.restore}
           onToggleLock={() =>
             setCanvasLocked(value => {
               const next = !value
@@ -434,6 +441,7 @@ export function CanvasApp() {
           </Banner>
         ) : null}
         <div className="im-canvas" ref={flowRef} onDragOver={event => event.preventDefault()} onDrop={onDrop}>
+          {' '}
           <ReactFlow
             nodes={renderNodes}
             edges={edges}
@@ -510,7 +518,7 @@ export function CanvasApp() {
             multiSelectionKeyCode={['Meta', 'Control']}
           >
             <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
-            <Controls position="bottom-left" showInteractive={false} />
+            {/* 缩放控件栈由 CanvasDock 接管（React Flow 自带的那套图标不带文字，认不出） */}
             {/* 小地图放左上（Imagora 的位置）：右下角留给日志，那是「刚刚发生了什么」的即时反馈，
                 被小地图压住就读不到了；左下角是缩放控件栈，右上角是选中操作栏。 */}
             {minimapOpen ? (
@@ -526,7 +534,19 @@ export function CanvasApp() {
             ) : null}
             <SnapGuideLayer guides={guides} />
           </ReactFlow>
-
+          <CanvasDock
+            zoom={zoom}
+            snapEnabled={snapEnabled}
+            canvasLocked={canvasLocked}
+            minimapOpen={minimapOpen}
+            onZoomIn={() => void instanceRef.current?.zoomIn({ duration: 180 })}
+            onZoomOut={() => void instanceRef.current?.zoomOut({ duration: 180 })}
+            onFitView={() => instanceRef.current?.fitView({ padding: 0.2, duration: 300 })}
+            onToggleSnap={() => setSnapEnabled(value => !value)}
+            onToggleLock={() => setCanvasLocked(value => !value)}
+            onToggleMinimap={() => setMinimapOpen(value => !value)}
+            onOpenHelp={() => setDialog({ kind: 'help' })}
+          />
           {nodes.length === 0 ? <EmptyState /> : null}
           <LogPanel logs={logs} onClear={() => setLogs([])} />
           <Toast text={toast} />

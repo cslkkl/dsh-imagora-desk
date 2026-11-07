@@ -60,6 +60,7 @@ body {
   min-height: 0;
   background: var(--im-surface-inset);
   color: var(--im-ink);
+  padding-top: 8px;
   font-family: var(--dsw-font-family, system-ui, sans-serif);
   font-size: 13px;
   letter-spacing: -0.01em;
@@ -71,20 +72,21 @@ body {
   align-items: center;
   gap: 4px;
   flex-wrap: wrap;
-  padding: 6px 12px;
+  padding: 8px 12px;
   position: relative;
   border-bottom: 1px solid var(--im-line);
   background: var(--im-surface);
   z-index: 5;
 }
 .im-toolbar .im-spacer { flex: 1; }
-.im-toolbar-divider {
-  width: 1px;
-  height: 18px;
-  margin: 0 4px;
-  background: var(--im-line);
-  flex: none;
+/* 顶栏分左右两组（与 Imagora 同一分区）：左侧创建、右侧工作流，右侧组靠右对齐 */
+.im-toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
 }
+.im-toolbar-group--end { flex: 1; min-width: 0; justify-content: flex-end; }
 
 
 /* ---------------- 行动按钮体系（照搬 btn-primary / btn-ghost 两档） ----------------
@@ -319,7 +321,19 @@ body {
 .im-chip.is-running { background: color-mix(in srgb, var(--im-brand) 12%, transparent); color: var(--im-brand); }
 
 /* ---------------- 画布本体 ---------------- */
-.im-canvas { position: relative; flex: 1; min-height: 0; }
+/* 画布本身是一块 panel-card：与 Imagora 的 .studio-canvas panel-card 同构，
+   四周留出内边距，圆角裁切内容。 */
+.im-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 0 12px 12px;
+  border: 1px solid var(--im-line);
+  border-radius: var(--im-r-card);
+  background: var(--im-surface);
+  box-shadow: var(--im-shadow-card);
+  overflow: hidden;
+}
 .im-canvas .react-flow__attribution { display: none; }
 .im-canvas .react-flow__background pattern circle { fill: color-mix(in srgb, var(--im-ink) 20%, transparent); }
 .react-flow__node .im-panel-card { will-change: transform; }
@@ -343,6 +357,50 @@ body {
   border: 1px solid var(--im-line);
   border-radius: var(--im-r-control);
 }
+/* 左下角控件坞：带文字的一列，与 Imagora 的 DockRow 同构 */
+.im-dock {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 76px;
+  padding: 3px;
+  border-radius: var(--im-r-control);
+  background: var(--im-surface);
+  border: 1px solid var(--im-line);
+  box-shadow: var(--im-shadow-card);
+}
+.im-dock-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--im-ink-2);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.im-dock-row:hover { background: var(--im-hover); color: var(--im-ink); }
+.im-dock-row.is-on { color: var(--im-brand); font-weight: 600; }
+.im-dock-row--readout {
+  cursor: default;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--im-ink);
+  border-bottom: 1px solid var(--im-line);
+  border-radius: 0;
+  margin-bottom: 2px;
+}
+.im-dock-row--readout:hover { background: transparent; color: var(--im-ink); }
+
 .im-canvas .react-flow__controls {
   box-shadow: var(--im-shadow-card);
   border: 1px solid var(--im-line);

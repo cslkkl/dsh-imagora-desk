@@ -16,6 +16,8 @@ export interface ToolbarProps {
   minimapOpen: boolean
   snapEnabled: boolean
   canvasLocked: boolean
+  canUndo: boolean
+  canRestore: boolean
   cost: CostSummary
   zoom: number
   onAddPrompt: () => void
@@ -26,6 +28,8 @@ export interface ToolbarProps {
   onCancelAll: () => void
   onAutoConnect: () => void
   onArrangeSelected: () => void
+  onUndo: () => void
+  onRestore: () => void
   onSwitchProfile: (name: string) => void
   onSwitchModel: (model: string) => void
   onToggleMinimap: () => void
@@ -41,102 +45,99 @@ export interface ToolbarProps {
 
 export function CanvasToolbar(props: ToolbarProps) {
   const ui = primitives()
-  const { config, promptCount, runnableIds, selectedIds, busyIds, minimapOpen, zoom } = props
+  const { config, promptCount, runnableIds, busyIds, canUndo, canRestore, zoom } = props
 
-  /** 工具栏里的次要行动：宿主 toolbar 变体（轻量、无实底）+ 悬浮提示。 */
+  /**
+   * 顶栏的次要行动：照搬 Imagora 的 .btn-ghost —— 胶囊、无边框、主体色文字，
+   * hover 时涟漪从中心向左右展开并反白。不用宿主 Button 的 toolbar 变体：
+   * 那是带边框的小方块，形状与原版差得远。
+   * 提示框仍用宿主的 Tooltip，位置与延迟跟 DSH 其它面板一致。
+   */
   const tool = (label: string, onClick: () => void, extra?: Record<string, unknown>) => (
     <ui.Tooltip label={label} side="bottom">
-      <ui.Button type="button" size="sm" variant="toolbar" aria-label={label} onClick={onClick} {...extra}>
+      <button type="button" className="im-btn-ghost im-btn-sm nodrag" aria-label={label} onClick={onClick} {...extra}>
         {label}
-      </ui.Button>
+      </button>
     </ui.Tooltip>
   )
 
   return (
     <div className="im-toolbar">
-      {/* 新建类 */}
-      {tool('＋ 提示词卡', props.onAddPrompt)}
-      {tool('导入图片', props.onPickFiles)}
-      {tool('图片组', props.onAddGroup)}
-      {tool('粘贴导入', props.onPasteImport)}
+      {/* 左：创建类（按使用顺序：先有素材） */}
+      <div className="im-toolbar-group">
+        {tool('上传图片', props.onPickFiles)}
+        {tool('粘贴导入', props.onPasteImport)}
+        {tool('新建提示词卡片', props.onAddPrompt)}
+        {tool('新建图片组', props.onAddGroup)}
+      </div>
 
-      <span className="im-toolbar-divider" />
+      {/* 右：按「信息 → 设置 → 编辑 → 执行」排，主行动（全部运行）压最右。
+          这一组吃满剩余宽度并右对齐，与 Imagora 的 justify-end 同构。 */}
+      <div className="im-toolbar-group im-toolbar-group--end">
+        <CostBadge summary={props.cost} budget={config?.budget ?? 0} />
 
-      {/* 运行类：全部运行是这里唯一的主行动 */}
-      <ui.Tooltip label="运行所有提示词卡" side="bottom">
-        <ui.Button
-          type="button"
-          size="sm"
-          aria-label="全部运行"
-          disabled={!promptCount}
-          onClick={() => props.onRun(runnableIds)}
-        >
-          ▶ 全部运行
-        </ui.Button>
-      </ui.Tooltip>
-      {tool('运行所选', () => props.onRun(runnableIds.filter(id => selectedIds.includes(id))), {
-        disabled: !selectedIds.length,
-      })}
-      {tool('取消全部', props.onCancelAll, { disabled: !busyIds.length })}
+        {config && (config.profiles?.length ?? 0) > 1 ? (
+          <select
+            className="im-select"
+            style={{ maxWidth: 140 }}
+            value={config.profile}
+            title="来源（profile）：决定接口地址与密钥"
+            onChange={event => props.onSwitchProfile(event.target.value)}
+          >
+            {(config.profiles ?? []).map(row => (
+              <option key={row.name} value={row.name}>
+                {row.label}
+              </option>
+            ))}
+            <option value="">跟随 imagora 的 .env</option>
+          </select>
+        ) : null}
 
-      <span className="im-toolbar-divider" />
+        {config && (config.models?.length ?? 0) > 1 ? (
+          <select
+            className="im-select"
+            style={{ maxWidth: 170 }}
+            value={config.model}
+            title={`${config.profileLabel || config.profile} · 当前模型`}
+            onChange={event => props.onSwitchModel(event.target.value)}
+          >
+            {config.models.map(row => (
+              <option key={row.id} value={row.id}>
+                {row.label}
+              </option>
+            ))}
+          </select>
+        ) : null}
 
-      {/* 视图与整理类 */}
-      {tool('自动连线', props.onAutoConnect)}
-      {tool('整理所选', props.onArrangeSelected, { disabled: !selectedIds.length })}
-      {tool(minimapOpen ? '小地图·开' : '小地图·关', props.onToggleMinimap)}
-      {tool(props.snapEnabled ? '吸附·开' : '吸附·关', props.onToggleSnap)}
-      {tool(props.canvasLocked ? '已锁' : '锁定', props.onToggleLock)}
-      {tool('全览', props.onFitView)}
+        <span className="im-zoom" title="当前缩放">
+          {Math.round(zoom * 100)}%
+        </span>
 
-      <span className="im-spacer" />
+        {tool('保存工作流', props.onOpenSave)}
+        {tool('加载工作流', props.onOpenLoad)}
+        {tool('生成历史', props.onOpenHistory)}
+        {tool('撤销', props.onUndo, { disabled: !canUndo })}
+        {tool('恢复', props.onRestore, { disabled: !canRestore })}
+        {tool('自动连线', props.onAutoConnect)}
+        {tool('设置', props.onOpenSettings)}
 
-      <CostBadge summary={props.cost} budget={config?.budget ?? 0} />
-
-      {config && (config.profiles?.length ?? 0) > 1 ? (
-        <select
-          className="im-select"
-          style={{ maxWidth: 150 }}
-          value={config.profile}
-          title="来源（profile）：决定接口地址与密钥"
-          onChange={event => props.onSwitchProfile(event.target.value)}
-        >
-          {(config.profiles ?? []).map(row => (
-            <option key={row.name} value={row.name}>
-              {row.label}
-            </option>
-          ))}
-          <option value="">跟随 imagora 的 .env</option>
-        </select>
-      ) : null}
-
-      {config && (config.models?.length ?? 0) > 1 ? (
-        <select
-          className="im-select"
-          value={config.model}
-          title={`${config.profileLabel || config.profile} · 当前模型`}
-          onChange={event => props.onSwitchModel(event.target.value)}
-        >
-          {config.models.map(row => (
-            <option key={row.id} value={row.id}>
-              {row.label}
-            </option>
-          ))}
-        </select>
-      ) : null}
-
-      <span className="im-zoom" title="当前缩放">
-        {Math.round(zoom * 100)}%
-      </span>
-
-      <span className="im-toolbar-divider" />
-
-      {/* 文件与设置类 */}
-      {tool('保存', props.onOpenSave)}
-      {tool('加载', props.onOpenLoad)}
-      {tool('生成历史', props.onOpenHistory)}
-      {tool('设置', props.onOpenSettings)}
-      {tool('帮助', props.onOpenHelp)}
+        <ui.Tooltip label="运行所有提示词卡" side="bottom">
+          <button
+            type="button"
+            className="im-btn-primary im-btn-sm nodrag"
+            aria-label="全部运行"
+            disabled={!promptCount}
+            onClick={() => props.onRun(runnableIds)}
+          >
+            ▶ 全部运行
+          </button>
+        </ui.Tooltip>
+        {busyIds.length ? (
+          <button type="button" className="im-btn-ghost im-btn-sm nodrag" onClick={props.onCancelAll}>
+            取消全部 ({busyIds.length})
+          </button>
+        ) : null}
+      </div>
     </div>
   )
 }
