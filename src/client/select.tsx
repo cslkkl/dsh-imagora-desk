@@ -139,6 +139,11 @@ export function Select({
     // 清单为空时没有可高亮的项，activeIndex 保持 -1（Enter 会走自由输入分支）
     setActiveIndex(options.length === 0 ? -1 : Math.min(Math.max(preferredIndex, 0), options.length - 1))
     setOpen(true)
+    // 展开后焦点必须落在这套控件里，否则 Esc 收不起来：
+    // 有搜索框时下面那个 effect 会把焦点给搜索框；这里兜住「没有搜索框」的情况
+    // —— 真鼠标点按钮本来就会获得焦点，但程序化展开（键盘、外部代码）不会，
+    // 那时 activeElement 还停在 body 上，Esc 交给谁都不对。
+    if (!searchEnabled) window.setTimeout(() => triggerRef.current?.focus(), 0)
   }
 
   const closeList = (restoreFocus = false) => {
