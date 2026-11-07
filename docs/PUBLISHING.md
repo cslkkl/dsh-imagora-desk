@@ -5,23 +5,25 @@
 ## 一、自托管索引（已就绪，不依赖任何账号）
 
 DSH 的 Discover 支持**自定义插件索引**：用户加一个 URL 就能搜到并安装。
-本仓库自带一份 format 1 的索引，随代码一起提交、走 jsDelivr 分发。
+本仓库自带一份 format 1 的索引，推送后由 GitHub Pages 发布到站点根目录。
 
 **索引地址**
 
 ```text
-https://cdn.jsdelivr.net/gh/cslkkl/dsh-imagora-desk@v0.1.0/market/index.json
+https://toolboxonline.online/dsh-imagora-desk/index.json
 ```
 
-地址钉在 tag 上而不是 `@main`：jsDelivr 对 `@main` 有缓存，改完要等一段时间才更新；
-钉 tag 之后内容和 tag 一样是不动的，用户拿到的就是发布时那份。
-发新版本时把 URL 里的 tag 换掉即可。
+为什么不用 jsDelivr：实测 `@v0.1.0` 的 JSON 请求 4 次挂 1 次（`ECONNRESET`），
+宿主读不到索引就直接在界面上报「Could not fetch …」，别人加索引源会失败。
+同一份文件改由 Pages 托管后连测 4 次全通。索引是「能不能找到插件」的唯一入口，
+不能容忍这种失败率。
 
-**给别人用的步骤**
+**给别人用的步骤**（已在真实实例上走通）
 
-1. 插件 → 打开「自定义插件索引」
-2. 插件 → 发现 → 「添加索引源」→ 粘贴上面的地址
-3. 搜 `imagora` → 选中 → 安装
+1. 插件 → 发现 → 右侧「切换插件索引」→「管理索引源…」
+2. 粘贴上面的地址 → 添加
+3. 搜索 `imagora` → 卡片出现「Imagora 自由画布」+ 版本 + 作者 + 描述
+4. 点安装
 
 安装参数由索引里写死：
 

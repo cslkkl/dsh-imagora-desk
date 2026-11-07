@@ -32,10 +32,10 @@
 
 **最快的方式：加一个索引源，然后在插件市场里搜「imagora」。**
 
-`插件 → 打开「自定义插件索引」→ 插件 → 发现 → 添加索引源`，粘贴：
+`插件 → 发现 → 切换插件索引 → 管理索引源…`，粘贴：
 
 ```text
-https://cdn.jsdelivr.net/gh/cslkkl/dsh-imagora-desk@v0.1.0/market/index.json
+https://toolboxonline.online/dsh-imagora-desk/index.json
 ```
 
 也可以直接用命令行装：
