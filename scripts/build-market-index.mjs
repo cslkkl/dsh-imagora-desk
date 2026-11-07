@@ -37,27 +37,43 @@ function repoUrl() {
 /**
  * 索引该指向哪个提交？
  *
- * 不能是「刚提交的 HEAD」——索引文件本身也是提交的一部分，写进 HEAD 之后
- * 那次提交又产生了新的 HEAD，索引永远落后一格（第一版就踩了这个循环）。
+ * 结论先说：**指向发布 tag 指向的那个提交**，并接受「tag 里的索引可能指向更早的提交」
+ * 这件事——因为它不影响安装正确性。
  *
- * 所以指向**发布 tag**：tag 指向的提交已经定死，不再随索引更新而移动。
- * 取 tag 的顺序：`v<package.json version>` → 最近一个 tag → HEAD（开发期兜底）。
+ * 试过三种都不完美：
+ * - HEAD：索引自己也是提交，写进 HEAD 后那次提交又产生新 HEAD，永远落后一格；
+ * - tag：tag 内含打 tag 那时写的索引，可能与当前不同——但只要那份索引里写的
+ *   也是一个**真实且含完整代码**的提交，装出来的东西就是对的；
+ * - 「最后一次改代码的提交」：路径匹配很容易选到改构建脚本的提交，不够稳。
+ *
+ * 所以选最可预测的那个：`v<version>` → 最近的 v* tag → HEAD。
+ * 关键是**校验**兜住：check-market-index 会确认那个 commit 真实存在。
  */
 function indexCommit() {
-  const wanted = `v${pkg.version}`
-  const tryRev = rev => {
+  const revOf = rev => {
     try {
-      return execFileSync('git', ['rev-parse', '--verify', `${rev}^{commit}`], { cwd: ROOT, encoding: 'utf8' })
-        .trim()
-        .toLowerCase()
+      return execFileSync('git', ['rev-parse', '--verify', rev], { cwd: ROOT, encoding: 'utf8' }).trim().toLowerCase()
     } catch {
       return ''
     }
   }
-  const fromTag = tryRev(wanted) || tryRev('v1')
-  if (fromTag) return { commit: fromTag, ref: wanted }
-  // 没有 tag 时退回 HEAD，并在输出里说明——这样开发期也能生成一份能装的东西
-  return { commit: tryRev('HEAD'), ref: 'HEAD' }
+
+  const tags = [`v${pkg.version}`]
+  try {
+    const all = execFileSync('git', ['tag', '-l', 'v*', '--sort=-creatordate'], { cwd: ROOT, encoding: 'utf8' })
+      .split('\n')
+      .map(row => row.trim())
+      .filter(Boolean)
+    for (const tag of all) if (!tags.includes(tag)) tags.push(tag)
+  } catch {
+    // 没有 tag 列表就只试版本号那个
+  }
+
+  for (const tag of tags) {
+    const tip = revOf(`${tag}^{commit}`)
+    if (tip) return { commit: tip, ref: tag }
+  }
+  return { commit: revOf('HEAD'), ref: 'HEAD' }
 }
 
 /** 提交时间（Unix 秒）：format 1 的 publishTimestamp 口径。 */
