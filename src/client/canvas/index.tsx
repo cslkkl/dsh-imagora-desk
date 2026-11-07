@@ -285,6 +285,19 @@ export function CanvasApp() {
     flash(target ? `已把选中的卡片输出路径设为 ${target}` : '已把选中的卡片改回「只留在画布」')
   }, [selectedIds, setNodes, flash, history])
 
+  /** 聚焦：有选中就只看选中的，否则看全图（原版 Controls 里那一行）。 */
+  const focusSelected = useCallback(() => {
+    const instance = instanceRef.current
+    if (!instance) return
+    const selected = nodesRef.current.filter(node => selectedIds.includes(node.id))
+    const targets = selected.length ? selected : nodesRef.current
+    if (!targets.length) {
+      flash('画布上还没有节点')
+      return
+    }
+    void instance.fitView({ nodes: targets, padding: 0.25, duration: 300, maxZoom: 1.6 })
+  }, [selectedIds, flash])
+
   const arrangeSelected = useCallback(() => {
     const ids = new Set(selectedIds)
     if (!ids.size) {
@@ -306,17 +319,17 @@ export function CanvasApp() {
     })
   }, [selectedIds, setNodes, flash, history])
 
-  /* ---------------- 拖放 / 粘贴 ---------------- */
   /* ---------------- 拖入：文件 / 工具栏按钮 ---------------- */
   // 文件拖进来 -> 建图片节点；工具栏按钮拖进来 -> 在落点建提示词卡 / 图片组。
-  // 落点胶囊固定跟随光标，落在画布外即取消（与 Imagora 的 useCanvasDrop 同一套语义）。
+  // 落点胶囊全局跟随光标，落在画布外即取消（与 Imagora 的 useCanvasDrop 同一套语义）。
   const {
-    handlers: dropHandlers,
+    dragHandlers: dropHandlers,
     startToolbarDrag,
-    chip: dropChip,
+    dropChip,
   } = useCanvasDrop({
     canvasRef: flowRef,
-    isModalOpen: Boolean(dialog) || Boolean(preview),
+    modalOpen: Boolean(dialog) || Boolean(preview),
+    getCreatePosition: () => createPosition(),
     toFlowPosition: screen =>
       instanceRef.current ? instanceRef.current.screenToFlowPosition(screen) : createPosition(),
     onDropFiles: (files, point) => void addImages(files, point),
@@ -413,9 +426,7 @@ export function CanvasApp() {
           config={config}
           promptCount={promptNodes.length}
           runnableIds={runnableIds}
-          selectedIds={selectedIds}
-          busyIds={busyIds}
-          minimapOpen={minimapOpen}
+          busyIds={busyIds.length}
           snapEnabled={snapEnabled}
           canvasLocked={canvasLocked}
           cost={cost}
@@ -426,14 +437,6 @@ export function CanvasApp() {
             history.undo()
           }}
           onRestore={history.restore}
-          onToggleLock={() =>
-            setCanvasLocked(value => {
-              const next = !value
-              flash(next ? '画布已锁：只可缩放，拖动/连线/选中/平移都停了' : '画布已解锁')
-              return next
-            })
-          }
-          zoom={zoom}
           onAddPrompt={() => addPromptNode()}
           onPickFiles={() => fileInputRef.current?.click()}
           onAddGroup={() => addGroupNode()}
@@ -442,20 +445,9 @@ export function CanvasApp() {
           onRun={runMany}
           onCancelAll={() => busyIds.forEach(id => void cancelPrompt(id))}
           onAutoConnect={autoConnectAll}
-          onArrangeSelected={arrangeSelected}
+          onOpenDefaultOutputDir={() => setDialog({ kind: 'settings' })}
           onSwitchProfile={name => void switchProfile(name)}
           onSwitchModel={model => void switchModel(model)}
-          onToggleMinimap={() => setMinimapOpen(value => !value)}
-          onToggleSnap={() =>
-            setSnapEnabled(value => {
-              const next = !value
-              saveSnapEnabled(next)
-              if (!next) setGuides([])
-              flash(next ? '吸附已开：拖动时会贴齐邻居' : '吸附已关：自由摆放')
-              return next
-            })
-          }
-          onFitView={() => instanceRef.current?.fitView({ padding: 0.2, duration: 300 })}
           onOpenSave={() => setDialog({ kind: 'save' })}
           onOpenLoad={async () => {
             try {
@@ -467,7 +459,6 @@ export function CanvasApp() {
           }}
           onOpenSettings={() => setDialog({ kind: 'settings' })}
           onOpenHistory={() => setDialog({ kind: 'history' })}
-          onOpenHelp={() => setDialog({ kind: 'help' })}
         />
         {/* 配置缺失：逐条列出来 + 一个直达设置的按钮，不做整块色底 */}
         {configIssues.length ? (
@@ -619,8 +610,23 @@ export function CanvasApp() {
             onZoomIn={() => void instanceRef.current?.zoomIn({ duration: 180 })}
             onZoomOut={() => void instanceRef.current?.zoomOut({ duration: 180 })}
             onFitView={() => instanceRef.current?.fitView({ padding: 0.2, duration: 300 })}
-            onToggleSnap={() => setSnapEnabled(value => !value)}
-            onToggleLock={() => setCanvasLocked(value => !value)}
+            onFocusSelected={focusSelected}
+            onToggleSnap={() =>
+              setSnapEnabled(value => {
+                const next = !value
+                saveSnapEnabled(next)
+                if (!next) setGuides([])
+                flash(next ? '吸附已开：拖动时会贴齐邻居' : '吸附已关：自由摆放')
+                return next
+              })
+            }
+            onToggleLock={() =>
+              setCanvasLocked(value => {
+                const next = !value
+                flash(next ? '画布已锁：只可缩放，拖动/连线/选中/平移都停了' : '画布已解锁')
+                return next
+              })
+            }
             onToggleMinimap={() => setMinimapOpen(value => !value)}
             onOpenHelp={() => setDialog({ kind: 'help' })}
           />

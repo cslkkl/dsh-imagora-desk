@@ -67,6 +67,11 @@ body {
   position: relative;
   display: flex;
   flex-direction: column;
+  /* 撑满父容器：宿主的插槽容器是 flex，不给 width/flex 的话这里会按内容收缩，
+     画布右侧就会留出一条"被裁掉"的空带 */
+  flex: 1 1 auto;
+  width: 100%;
+  box-sizing: border-box;
   height: 100%;
   min-height: 0;
   background: var(--im-surface-inset);
@@ -77,13 +82,23 @@ body {
   letter-spacing: -0.01em;
 }
 
-/* ---------------- 顶栏 ---------------- */
+/* ---------------- 顶栏 ----------------
+   与 Imagora 一样两行：上面一行页头（来源 / 模型 / 成本 / 设置），下面一行画布动作。
+   行间距 2px、按钮间距 8px 都照原版（gap-2 / flex-col gap-2）。 */
+.im-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 12px 0;
+  background: var(--im-surface-inset);
+}
 .im-toolbar {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   flex-wrap: wrap;
-  padding: 8px 12px;
+  padding: 6px 12px 8px;
   position: relative;
   border-bottom: 1px solid var(--im-line);
   background: var(--im-surface);
@@ -95,7 +110,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 .im-toolbar-group--end { flex: 1; min-width: 0; justify-content: flex-end; }
 
@@ -242,7 +257,29 @@ body {
   border-color: var(--im-brand);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--im-brand) 20%, transparent);
 }
-.im-label { display: block; font-size: 12px; font-weight: 500; color: var(--im-ink-2); margin-bottom: 3px; }
+.im-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--im-ink-2);
+  margin-bottom: 5px;
+}
+/* 字段级说明小字：与原版配置弹窗同一档（11px / 三级文字色） */
+.im-field-hint {
+  margin: 5px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--im-ink-3);
+}
+/* 密钥框的状态标记：已配置绿、未配置琥珀，都只着色文字 */
+.im-field-state {
+  font-size: 11px;
+  font-weight: 400;
+}
+.im-field-state.is-ok { color: var(--im-ok); }
+.im-field-state.is-warn { color: var(--im-warn); }
 .im-row { display: flex; align-items: center; gap: 6px; }
 .im-muted { color: var(--im-ink-3); }
 .im-node-title { font-size: 12px; font-weight: 600; color: var(--im-brand-dark); }
@@ -313,6 +350,44 @@ body {
 }
 .im-panel-card:hover .im-rail { opacity: 1; pointer-events: auto; }
 
+/* ---------------- 图片组节点（照搬 Imagora 的 GroupNode 叠卡） ----------------
+   根节点用 padding 给叠卡预留错开空间，所以叠卡永远不会伸出节点边界。
+   宽 224（原版 w-56）、错开步长 4px 由 nodes.tsx 的 STACK_STEP_PX 控制。 */
+.im-group-node {
+  position: relative;
+  width: 224px;
+  padding: 12px 0 0 12px;
+}
+.im-group-stack { position: relative; }
+.im-group-stack-card {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--im-brand) 10%, transparent);
+  background: color-mix(in srgb, var(--im-brand) 5%, transparent);
+}
+.im-group-face {
+  position: relative;
+  padding: 16px;
+  text-align: center;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--im-brand) 15%, transparent);
+  background: var(--im-surface);
+}
+.im-group-count {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--im-ink);
+}
+.im-group-size { margin-top: 4px; font-size: 16px; color: var(--im-ink-3); }
+.im-group-dup { margin-top: 4px; }
+.im-group-node.is-selected .im-group-face {
+  outline: 2px solid var(--im-brand);
+  outline-offset: 1px;
+}
+
 /* ---------------- 小标签（照搬 .chip） ---------------- */
 .im-chip {
   display: inline-flex;
@@ -331,6 +406,7 @@ body {
 .im-chip.is-danger { background: color-mix(in srgb, var(--im-danger) 14%, transparent); color: var(--im-danger); }
 .im-chip.is-ok { background: color-mix(in srgb, var(--im-ok) 14%, transparent); color: var(--im-ok); }
 .im-chip.is-running { background: color-mix(in srgb, var(--im-brand) 12%, transparent); color: var(--im-brand); }
+.im-chip--sm { height: 18px; padding: 0 6px; font-size: 10.5px; }
 
 /* ---------------- 画布本体 ---------------- */
 /* 画布本身是一块 panel-card：与 Imagora 的 .studio-canvas panel-card 同构，
@@ -537,15 +613,19 @@ body {
 .react-flow__node-group.selected { outline: 2px solid color-mix(in srgb, var(--im-brand) 40%, transparent); }
 
 /* 状态灯：排队琥珀 / 生成中主体色呼吸 / 完成绿 / 失败红 —— 与 Imagora 的 StatusLight 同族 */
-.im-dot { width: 8px; height: 8px; border-radius: var(--im-r-pill); background: var(--im-ink-3); flex: none; }
-.im-dot.is-queued { background: var(--im-warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--im-warn) 22%, transparent); }
-.im-dot.is-running {
-  background: var(--im-brand);
-  animation: im-pulse 1.2s ease-in-out infinite;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--im-brand) 20%, transparent);
+/* 状态指示灯：原版就是一个 10px 圆点，**没有**光晕环 —— 环会在密集画布上糊成一片。
+   就绪灰 / 排队琥珀 / 生成中品牌色呼吸 / 完成绿 / 失败红。 */
+.im-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--im-ink) 22%, transparent);
+  flex: none;
 }
-.im-dot.is-done { background: var(--im-ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--im-ok) 20%, transparent); }
-.im-dot.is-failed { background: var(--im-danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--im-danger) 22%, transparent); }
+.im-dot.is-queued { background: var(--im-warn); }
+.im-dot.is-running { background: var(--im-brand); animation: im-pulse 1.5s ease-in-out infinite; }
+.im-dot.is-done { background: var(--im-ok); }
+.im-dot.is-failed { background: var(--im-danger); }
 @keyframes im-pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.35 } }
 
 /* ---------------- 浮层 ---------------- */
@@ -570,30 +650,41 @@ body {
 .im-drag-source { cursor: grab; }
 .im-drag-source:active { cursor: grabbing; }
 
-/* 落点胶囊：fixed 跟随光标。pointer-events:none 保证它不会打断 dragover 的命中判定。 */
-.im-drop-chip {
+/* 落点胶囊：外层只负责定位（transform 由 JS 直接写，跟着光标走），内层负责外观。
+   外壳 portal 到 body 且 pointer-events:none —— 它绝不能挡住 dragover 的命中判定，
+   否则胶囊自己会把 drop 事件吃掉。 */
+.im-drop-chip-host {
   position: fixed;
+  left: 0;
+  top: 0;
   z-index: 9999;
-  display: inline-flex;
+  pointer-events: none;
+  will-change: transform;
+}
+.im-drop-chip {
+  display: none;
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
   border-radius: var(--im-r-pill);
-  border: 1px solid color-mix(in srgb, var(--im-brand) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--im-brand) 45%, transparent);
   background: var(--im-surface-float);
   color: var(--im-ink);
   font-size: 12.5px;
   font-weight: 500;
   white-space: nowrap;
   box-shadow: var(--im-shadow-float);
-  pointer-events: none;
-  will-change: transform;
 }
-.im-drop-chip > * { display: inline-flex; }
-.im-drop-chip.is-cancel {
+.im-drop-chip.show { display: inline-flex; }
+/* 两个图标互斥：拖到画布外时只剩红色 X，文案由 JS 改成「松开取消」 */
+.im-drop-chip-icon { display: inline-flex; color: var(--im-brand); }
+.im-drop-chip-icon--cancel { display: none; color: var(--im-danger); }
+.im-drop-chip.is-outside {
   border-color: color-mix(in srgb, var(--im-danger) 45%, transparent);
   color: var(--im-danger);
 }
+.im-drop-chip.is-outside .im-drop-chip-icon--create { display: none; }
+.im-drop-chip.is-outside .im-drop-chip-icon--cancel { display: inline-flex; }
 
 .im-log {
   /* 原版形态：右下角一列纯文字，不可交互 —— 面板会挡住画布的拖拽与框选 */

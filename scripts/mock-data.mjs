@@ -49,6 +49,12 @@ export function defineConfig(path, url) {
       savedAt: '2026-11-06T13:20:00.000Z',
       edges: [
         { id: 'img-ref-1->prompt-1', source: 'img-ref-1', target: 'prompt-1', animated: true },
+        { id: 'img-ref-2->prompt-1', source: 'img-ref-2', target: 'prompt-1', animated: true },
+        // 图片组：两张图汇进组，组自己再连到提示词卡（张数与大小由边聚合推导）
+        { id: 'img-ref-1->group-1', source: 'img-ref-1', target: 'group-1', animated: true },
+        { id: 'img-ref-2->group-1', source: 'img-ref-2', target: 'group-1', animated: true },
+        { id: 'img-out-1->group-1', source: 'img-out-1', target: 'group-1', animated: true },
+        { id: 'group-1->prompt-1', source: 'group-1', target: 'prompt-1', animated: true },
         { id: 'prompt-1->img-out-1', source: 'prompt-1', target: 'img-out-1', animated: true },
       ],
       nodes: [
@@ -91,6 +97,13 @@ export function defineConfig(path, url) {
             outputDir: '',
             status: 'idle',
           },
+        },
+        // 图片组：验收叠卡效果（3 张以上才看得出层次）
+        {
+          id: 'group-1',
+          type: 'group',
+          position: { x: 600, y: 640 },
+          data: { imageCount: 5, totalSize: 4_512_000, duplicateCount: 1 },
         },
         {
           id: 'img-out-1',
