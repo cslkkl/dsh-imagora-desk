@@ -69,6 +69,8 @@ export function defineConfig(path, url) {
             size: 482113,
             ext: 'png',
             absPath: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\assets\\ref-1.png',
+            // 带蒙版：验收「蒙版」角标是可点的清除按钮（原版点一下清）
+            maskDataUrl: 'data:image/png;base64,iVBORw0KGgo=',
             refCount: 1,
           },
         },

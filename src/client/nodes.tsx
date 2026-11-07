@@ -18,6 +18,8 @@ export interface NodeActions {
   /** 图片加工：分别打开裁剪 / 切分 / 放大 / 蒙版对话框 */
   cropImage: (nodeId: string) => void
   maskImage: (nodeId: string) => void
+  /** 清除这张图挂着的蒙版（角标点一下就清） */
+  clearMask: (nodeId: string) => void
   splitImage: (nodeId: string) => void
   upscaleImage: (nodeId: string) => void
   config: ImagoraConfig | null
@@ -90,10 +92,24 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
           文件缺失
         </span>
       ) : null}
+      {/* 蒙版角标：蒙版会一直跟着这张图走，之后每次拿它当参考图都按蒙版重绘。
+          没有可见提示的话用户会忘掉自己设过，生成结果不对还找不到原因 ——
+          所以角标本身就是一个按钮，点一下清除（原版也是这么做的）。
+          放左上角：右上角已被「文件缺失」占用。 */}
       {data.maskDataUrl ? (
-        <span className="im-chip is-brand" style={{ position: 'absolute', left: 4, top: 4, zIndex: 20 }}>
+        <button
+          type="button"
+          className="im-chip is-brand im-chip--action nodrag"
+          style={{ position: 'absolute', left: 4, top: 4, zIndex: 20 }}
+          title="这张图已设蒙版（局部重绘）。点击清除"
+          aria-label="清除蒙版"
+          onClick={event => {
+            event.stopPropagation()
+            actions.clearMask(id)
+          }}
+        >
           蒙版
-        </span>
+        </button>
       ) : null}
       {/* 图片操作区：顺序与标签照原版（预览 → 裁剪 → 放大 → 切分 → 蒙版 → 替换 → 删除） */}
       <Rail>

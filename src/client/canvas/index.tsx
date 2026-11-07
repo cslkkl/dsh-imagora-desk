@@ -402,6 +402,24 @@ export function CanvasApp() {
     [openImageOp],
   )
 
+  /** 清除某张图挂着的蒙版：角标点一下就清（原版同样的交互）。
+   *  蒙版会一直跟着图走，之后每次拿它当参考图都按蒙版重绘；没有清除入口时，
+   *  用户挂错了只能删图重建。 */
+  const clearMask = useCallback(
+    (nodeId: string) => {
+      history.record()
+      setNodes(current =>
+        current.map(node =>
+          node.id === nodeId && node.type === 'image'
+            ? { ...node, data: { ...node.data, maskDataUrl: undefined } }
+            : node,
+        ),
+      )
+      flash('已清除这张图的蒙版')
+    },
+    [setNodes, history, flash],
+  )
+
   /* ---------------- 节点上下文 ---------------- */
   const actions = useMemo(
     () => ({
@@ -416,9 +434,10 @@ export function CanvasApp() {
       zoomImage: openPreview,
       replaceImage,
       ...imageOps,
+      clearMask,
       config,
     }),
-    [updatePrompt, runPrompt, cancelPrompt, deleteNode, openPreview, replaceImage, imageOps, config],
+    [updatePrompt, runPrompt, cancelPrompt, deleteNode, openPreview, replaceImage, imageOps, clearMask, config],
   )
 
   return (
