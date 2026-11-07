@@ -274,6 +274,49 @@ Python 与 Node 同时写的互斥），**当前明确不做**，已在待办里
 
 对应到插件：插件没有 `config.json` / `.env` 可编（配置在 `~/.dsh/imagora/settings.json`），所以「写」的那半不得不留在弹窗里——这是**数据模型不同导致的必要偏差**，不是抄漏了。真正该补的是「使用中」那页的只读事实（生效来源/地址/模型/密钥是否配置）。
 
+> > > > > > > origin/main
+
+## 存档与本层的边界
+
+**存档只存「有什么」，不存「长什么样」。** 加载时 `workflowToCanvas` 会调用
+`lib/workflow.ts` 的 `sanitizeEdges`，把连线上的 `style` / `className` / `animated` /
+`markerEnd` / `markerStart` 全部丢掉。
+
+这条不是洁癖，是被一次真事故定下来的：原版 Imagora 从 `edgeStyle` 那次提交起，保存
+工作流时把连线外观**内联进 JSON**（`"stroke": "var(--edge-stroke-idle)"`）。插件把设计层
+收口到 `--im-*` 之后没有这组变量名，而 `var()` 引用不存在的变量**又没有兜底值**时，
+浏览器判该声明「计算值无效」→ `stroke` 回到 initial 的 `none` → **连线整条消失**，
+控制台一个字都不报。用户看到的症状是「新存的工作流没有线，旧的工作流却有」——
+差别只在于 10 月之后那几份存档里带了这个内联值。
+
+丢掉而不是翻译，理由是职责划分：
+
+- 连线四态由本层 CSS 统一驱动，存档里那份是**保存那一刻的快照**（可能恰好停在
+  hovered 上），照搬等于把「保存时鼠标停在哪儿」变成「这条线的永久颜色」；
+- `animated` 必须跟着 LOD 走（缩远时停流动动画），存档里的 `true` 会把它钉死。
+
+配套的第二道闸：`styles.ts` 里给 `--edge-stroke-idle/hovered/selected` 留了指向
+`--im-edge-*` 的别名。目的是让「引用了未定义变量」这种数据问题**不至于演变成画面空白**，
+代价只有三行。
+
+> 通则在 `AGENTS.md` 的活跃坑里：**CSS 里任何 `var()` 都必须有兜底值或保证存在**。
+> 它失效时是静默的，与「少一个花括号」是同一类事故。
+
+## 缩远抽象（LOD）
+
+`canvas/lod.ts` 是纯函数状态机，`LOD_IN_ZOOM = 0.1` / `LOD_OUT_ZOOM = 0.2`（照抄原版）。
+两个阈值之间是**保持现状的死区**：用同一个阈值进出，缩放停在临界点上会反复翻转，
+每次翻转都重建全部节点渲染，画面持续闪烁。
+
+`lod` 通过 `LodContext` 传进节点，**不塞进 `NODE_TYPES`**。节点类型一旦变化，
+React Flow 会把所有节点重挂载 —— 入场动画重播、输入框失焦、正在敲的提示词丢掉。
+原版用工厂函数每帧重建 nodeTypes，是因为他们的节点是纯展示的；我们节点里有 textarea
+与自绘下拉，重挂载的代价肉眼可见。
+
+同一条纪律也适用于 `defaultEdgeOptions`：它必须 `useMemo`（只随 `lod` 变）。
+内联对象每次新建都会让 React Flow 的 StoreUpdater 写一次 store，`edge = {...default, ...edge}`
+全量新建，每条边的 memo 全部失效。
+
 ## 防错清单
 
 - 改包名：`package.json` / `cordis.patch.yml` / `build.mjs` 的 loader id / host 导出名，四处一起改。
@@ -283,6 +326,9 @@ Python 与 Node 同时写的互斥），**当前明确不做**，已在待办里
 - 装依赖后忘了重建：CI 的 `dist` 同步检查会红，本地钩子也跑构建相关的冒烟。
 - 改存储路径：`store.js` 的路径全是 **getter**（`assetsDir` / `workflowsDir` / `registryPath` …），因为它们要跟着 `setSharedRoot` 变。别把它们改回构造函数里赋值的字段——那样切目录不会生效，表现是「设置里填了 imagora 目录，工作流和生成历史还是空的」。
 - 量聚焦态要用 CDP 的 `Emulation.setFocusEmulationEnabled`：headless Chrome 默认没有窗口焦点，`:focus` 永远不匹配，直接量会得到「border 还是灰的、没有光环」，那是假象。
+- 丢进 CSS 的每个 `var()` 都要有兜底或者保证存在。引用不存在的变量会让**整条声明**作废，浏览器不报错 —— 连线消失那次就是这么来的（见「存档与本层的边界」）。
+- 从上游存档读进来的表现层字段（`style` / `className` / `animated` / `marker*`）必须在加载时清掉，别指望「照搬上游的存法」：上游的 CSS 变量名与我们不同，存进去的是状态快照而不是样式定义。
+- 往 `CANVAS_CSS` 的模板字面量里写注释时**不能用反引号**：它就是模板字面量的结束符，一个反引号会让之后整个文件语法崩掉（TS1005/TS1351/TS1443 一串），而错误位置报在别处。
 
 ## 相关
 

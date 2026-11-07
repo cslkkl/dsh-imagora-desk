@@ -66,6 +66,21 @@ body {
   --im-edge-selected: var(--im-ink);
   --im-snap: var(--im-brand);
 
+  /* —— 原版旧名的兼容别名（**不是**给本项目代码用的，别在这里取色）——
+   *
+   * 原版 Imagora 从 edgeStyle 那次提交起，保存工作流时会把连线外观**内联进 JSON**：
+   *     "style": { "stroke": "var(--edge-stroke-idle)", ... }
+   * 这些是原版的变量名。var() 写了但变量不存在、又没有兜底值时，浏览器判该声明
+   * 「计算值无效」→ stroke 回到 initial 的 none → **整条连线消失**。
+   *
+   * 主要的修法在 lib/workflow.ts 的 sanitizeEdges（加载时丢掉存档里的表现层字段），
+   * 这里补一条别名作为第二道闸：万一还有别处（节点内联样式、旧快照、用户手改的 JSON）
+   * 引用到这几个名字，也能解析出颜色，而不是让元素无声消失。
+   * 让「引用了未定义变量」这种数据问题演变成「画面空白」，代价太大。 */
+  --edge-stroke-idle: var(--im-edge-idle);
+  --edge-stroke-hovered: var(--im-edge-hovered);
+  --edge-stroke-selected: var(--im-edge-selected);
+
   /* 尺寸阶梯：顶栏控件 28 → 表单控件 38 → 主行动 46；圆角 胶囊 / 卡片 16 / 控件 10 */
   --im-h-ctl: 28px;
   --im-h-field: 38px;
@@ -712,6 +727,62 @@ body[data-ds-dark-theme] {
 .im-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .im-thumb-label { margin-top: 4px; max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--im-ink-2); }
 
+/* ---------------- LOD 抽象模式（缩到 10% 以下） ----------------
+ * 照搬原版 PromptNode 的 lod 分支：卡面尺寸不变，只把内容换成
+ * 「标题大字 + 状态居中」。原版实测：
+ *   标题  text-3xl (30px) / font-semibold / leading-tight / text-brand-dark
+ *   状态  text-xl  (20px) / font-medium / 四态各一档色
+ *   布局  居中列 / gap-3 / 卡面 min-h-[320px] !w-[380px] !p-3
+ * 尺寸与内边距由 JSX 的行内样式给（跟着 380/320 一起读，改一处就够），这里只管排版与字色。 */
+.im-node-lod {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+}
+.im-lod-title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.15;
+  /* 原版 text-brand-dark。我们的 --im-brand-dark 就是宿主 label-primary（近黑），
+     暗色下自动翻成近白，与完整模式标题同色，两种模式不会一深一浅。 */
+  color: var(--im-brand-dark);
+}
+.im-lod-status {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 20px;
+  font-weight: 500;
+}
+/* 状态四色：与完整模式的圆点同源（排队琥珀 / 生成中品牌 / 完成绿 / 失败红），
+   这样缩远了也能从颜色认出「哪几张还在跑」。 */
+.im-lod-status.is-idle { color: var(--im-ink-3); }
+.im-lod-status.is-queued { color: var(--im-warn); }
+.im-lod-status.is-running {
+  color: var(--im-brand);
+  /* 原版 animate-pulse：整行呼吸。抽象模式下没有进度条也没有秒数的位置，
+     只能靠这一下一下的明暗表达「还在动」。 */
+  animation: im-lod-pulse 1.6s ease-in-out infinite;
+}
+.im-lod-status.is-done { color: var(--im-ok); }
+.im-lod-status.is-failed { color: var(--im-danger); }
+@keyframes im-lod-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+/* 无障碍：系统开了「减少动态效果」就别让整张卡呼吸 */
+@media (prefers-reduced-motion: reduce) {
+  .im-lod-status.is-running { animation: none; }
+}
+
 /* 右侧操作栏：hover 显示。容器不留外边距，靠 padding 撑出视觉间隙，
    否则鼠标移向按钮的途中会短暂离开 .im-panel-card 导致 hover 闪断。 */
 .im-rail {
@@ -870,7 +941,12 @@ body[data-ds-dark-theme] {
 }
 .react-flow__edge:hover .react-flow__edge-path { stroke: var(--im-edge-hovered); stroke-width: 2.5; }
 .react-flow__edge.selected .react-flow__edge-path { stroke: var(--im-edge-selected); stroke-width: 2.5; }
-.react-flow__edge.animated .react-flow__edge-path { stroke-dasharray: 6 4; }
+/* ⚠️ 这里**故意不写** stroke-dasharray：原版也没写，流动虚线的画法与节奏全交给
+   @xyflow/react 自带的 .react-flow__edge.animated path 规则（dasharray 5 +
+   dashdraw .5s linear infinite）。
+   我们以前写过 stroke-dasharray: 6 4（选择器三个类，压过库里的两个类 + 元素），
+   结果虚线段比原版长 20%，跑起来节奏也不一样 —— 看着"有动画"就以为对了。
+   这条注释反过来是防回归：谁再往这里加 dasharray，两边就又对不上。 */
 .react-flow__connection-path { stroke: var(--im-brand); stroke-width: 1.8; stroke-dasharray: 5 4; }
 
 /* 连线把手：照原版做成横条，常态隐藏、悬停节点或正在连线时才显形。
