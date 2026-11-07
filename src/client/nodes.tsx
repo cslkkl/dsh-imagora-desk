@@ -8,6 +8,8 @@ import { generatingLabel } from './lib/format'
 import { Icon } from './icons'
 import { GenerationPending } from './canvas/generation-pending'
 import type { ImagoraConfig } from './api'
+import { Select } from './select'
+import { mergeCustomOption } from './lib/customValue'
 
 export interface NodeActions {
   updatePrompt: (nodeId: string, patch: Partial<CanvasPromptNodeData>) => void
@@ -304,34 +306,28 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
       >
         <div style={{ minWidth: 0 }}>
           <span className="im-label">尺寸</span>
-          <select
-            className="im-select"
-            style={{ width: '100%' }}
+          {/* 尺寸可能有十几项（模型自带 size_options 时），超过阈值会自动出搜索框。
+              mergeCustomOption：值不在清单里时补一条「自定义」，否则触发器会显示
+              「请选择」——加载了别的工作流、尺寸被改到清单外时就会这样。
+              没有开 allowCustom：那会新增一个手填尺寸的入口，属于行为变化，先不擅自加。 */}
+          <Select
+            className="im-select-fill"
+            options={mergeCustomOption(sizeOptions, data.size)}
             value={data.size}
-            onChange={event => actions.updatePrompt(id, { size: event.target.value })}
-          >
-            {sizeOptions.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            title="输出尺寸"
+            onChange={value => actions.updatePrompt(id, { size: value })}
+          />
         </div>
         {qualityEffective ? (
           <div style={{ minWidth: 0 }}>
             <span className="im-label">质量</span>
-            <select
-              className="im-select"
-              style={{ width: '100%' }}
+            <Select
+              className="im-select-fill"
+              options={qualities.map(quality => ({ value: quality, label: quality }))}
               value={data.quality}
-              onChange={event => actions.updatePrompt(id, { quality: event.target.value })}
-            >
-              {qualities.map(quality => (
-                <option key={quality} value={quality}>
-                  {quality}
-                </option>
-              ))}
-            </select>
+              title="生成质量"
+              onChange={value => actions.updatePrompt(id, { quality: value })}
+            />
           </div>
         ) : null}
       </div>

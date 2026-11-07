@@ -162,7 +162,10 @@ body {
   box-shadow: var(--im-shadow-card);
   z-index: 5;
 }
-.im-toolbar .im-spacer { flex: 1; }
+/* 弹性占位：把后面那组按钮推到行尾。必须是不带父选择器的全局规则 ——
+   只在 .im-toolbar 下定义的话，页头里用同一个类名不会生效，
+   表现为「右侧没有按钮、全挤在左边」。 */
+.im-spacer { flex: 1 1 auto; }
 /* 工具栏里的次要按钮是深灰文字，不是品牌色 —— 原版 .studio-toolbar .btn-ghost 就是
    rgba(23,32,43,.72)。品牌色只在页头那一行与主行动上，否则整条工具栏都在发光。 */
 .im-toolbar .im-btn-ghost {
@@ -376,18 +379,172 @@ body {
 .im-muted { color: var(--im-ink-3); }
 .im-node-title { font-size: 12px; font-weight: 600; color: var(--im-brand-dark); }
 
-.im-select {
-  height: var(--im-h-ctl);
+/* ---------------- 自绘下拉（照搬 Imagora 的 .select-* 16 条规则） ----------------
+   原版用 Tailwind @apply 写，这里全部展开成普通声明；颜色一律走 --im-* 语义 token。
+   背景与文字成对取自同一套 token —— 混用两套会出「黑底黑字」。 */
+.im-select-root {
+  position: relative;
+  display: inline-block;
+  min-width: 0;
   max-width: 260px;
+}
+
+/* 触发器：外形沿用输入控件（等高、同边框、同底色），加上图标与省略号 */
+.im-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: var(--im-h-ctl);
   padding: 0 10px;
-  border-radius: 8px;
+  box-sizing: border-box;
   border: 1px solid var(--im-line-strong);
+  border-radius: 8px;
   background: var(--im-surface);
   color: var(--im-ink);
+  font-family: inherit;
   font-size: 12px;
+  text-align: left;
+  cursor: pointer;
   transition: border-color 0.2s ease;
 }
-.im-select:hover { border-color: var(--im-ink-3); }
+.im-select-trigger:hover { border-color: var(--im-ink-3); }
+.im-select-trigger:disabled { cursor: not-allowed; opacity: 0.55; }
+.im-select-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.im-select-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 箭头：展开时翻 180°（原版用 Tailwind 的 rotate-180 + transition） */
+.im-select-caret {
+  flex: none;
+  color: var(--im-ink-3);
+  transition: transform 0.2s ease;
+}
+.im-select-trigger.is-open .im-select-caret { transform: rotate(180deg); }
+
+/* 浮层：portal 到 body + fixed 定位，不受任何祖先的 overflow 裁切 */
+.im-select-list {
+  position: fixed;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 4px;
+  box-sizing: border-box;
+  border: 1px solid var(--im-line);
+  border-radius: var(--im-r-control);
+  background: var(--im-surface-float);
+  box-shadow: var(--im-shadow-float);
+}
+
+/* 选项行 */
+.im-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 34px;
+  padding: 7px 10px;
+  box-sizing: border-box;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--im-ink-2);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.im-select-option.is-active {
+  color: var(--im-brand);
+  background: color-mix(in srgb, var(--im-brand) 7%, transparent);
+}
+.im-select-option.is-selected {
+  color: var(--im-brand);
+  font-weight: 600;
+}
+.im-select-check { flex: none; }
+
+/* 搜索框：贴在列表顶部，与选项区用一条细线分开。
+   输入框本身不要 field 的边框，否则「框里套框」，在已经带边框的浮层里显得脏。 */
+.im-select-search {
+  flex: none;
+  margin-bottom: 4px;
+  padding: 2px 2px 6px;
+  border-bottom: 1px solid var(--im-line);
+}
+.im-select-search-input {
+  width: 100%;
+  height: 30px;
+  padding: 0 9px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--im-brand) 5%, transparent);
+  color: var(--im-ink);
+  font-family: inherit;
+  font-size: 13px;
+}
+.im-select-search-input::placeholder { color: var(--im-ink-3); }
+
+.im-select-empty {
+  padding: 14px 10px;
+  color: var(--im-ink-3);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* 可滚动区：min-height:0 才能让 flex 子项真的滚动（否则内容把容器撑开） */
+.im-select-rows {
+  min-height: 0;
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: auto;
+}
+
+/* 分组标题：粘在滚动容器顶部，长列表滚到中段也知道自己在哪一组 */
+.im-select-group-title {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 10px 4px;
+  background: var(--im-surface-float);
+  color: var(--im-ink-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.im-select-group-rows { margin: 0; padding: 0; list-style: none; }
+.im-select-group + .im-select-group { margin-top: 2px; }
+
+/* 自由输入行：固定在滚动区之外，列表很长时也看得见，不用滚到底才能手填 */
+.im-select-custom {
+  flex: none;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--im-line);
+}
+
+/* 节点内的下拉要更紧凑：14px 在 7fr 列里会被截成「1024x1024 (1:1) (0…」 */
+.im-canvas .im-select-root { max-width: none; }
+/* 撑满所在列（节点里的尺寸/质量是两列网格，各自吃满一格） */
+.im-select-fill { display: block; width: 100%; max-width: none; }
+.im-select-fill .im-select-trigger { width: 100%; }
+.im-canvas .im-select-trigger {
+  height: 30px;
+  padding: 0 8px;
+  font-size: 12px;
+}
 
 /* 节点内的输入/下拉用紧凑档：原版 .studio-canvas .node-pop 把字号压到 12px、
    横向内边距收成 8px —— 14px 在 7fr 列里会被截成「1024x1024 (1:1) (0…」。 */
@@ -698,7 +855,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  min-width: 76px;
+  /* 宽度交给行自己（行是固定 64px）：这里再写 min-width 会多出一条右侧空白 */
+  min-width: 0;
   padding: 0;
   /* 原版 .react-flow__controls 是 11px；内边距由行自己带，容器不留 */
   border-radius: var(--im-r-float);
@@ -712,7 +870,10 @@ body {
   /* 有图标之后必须左对齐：居中会让 9 行的图标与文字各自错开，看着参差 */
   justify-content: flex-start;
   gap: 4px;
-  /* 原版 .dock-row 固定 64×30：四位数百分比与两字标签都放得下，列宽也不会被撑开 */
+  /* 原版 .dock-row 固定 64×30：四位数百分比与两字标签都放得下，列宽也不会被撑开。
+     box-sizing 必须写：不写的话 64 是内容宽，加上左右各 8px 内边距实际变成 80，
+     整列右侧就多出一条空白。 */
+  box-sizing: border-box;
   width: 64px;
   min-height: 30px;
   padding: 0 8px;

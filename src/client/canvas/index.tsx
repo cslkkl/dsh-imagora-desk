@@ -83,7 +83,6 @@ export function CanvasApp() {
   const [snapEnabled, setSnapEnabled] = useState(() => readSnapEnabled())
   const [canvasLocked, setCanvasLocked] = useState(false)
   const [guides, setGuides] = useState<SnapGuide[]>([])
-  const [restored, setRestored] = useState<string | null>(null)
 
   const flowRef = useRef<HTMLDivElement>(null)
   const instanceRef = useRef<ReactFlowInstance<WorkflowNode, Edge> | null>(null)
@@ -147,7 +146,6 @@ export function CanvasApp() {
     log,
     flash,
     closeDialog: () => setDialog(null),
-    setRestored,
   })
 
   /* ---------------- 撤销 / 重做 ---------------- */
@@ -504,18 +502,6 @@ export function CanvasApp() {
         {/* 不设常驻提示条：Imagora 把这一行删了（占画布高度、浮层还会被画布盖住），
             用法收进左下角控件坞的「帮助」弹窗里 */}
 
-        {restored && !configIssues.length ? (
-          <Banner
-            tone="warn"
-            action={
-              <button type="button" className="im-btn-ghost im-btn-xs" onClick={() => setRestored(null)}>
-                知道了
-              </button>
-            }
-          >
-            已恢复上次画布
-          </Banner>
-        ) : null}
         <div className={`im-canvas${dropIntent ? ` is-drop-active` : ``}`} ref={flowRef} {...dropHandlers}>
           {/* 选中操作栏：相对**画布**右上角定位（原版挂在 .studio-canvas 里）。
               放到 .im-root 上会跑到整个面板的右上角，离画布边距、工具栏都错开。 */}
