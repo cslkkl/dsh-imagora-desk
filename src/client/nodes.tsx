@@ -82,16 +82,16 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
   return (
     <div
       className={`im-panel-card${selected ? ' is-selected' : ''}${missing ? ' is-missing' : ''}`}
-      style={{ padding: 8, width: 148 }}
+      style={{ padding: 8, width: 144 }}
     >
       <Handles />
       {missing ? (
-        <span className="im-chip is-danger" style={{ position: 'absolute', right: 6, top: 6, zIndex: 20 }}>
+        <span className="im-chip is-danger" style={{ position: 'absolute', right: 4, top: 4, zIndex: 20 }}>
           文件缺失
         </span>
       ) : null}
       {data.maskDataUrl ? (
-        <span className="im-chip is-brand" style={{ position: 'absolute', left: 6, top: 6, zIndex: 20 }}>
+        <span className="im-chip is-brand" style={{ position: 'absolute', left: 4, top: 4, zIndex: 20 }}>
           蒙版
         </span>
       ) : null}

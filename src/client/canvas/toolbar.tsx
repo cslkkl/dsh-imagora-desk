@@ -13,6 +13,7 @@
 // 「有的秒出黑框、有的等 1~2 秒」——气泡是宿主组件（即时、有样式），title 是系统
 // 提示（延迟、黑框）。同一处界面必须只用一种，所以这里全部退回 title。
 import { BrandHeader } from '../brand'
+import { Icon } from '../icons'
 import { CostBadge, type CostSummary } from './cost'
 import type { ImagoraConfig } from '../api'
 
@@ -137,6 +138,7 @@ export function CanvasToolbar(props: ToolbarProps) {
             onClick={props.onAddPrompt}
           >
             新建提示词卡片
+            <Icon name="grip" size={12} />
           </button>
           <button
             type="button"
@@ -147,6 +149,7 @@ export function CanvasToolbar(props: ToolbarProps) {
             onClick={props.onAddGroup}
           >
             新建图片组
+            <Icon name="grip" size={12} />
           </button>
         </div>
 

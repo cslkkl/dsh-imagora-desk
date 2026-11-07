@@ -586,6 +586,11 @@ body {
 /* 右上角选中操作栏：半透明浮层 + 一排按钮（Imagora 的 .studio-inspector） */
 .im-inspector {
   position: absolute;
+  /* 原版 .studio-inspector 是 rounded-lg(8) + max-width + 横向可滚：
+     选中节点很多时按钮会顶出画布，靠这两条兜住 */
+  max-width: calc(100% - 24px);
+  overflow-x: auto;
+  scrollbar-width: none;
   right: 12px;
   top: 12px;
   z-index: 40;
@@ -593,7 +598,7 @@ body {
   align-items: center;
   gap: 4px;
   padding: 4px;
-  border-radius: var(--im-r-control);
+  border-radius: var(--im-r-sm);
   background: var(--im-surface-float);
   border: 1px solid var(--im-line);
   box-shadow: var(--im-shadow-float);
@@ -848,6 +853,18 @@ body {
 /* 可拖到画布上的工具栏按钮：光标提示「能拖」，悬停时轻微抬起 */
 .im-drag-source { cursor: grab; }
 .im-drag-source:active { cursor: grabbing; }
+/* 把手：平时几乎透明，hover 才浮现（原版 .btn-drag-grip 的做法）。
+   没有它，用户看不出这个按钮和旁边那几个的区别。 */
+.im-drag-source > svg {
+  opacity: 0;
+  transform: translateX(-3px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  color: var(--im-ink-3);
+}
+.im-drag-source:hover > svg {
+  opacity: 1;
+  transform: translateX(0);
+}
 
 /* 落点胶囊：外层只负责定位（transform 由 JS 直接写，跟着光标走），内层负责外观。
    外壳 portal 到 body 且 pointer-events:none —— 它绝不能挡住 dragover 的命中判定，
