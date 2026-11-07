@@ -38,12 +38,24 @@ export interface ToolbarProps {
 
 const DIVIDER = { width: 1, height: 18, background: 'var(--im-line)', margin: '0 2px' } as const
 
+/** 按钮的职能色：类名在 styles.ts 里对应一套配色；分色是为了让工具栏不再是清一色灰。 */
+type Tone = 'prompt' | 'image' | 'group' | 'run' | 'stop' | 'view'
+
 export function CanvasToolbar(props: ToolbarProps) {
   const ui = primitives()
   const { config, promptCount, runnableIds, selectedIds, busyIds, minimapOpen, zoom } = props
-  const toolButton = (label: string, onClick: () => void, extra?: Record<string, unknown>) => (
+
+  const tonedButton = (tone: Tone, label: string, onClick: () => void, extra?: Record<string, unknown>) => (
     <ui.Tooltip label={label} side="bottom">
-      <ui.Button type="button" size="sm" variant="toolbar" aria-label={label} onClick={onClick} {...extra}>
+      <ui.Button
+        type="button"
+        size="sm"
+        variant="toolbar"
+        className={`im-tone-${tone}`}
+        aria-label={label}
+        onClick={onClick}
+        {...extra}
+      >
         {label}
       </ui.Button>
     </ui.Tooltip>
@@ -51,21 +63,27 @@ export function CanvasToolbar(props: ToolbarProps) {
 
   return (
     <div className="im-toolbar">
-      <ui.Button type="button" size="sm" onClick={props.onAddPrompt}>
-        提示词卡
+      <ui.Button
+        type="button"
+        size="sm"
+        className="im-tone-prompt"
+        onClick={props.onAddPrompt}
+        style={{ fontWeight: 600 }}
+      >
+        ＋ 提示词卡
       </ui.Button>
-      {toolButton('导入图片', props.onPickFiles)}
-      {toolButton('图片组', props.onAddGroup)}
-      {toolButton('粘贴导入', props.onPasteImport)}
+      {tonedButton('image', '导入图片', props.onPickFiles)}
+      {tonedButton('group', '图片组', props.onAddGroup)}
+      {tonedButton('prompt', '粘贴导入', props.onPasteImport)}
       <span style={DIVIDER} />
-      {toolButton('全部运行', () => props.onRun(runnableIds), { disabled: !promptCount })}
-      {toolButton('运行所选', () => props.onRun(runnableIds.filter(id => selectedIds.includes(id))), {
+      {tonedButton('run', '▶ 全部运行', () => props.onRun(runnableIds), { disabled: !promptCount })}
+      {tonedButton('run', '运行所选', () => props.onRun(runnableIds.filter(id => selectedIds.includes(id))), {
         disabled: !selectedIds.length,
       })}
-      {toolButton('取消全部', props.onCancelAll, { disabled: !busyIds.length })}
+      {tonedButton('stop', '取消全部', props.onCancelAll, { disabled: !busyIds.length })}
       <span style={DIVIDER} />
-      {toolButton('自动连线', props.onAutoConnect)}
-      {toolButton('整理所选', props.onArrangeSelected, { disabled: !selectedIds.length })}
+      {tonedButton('view', '自动连线', props.onAutoConnect)}
+      {tonedButton('view', '整理所选', props.onArrangeSelected, { disabled: !selectedIds.length })}
       <span className="im-spacer" />
 
       {config && (config.profiles?.length ?? 0) > 1 ? (
@@ -100,18 +118,18 @@ export function CanvasToolbar(props: ToolbarProps) {
         </select>
       ) : null}
 
-      {toolButton(minimapOpen ? '小地图·开' : '小地图·关', props.onToggleMinimap)}
-      {toolButton(props.snapEnabled ? '吸附·开' : '吸附·关', props.onToggleSnap)}
-      {toolButton(props.canvasLocked ? '已锁' : '锁定', props.onToggleLock)}
+      {tonedButton('view', minimapOpen ? '小地图·开' : '小地图·关', props.onToggleMinimap)}
+      {tonedButton('view', props.snapEnabled ? '吸附·开' : '吸附·关', props.onToggleSnap)}
+      {tonedButton('view', props.canvasLocked ? '已锁' : '锁定', props.onToggleLock)}
       <span className="im-zoom" title="当前缩放">
         {Math.round(zoom * 100)}%
       </span>
-      {toolButton('全览', props.onFitView)}
-      {toolButton('保存', props.onOpenSave)}
-      {toolButton('加载', props.onOpenLoad)}
-      {toolButton('生成历史', props.onOpenHistory)}
-      {toolButton('设置', props.onOpenSettings)}
-      {toolButton('帮助', props.onOpenHelp)}
+      {tonedButton('view', '全览', props.onFitView)}
+      {tonedButton('group', '保存', props.onOpenSave)}
+      {tonedButton('group', '加载', props.onOpenLoad)}
+      {tonedButton('image', '生成历史', props.onOpenHistory)}
+      {tonedButton('view', '设置', props.onOpenSettings)}
+      {tonedButton('view', '帮助', props.onOpenHelp)}
     </div>
   )
 }

@@ -72,6 +72,49 @@ export const CANVAS_CSS = `
   pointer-events: none;
 }
 .im-toolbar .im-spacer { flex: 1; }
+/* 工具栏按钮按职能上色：创建类跟随节点色相，运行类是运行蓝，取消是红。
+   宿主 Button 的配色是灰的，这里用 !important 压过它的 CSS Modules 类。 */
+.im-toolbar button.im-tone-prompt {
+  background: var(--im-prompt-soft) !important;
+  color: var(--im-prompt) !important;
+  border-color: color-mix(in srgb, var(--im-prompt) 30%, transparent) !important;
+}
+.im-toolbar button.im-tone-image {
+  background: var(--im-image-soft) !important;
+  color: var(--im-image) !important;
+  border-color: color-mix(in srgb, var(--im-image) 30%, transparent) !important;
+}
+.im-toolbar button.im-tone-group {
+  background: var(--im-group-soft) !important;
+  color: var(--im-group) !important;
+  border-color: color-mix(in srgb, var(--im-group) 30%, transparent) !important;
+}
+.im-toolbar button.im-tone-run {
+  background: linear-gradient(135deg, var(--im-prompt), var(--im-image)) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+.im-toolbar button.im-tone-run:disabled { opacity: .4; }
+.im-toolbar button.im-tone-stop {
+  background: color-mix(in srgb, var(--im-danger) 12%, transparent) !important;
+  color: var(--im-danger) !important;
+  border-color: color-mix(in srgb, var(--im-danger) 32%, transparent) !important;
+}
+.im-toolbar button.im-tone-view {
+  background: var(--im-image-soft) !important;
+  color: var(--im-image) !important;
+  border-color: color-mix(in srgb, var(--im-image) 24%, transparent) !important;
+}
+.im-toolbar button.im-tone-prompt:hover:not(:disabled),
+.im-toolbar button.im-tone-image:hover:not(:disabled),
+.im-toolbar button.im-tone-group:hover:not(:disabled),
+.im-toolbar button.im-tone-stop:hover:not(:disabled),
+.im-toolbar button.im-tone-view:hover:not(:disabled) {
+  filter: brightness(0.97) saturate(1.15);
+}
+.im-toolbar button.im-tone-run:hover:not(:disabled) {
+  filter: brightness(1.08) saturate(1.05);
+}
 .im-zoom {
   font-variant-numeric: tabular-nums;
   font-size: 12px;
