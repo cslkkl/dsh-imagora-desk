@@ -162,7 +162,7 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
             height: 'min(56vh, 460px)',
             borderRadius: 10,
             overflow: 'hidden',
-            background: 'var(--im-layer-2)',
+            background: 'var(--im-surface-inset)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

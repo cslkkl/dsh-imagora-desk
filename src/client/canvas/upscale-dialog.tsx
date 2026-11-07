@@ -114,7 +114,7 @@ export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
             <>
               原图 {size.width} × {size.height}
               {' → '}
-              <b style={{ color: shrink ? 'var(--im-warn)' : 'var(--im-image)' }}>
+              <b style={{ color: shrink ? 'var(--im-warn)' : 'var(--im-brand)' }}>
                 {out.width} × {out.height}
               </b>
               {scale ? ` · ${scale.toFixed(2)}×` : ''}

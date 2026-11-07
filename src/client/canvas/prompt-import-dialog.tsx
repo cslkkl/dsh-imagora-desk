@@ -44,7 +44,7 @@ export function PromptImportDialog({ sizes, onCancel, onConfirm }: PromptImportD
             padding: '8px 10px',
             borderRadius: 8,
             border: '1px solid var(--im-line)',
-            background: 'var(--im-layer-2)',
+            background: 'var(--im-surface-inset)',
             color: 'var(--im-ink)',
             font: 'inherit',
             fontSize: 12,

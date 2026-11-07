@@ -16,13 +16,22 @@
 export const CANVAS_CSS = `
 /* 设计 token：与 Imagora 的 index.css 同一套阶梯，改观感只动这张表 */
 body {
-  --im-brand: var(--dsw-alias-brand-primary, #1b1b1b);
+  /* 品牌色：宿主有两条，必须取彩色那条。
+     alias-brand-primary 是「主体文字色」（浅色近黑 #0f1115 / 深色近白 #f9fafb），
+     拿它当强调色的话涟漪、选中框、连线、状态灯全变黑白，与原版的可调色相完全不同；
+     brand-primary-new-colorprimary-new-color 才是彩色主色（浅 #4176e6 / 深 #4d93f8）。 */
+  --im-brand: var(--dsw-alias-brand-primary-new-colorprimary-new-color, #4176e6);
   --im-brand-dark: var(--dsw-alias-label-primary, #17202b);
+  /* 叠在品牌色实底上的前景色：浅色主题是白，深色主题是近黑 —— 不能写死 #fff */
+  --im-on-brand: var(--dsw-alias-label-primary-foreground, #fff);
 
-  /* 表面材质：外层最浅，内嵌控件次之。全部来自宿主 alias，暗色自动跟随。 */
+  /* 表面材质：外层最浅，内嵌控件次之，浮层最高一档。
+     layer-1/2 在浅色主题下都是纯白（只有深色才分档），所以「内嵌一档」要用
+     bg-module-platform；「浮层」不能拿 bg-overlay —— 那一档浅色是 #e9ecf2，
+     比卡片还灰，方向是反的。 */
   --im-surface: var(--dsw-alias-bg-layer-1, #fff);
-  --im-surface-inset: var(--dsw-alias-bg-layer-2, #f6f7f9);
-  --im-surface-float: var(--dsw-alias-bg-overlay, #fff);
+  --im-surface-inset: var(--dsw-alias-bg-module-platform, #f9fafb);
+  --im-surface-float: var(--dsw-alias-bg-layer-1, #fff);
 
   --im-ink: var(--dsw-alias-label-primary, #17202b);
   --im-ink-2: var(--dsw-alias-label-secondary, #556);
@@ -35,10 +44,11 @@ body {
   --im-warn: var(--dsw-alias-state-warn-primary, #d78a00);
   --im-ok: var(--dsw-alias-state-success-primary, #19a45a);
 
-  /* 连线三态：与 Imagora 同构（idle 中性、hovered 主体色、selected 加深） */
+  /* 连线三态：与 Imagora 同构。idle 中性、hovered 品牌色、selected 再深一档
+     （用 label-primary 而不是 brand-dark：后者就是 ink，两态会几乎同色） */
   --im-edge-idle: var(--im-ink-3);
   --im-edge-hovered: var(--im-brand);
-  --im-edge-selected: var(--im-brand-dark);
+  --im-edge-selected: var(--im-ink);
   --im-snap: var(--im-brand);
 
   /* 尺寸阶梯：顶栏控件 28 → 表单控件 38 → 主行动 46；圆角 胶囊 / 卡片 16 / 控件 10 */
@@ -48,8 +58,9 @@ body {
   --im-r-card: 16px;
   --im-r-control: 10px;
 
-  --im-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(0, 0, 0, 0.04);
-  --im-shadow-float: 0 6px 22px rgba(0, 0, 0, 0.12);
+  /* 阴影走宿主 elevation：写死 rgba 在深色主题下等于没有阴影 */
+  --im-shadow-card: var(--dsw-elevation-soft, 0 1px 2px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(0, 0, 0, 0.04));
+  --im-shadow-float: var(--dsw-elevation-panel, 0 6px 22px rgba(0, 0, 0, 0.12));
 }
 
 .im-root {
@@ -128,8 +139,10 @@ body {
 
 .im-btn-primary {
   background: var(--im-brand);
-  color: var(--im-surface);
-  --im-btn-fill: var(--im-surface);
+  color: var(--im-on-brand);
+  /* 涟漪层 = 品牌底上的前景色：浅色主题白、深色主题近黑。
+     写死 #fff 的话，深色主题下是「近白涟漪 + 近白字」，字直接消失。 */
+  --im-btn-fill: var(--im-on-brand);
 }
 .im-btn-primary:hover:not(:disabled) {
   color: var(--im-brand);
@@ -141,7 +154,8 @@ body {
   --im-btn-fill: var(--im-brand);
 }
 .im-btn-ghost:hover:not(:disabled) {
-  color: var(--im-surface);
+  /* 涟漪是品牌色实底，反白同样要用前景色 */
+  color: var(--im-on-brand);
   box-shadow: 0 0 20px color-mix(in srgb, var(--im-btn-fill) 40%, transparent);
 }
 .im-btn-primary:active:not(:disabled),
@@ -153,8 +167,6 @@ body {
 .im-btn-xs { padding: 3px 8px; font-size: 11px; }
 /* 危险修饰：文字与涟漪同为红色，配合 ghost 使用 */
 .im-btn-danger { color: var(--im-danger); --im-btn-fill: var(--im-danger); }
-/* 选中态（比例预设 / 算法档这类单选按钮） */
-.im-btn-primary.im-btn-sm { --im-btn-fill: var(--im-surface); }
 
 .im-icon-btn {
   display: inline-flex;
@@ -333,23 +345,47 @@ body {
   background: var(--im-surface);
   box-shadow: var(--im-shadow-card);
   overflow: hidden;
+  /* 自成一个层叠上下文：画布里的 z-index 不许跟宿主面板抢层 */
+  isolation: isolate;
 }
 .im-canvas .react-flow__attribution { display: none; }
 .im-canvas .react-flow__background pattern circle { fill: color-mix(in srgb, var(--im-ink) 20%, transparent); }
 .react-flow__node .im-panel-card { will-change: transform; }
+/* 悬停的节点整体抬高，否则右侧那条操作栏会被相邻节点盖住（原版同一条规则） */
+.react-flow__node:hover { z-index: 1001 !important; }
+.react-flow__edges { z-index: 1200 !important; }
 
-.react-flow__edge-path { stroke: var(--im-edge-idle); stroke-width: 1.6; }
-.react-flow__edge:hover .react-flow__edge-path { stroke: var(--im-edge-hovered); stroke-width: 2.2; }
-.react-flow__edge.selected .react-flow__edge-path { stroke: var(--im-edge-selected); stroke-width: 2.2; }
+/* 连线三态。用 CSS :hover 而非 JS 内联：插件没有移植 edgeStyle 的四态驱动，
+   这里就是唯一取色处，别再叠一层 JS 内联（内联优先级更高，会变成死规则）。
+   transition 只含 stroke/stroke-width/opacity，与 Imagora 的 index.css 一致。 */
+.react-flow__edge-path {
+  stroke: var(--im-edge-idle);
+  stroke-width: 1.5;
+  transition: stroke 120ms ease, stroke-width 120ms ease, opacity 120ms ease;
+}
+.react-flow__edge:hover .react-flow__edge-path { stroke: var(--im-edge-hovered); stroke-width: 2.5; }
+.react-flow__edge.selected .react-flow__edge-path { stroke: var(--im-edge-selected); stroke-width: 2.5; }
 .react-flow__edge.animated .react-flow__edge-path { stroke-dasharray: 6 4; }
 .react-flow__connection-path { stroke: var(--im-brand); stroke-width: 1.8; stroke-dasharray: 5 4; }
-.react-flow__handle {
+
+/* 连线把手：照原版做成横条，常态隐藏、悬停节点或正在连线时才显形。
+   常显的小圆点会在密集画布上糊成一片。 */
+.react-flow__handle.im-handle {
+  width: 32px;
+  height: 12px;
+  border-radius: 6px;
   background: var(--im-brand);
   border: 1.5px solid var(--im-surface);
-  width: 8px;
-  height: 8px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
 }
-.react-flow__handle:hover { transform: scale(1.25); }
+.react-flow__node:hover .react-flow__handle.im-handle,
+.react-flow__handle.im-handle.connectingfrom { opacity: 0.7; }
+.react-flow__handle.im-handle.connectingto {
+  opacity: 1;
+  outline: 2px solid var(--im-brand);
+  outline-offset: 2px;
+}
 .react-flow__attribution { display: none; }
 
 .im-canvas .react-flow__minimap {
@@ -504,4 +540,34 @@ body {
 
 /* 画布内的字面按钮（弹窗走宿主组件库，不用这套） */
 .im-range { accent-color: var(--im-brand); }
+
+/* ---------------- 键盘可达性 ----------------
+   宿主在 pointer 模态下把 :focus-visible 的 outline 关了，插件自绘的按钮
+   （primary / ghost / icon / dock-row）如果不补焦点环，键盘用户完全看不出焦点在哪。
+   原版 index.css 也是这么补的。 */
+button:focus-visible,
+[role='button']:focus-visible,
+[role='option']:focus-visible,
+input[type='range']:focus-visible {
+  outline: 2px solid var(--im-brand);
+  outline-offset: 3px;
+}
+/* .im-field 自己关掉了 outline，焦点环改用 box-shadow 补 */
+.im-field:focus-visible {
+  outline: 2px solid var(--im-brand);
+  outline-offset: 1px;
+}
+
+/* ---------------- 减少动态效果 ----------------
+   原版有一条全局兜底；插件原来只在 .im-dot.is-running 上无限脉冲，
+   开了「减少动态效果」也照跳。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 `

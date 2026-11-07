@@ -274,7 +274,7 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
           style={{
             display: 'flex',
             justifyContent: 'center',
-            background: 'var(--im-layer-2)',
+            background: 'var(--im-surface-inset)',
             borderRadius: 10,
             padding: 8,
           }}

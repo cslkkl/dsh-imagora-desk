@@ -121,7 +121,7 @@ export function SplitDialog({ src, onClose, onConfirm }: SplitDialogProps) {
             maxHeight: '52vh',
             borderRadius: 10,
             overflow: 'auto',
-            background: 'var(--im-layer-2)',
+            background: 'var(--im-surface-inset)',
             padding: 8,
           }}
         >

@@ -94,10 +94,10 @@ export function HistoryDialog({ onClose, onImport }: HistoryDialogProps) {
                   style={{
                     position: 'relative',
                     padding: 0,
-                    border: `2px solid ${on ? 'var(--im-prompt)' : 'var(--im-line)'}`,
+                    border: `2px solid ${on ? 'var(--im-brand)' : 'var(--im-line)'}`,
                     borderRadius: 8,
                     overflow: 'hidden',
-                    background: 'var(--im-layer-2)',
+                    background: 'var(--im-surface-inset)',
                     cursor: 'pointer',
                     aspectRatio: '1 / 1',
                   }}

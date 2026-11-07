@@ -38,7 +38,7 @@ const TOAST_STYLE: CSSProperties = {
   zIndex: 30,
   padding: '7px 14px',
   borderRadius: 999,
-  background: 'var(--dsw-alias-toast-bg, var(--im-layer))',
+  background: 'var(--dsw-alias-toast-bg, var(--im-surface-float))',
   border: '1px solid var(--im-line)',
   boxShadow: 'var(--dsw-elevation-panel, 0 6px 20px rgba(0,0,0,.14))',
   fontSize: 12,
@@ -54,7 +54,7 @@ const PREVIEW_STYLE: CSSProperties = {
   maxHeight: '86%',
   borderRadius: 12,
   boxShadow: '0 20px 60px rgba(0,0,0,.45)',
-  background: 'var(--im-layer)',
+  background: 'var(--im-surface-float)',
 }
 
 export function PreviewOverlay({
