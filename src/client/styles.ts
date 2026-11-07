@@ -1188,15 +1188,179 @@ body {
   transition: transform 0.9s linear;
 }
 
-.im-modal-mask {
-  position: absolute;
+/* ---------------- 大图预览（移植 ZoomModal） ----------------
+   遮罩与坞上的控件都压在图片上，颜色必须与图片内容形成对比、又与主题自洽。
+   做法：一律从 --im-ink 与 --im-surface 派生（浅色主题 → 深底浅字，暗色主题 → 浅底深字），
+   不写死颜色、也不混用宿主的 --dsw-* token。
+
+   注意这一组控件**故意**跟随主题翻转，而原版是恒定深底浅字：原版是独立应用、
+   预览永远在深色胶片上；插件要跟宿主明暗一起走，所以这里让对比方向跟着主题。
+   两种做法都能保证可读，跨体系混色才会出现「黑底黑字」。 */
+.im-zoom-overlay {
+  --im-chrome-bg: color-mix(in srgb, var(--im-ink) 58%, transparent);
+  --im-chrome-bg-hover: color-mix(in srgb, var(--im-ink) 76%, transparent);
+  --im-chrome-ink: var(--im-surface);
+  --im-chrome-line: color-mix(in srgb, var(--im-surface) 24%, transparent);
+
+  position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 60;
+  user-select: none;
+  background: color-mix(in srgb, var(--im-ink) 62%, transparent);
+  /* 比弹窗那档更轻的模糊：预览是「看这张图」，背景只需退到看不清字 */
+  backdrop-filter: blur(4px) saturate(0.96);
+  -webkit-backdrop-filter: blur(4px) saturate(0.96);
+}
+.im-zoom-viewport {
+  position: fixed;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--dsw-alias-bg-mask-1, rgba(0, 0, 0, 0.28));
+  touch-action: none;
 }
+.im-zoom-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transform-origin: center center;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+/* 顶部身份条：只压住两个角，中间整块留给图片 */
+.im-zoom-top {
+  position: absolute;
+  inset: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  pointer-events: none;
+}
+.im-zoom-name {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  height: var(--im-h-ctl);
+  max-width: 62vw;
+  padding: 0 10px;
+  border-radius: var(--im-r-sm);
+  background: var(--im-chrome-bg);
+  color: var(--im-chrome-ink);
+  box-shadow: var(--im-shadow-float);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.im-zoom-close {
+  pointer-events: auto;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--im-h-ctl);
+  height: var(--im-h-ctl);
+  padding: 0;
+  border: 0;
+  border-radius: var(--im-r-pill);
+  background: var(--im-chrome-bg);
+  color: var(--im-chrome-ink);
+  box-shadow: var(--im-shadow-float);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.im-zoom-close:hover { background: var(--im-chrome-bg-hover); }
+.im-zoom-close > svg { width: 14px; height: 14px; }
+
+/* 底部控制坞：单行三组，组间一条细分隔线；不占图片空间 */
+.im-zoom-dock-wrap {
+  position: absolute;
+  inset: auto 0 12px;
+  display: flex;
+  justify-content: center;
+  padding: 0 12px;
+}
+.im-zoom-dock {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: var(--im-r-float);
+  background: var(--im-chrome-bg);
+  color: var(--im-chrome-ink);
+  box-shadow: var(--im-shadow-float);
+  font-size: 12px;
+}
+.im-zoom-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+/* 高度统一钉在 --im-h-ctl：只按 padding 撑高时，图标按钮会比文字按钮高一圈，
+   一行里出现两种基线（原版为这个坑写过注释）。 */
+.im-zoom-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--im-h-ctl);
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--im-r-sm);
+  background: var(--im-chrome-line);
+  color: var(--im-chrome-ink);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.im-zoom-btn:hover:not(:disabled) { background: var(--im-chrome-bg-hover); }
+.im-zoom-btn:disabled { opacity: 0.5; cursor: default; }
+.im-zoom-btn--icon {
+  width: var(--im-h-ctl);
+  padding: 0;
+}
+.im-zoom-btn--icon > svg { width: 12px; height: 12px; }
+.im-zoom-readout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: var(--im-h-ctl);
+  font-variant-numeric: tabular-nums;
+}
+.im-zoom-divider {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+  background: var(--im-chrome-line);
+}
+/* 复制反馈：绝对定位在坞上方，不进布局（一变宽窄按钮就会挪位置） */
+.im-zoom-toast {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 60vw;
+  padding: 4px 8px;
+  border-radius: var(--im-r-sm);
+  background: var(--im-chrome-bg);
+  color: var(--im-chrome-ink);
+  box-shadow: var(--im-shadow-float);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.im-zoom-toast.is-copied { background: var(--im-ok); }
+.im-zoom-toast.is-failed { background: var(--im-warn); }
 
 .im-empty {
   position: absolute;

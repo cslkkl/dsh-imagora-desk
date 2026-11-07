@@ -13,7 +13,7 @@ interface Options {
   createPosition: () => { x: number; y: number }
   log: (line: string) => void
   flash: (line: string) => void
-  setPreview: (preview: { url: string; name: string } | null) => void
+  setPreview: (preview: { url: string; name: string; path?: string } | null) => void
 }
 
 export function useCanvasImages({ nodesRef, setNodes, createPosition, log, flash, setPreview }: Options) {
@@ -104,7 +104,8 @@ export function useCanvasImages({ nodesRef, setNodes, createPosition, log, flash
     (nodeId: string) => {
       const node = nodesRef.current.find(row => row.id === nodeId)
       if (!node || node.type !== 'image' || !node.data.url) return
-      setPreview({ url: node.data.url, name: node.data.name })
+      // absPath 是本机绝对路径：预览里的「复制路径」用它；缺失时那个按钮不渲染
+      setPreview({ url: node.data.url, name: node.data.name, path: node.data.absPath })
     },
     [nodesRef, setPreview],
   )

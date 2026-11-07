@@ -42,7 +42,8 @@ import { CanvasDock } from './dock'
 import { useCanvasDrop } from './use-canvas-drop'
 import { readMinimapVisible, saveMinimapVisible } from '../lib/canvasPrefs'
 import { SelectionInspector } from './inspector'
-import { Banner, EmptyState, LogPanel, PreviewOverlay, Toast } from './overlays'
+import { Banner, EmptyState, LogPanel, Toast } from './overlays'
+import { ZoomModal } from './zoom-modal'
 import { HelpDialog, LoadDialog, SaveDialog } from './dialogs'
 import { CropDialog } from './crop-dialog'
 import { MaskDialog } from './mask-dialog'
@@ -73,7 +74,8 @@ export function CanvasApp() {
   const [logs, setLogs] = useState<string[]>([])
   const [toast, setToast] = useState<string | null>(null)
   const [dialog, setDialog] = useState<DialogState | null>(null)
-  const [preview, setPreview] = useState<{ url: string; name: string } | null>(null)
+  /** 预览：url 用来显示，path 是本机绝对路径（「复制路径」用；外链/blob 没有就为空） */
+  const [preview, setPreview] = useState<{ url: string; name: string; path?: string } | null>(null)
   const [zoom, setZoom] = useState(1)
   // 小地图默认关（与 Imagora 一致：卡片铺开了才需要它，平时白占地方）
   // 小地图默认关；开关状态存本机（原版也是这么存的，刷新后保持）
@@ -674,7 +676,14 @@ export function CanvasApp() {
             void addImages(files, createPosition())
           }}
         />
-        <PreviewOverlay preview={preview} onClose={() => setPreview(null)} />
+        {preview ? (
+          <ZoomModal
+            imageUrl={preview.url}
+            name={preview.name}
+            copyPath={preview.path}
+            onClose={() => setPreview(null)}
+          />
+        ) : null}
         {dialog?.kind === 'save' ? (
           <SaveDialog
             workflows={dialog.workflows ?? []}
