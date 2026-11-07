@@ -12,6 +12,8 @@
 //
 // 预览 canvas 用 CSS opacity 半透明：全不透明白会把底图盖死，用户看不见在遮哪里；
 // 导出 canvas 不吃这个 opacity，仍是纯不透明。
+//
+// 外壳与底部按钮走 ModalShell；画笔与 canvas 逻辑原样保留（只换壳不动笔）。
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { readImageSize, type ImageSize } from '../lib/imageOps'
 import {
@@ -28,7 +30,7 @@ import {
   type MaskStroke,
 } from '../lib/maskBrush'
 import { errMessage } from '../lib/format'
-import { primitives } from '../ui'
+import { ModalShell } from './modal-shell'
 
 export interface MaskDialogProps {
   src: string
@@ -41,7 +43,6 @@ export interface MaskDialogProps {
 const PREVIEW_MAX_EDGE = 640
 
 export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
-  const ui = primitives()
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const baseRef = useRef<HTMLImageElement | null>(null)
   const drawingRef = useRef(false)
@@ -224,25 +225,45 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
   const empty = isMaskEmpty(strokes)
 
   return (
-    <ui.Modal open onClose={onClose} title="蒙版重绘">
-      <div style={{ display: 'grid', gap: 12, width: 720, maxWidth: '86vw' }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <ui.Button
+    <ModalShell
+      title="蒙版重绘"
+      subtitle="涂出要重绘的区域，导出与原图同尺寸的 PNG 蒙版。"
+      size="lg"
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="im-btn-ghost im-btn-sm" onClick={onClose}>
+            取消
+          </button>
+          <button
             type="button"
-            size="sm"
-            variant={mode === 'paint' ? 'primary' : 'toolbar'}
+            className="im-btn-primary im-btn-sm"
+            disabled={busy || empty}
+            onClick={() => void confirm()}
+          >
+            {busy ? '导出中…' : '挂上蒙版'}
+          </button>
+        </>
+      }
+    >
+      <div style={{ display: 'grid', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button
+            type="button"
+            aria-pressed={mode === 'paint'}
+            className={`im-btn-sm ${mode === 'paint' ? 'im-btn-primary' : 'im-btn-ghost'}`}
             onClick={() => setMode('paint')}
           >
             涂（要重绘）
-          </ui.Button>
-          <ui.Button
+          </button>
+          <button
             type="button"
-            size="sm"
-            variant={mode === 'erase' ? 'primary' : 'toolbar'}
+            aria-pressed={mode === 'erase'}
+            className={`im-btn-sm ${mode === 'erase' ? 'im-btn-primary' : 'im-btn-ghost'}`}
             onClick={() => setMode('erase')}
           >
             擦
-          </ui.Button>
+          </button>
           <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
             笔刷
             <input
@@ -255,16 +276,14 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
             />
             <b style={{ minWidth: 34, textAlign: 'right' }}>{Math.round(brush * 100)}%</b>
           </label>
-          <ui.Button
+          <button
             type="button"
-            size="sm"
-            variant="toolbar"
-
+            className="im-btn-ghost im-btn-sm"
             disabled={!strokes.length}
             onClick={() => setStrokes([])}
           >
             清空
-          </ui.Button>
+          </button>
           <span style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--im-ink-3)' }}>
             {strokes.length ? `${strokes.length} 笔` : '还没涂'}
           </span>
@@ -303,22 +322,7 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
         </p>
 
         {error ? <p style={{ margin: 0, fontSize: 12, color: 'var(--im-danger)' }}>{error}</p> : null}
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <ui.Button type="button" size="sm" variant="toolbar" onClick={onClose}>
-            取消
-          </ui.Button>
-          <ui.Button
-            type="button"
-            size="sm"
-
-            disabled={busy || empty}
-            onClick={() => void confirm()}
-          >
-            {busy ? '导出中…' : '挂上蒙版'}
-          </ui.Button>
-        </div>
       </div>
-    </ui.Modal>
+    </ModalShell>
   )
 }

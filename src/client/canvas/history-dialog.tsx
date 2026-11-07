@@ -2,10 +2,11 @@
 //
 // 对应 Imagora 工具栏的「生成历史」。数据直接来自 host 的 /imagora/assets——
 // 那里是真实落盘的文件清单，不是画布上的节点，所以已经删掉的节点也能在这里找回。
+// 外壳用 ModalShell 的 wide 档（原版 history-modal 就是整屏宽），图片网格交给基座滚。
 import { useEffect, useMemo, useState } from 'react'
 import { listAssets, type AssetEntry } from '../api'
 import { errMessage } from '../lib/format'
-import { primitives } from '../ui'
+import { ModalShell } from './modal-shell'
 
 export interface HistoryDialogProps {
   onClose: () => void
@@ -16,13 +17,9 @@ const GRID = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))',
   gap: 10,
-  maxHeight: 420,
-  overflowY: 'auto' as const,
-  padding: 2,
 }
 
 export function HistoryDialog({ onClose, onImport }: HistoryDialogProps) {
-  const ui = primitives()
   const [images, setImages] = useState<AssetEntry[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [picked, setPicked] = useState<string[]>([])
@@ -57,18 +54,39 @@ export function HistoryDialog({ onClose, onImport }: HistoryDialogProps) {
   }
 
   return (
-    <ui.Modal open onClose={onClose} title="生成历史">
-      <div style={{ display: 'grid', gap: 12, width: 620, maxWidth: '82vw' }}>
-        <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.7, color: 'var(--im-ink-3)' }}>
-          这里是磁盘上真实存在的图片，删掉画布节点也能找回。选中的图会作为独立图片节点放进画布。
-        </p>
-
-        <ui.Input
+    <ModalShell
+      title="生成历史"
+      subtitle="磁盘上真实存在的图片，删掉画布节点也能找回。"
+      size="wide"
+      onClose={onClose}
+      footer={
+        <>
+          <span style={{ marginRight: 'auto', fontSize: 11.5, color: 'var(--im-ink-3)' }}>
+            共 {shown.length} 张{filter.trim() ? `（已筛选）` : ''}
+            {picked.length ? ` · 选中 ${picked.length}` : ''}
+          </span>
+          <button type="button" className="im-btn-ghost im-btn-sm" onClick={onClose}>
+            关闭
+          </button>
+          <button
+            type="button"
+            className="im-btn-primary im-btn-sm"
+            disabled={!picked.length}
+            onClick={() => onImport((images ?? []).filter(row => picked.includes(row.id)))}
+          >
+            放入画布
+          </button>
+        </>
+      }
+    >
+      <div style={{ display: 'grid', gap: 12 }}>
+        <input
           type="search"
           value={filter}
           placeholder="按文件名筛选"
           aria-label="按文件名筛选"
-          onChange={(event: { target: { value: string } }) => setFilter(event.target.value)}
+          className="im-field"
+          onChange={event => setFilter(event.target.value)}
         />
 
         {error ? <p style={{ margin: 0, fontSize: 12, color: 'var(--im-danger)' }}>读取失败：{error}</p> : null}
@@ -133,25 +151,10 @@ export function HistoryDialog({ onClose, onImport }: HistoryDialogProps) {
           </div>
         ) : null}
 
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
-          <span style={{ marginRight: 'auto', fontSize: 11.5, color: 'var(--im-ink-3)' }}>
-            共 {shown.length} 张{filter.trim() ? `（已筛选）` : ''}
-            {picked.length ? ` · 选中 ${picked.length}` : ''}
-          </span>
-          <ui.Button type="button" size="sm" variant="toolbar" onClick={onClose}>
-            关闭
-          </ui.Button>
-          <ui.Button
-            type="button"
-            size="sm"
-
-            disabled={!picked.length}
-            onClick={() => onImport((images ?? []).filter(row => picked.includes(row.id)))}
-          >
-            放入画布
-          </ui.Button>
-        </div>
+        <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.6, color: 'var(--im-ink-3)' }}>
+          选中的图会作为独立图片节点放进画布。
+        </p>
       </div>
-    </ui.Modal>
+    </ModalShell>
   )
 }

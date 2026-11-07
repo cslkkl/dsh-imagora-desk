@@ -2,6 +2,7 @@
 //
 // 纯前端重采样（canvas drawImage），不花调用费。三种算法由 imageOps 决定：
 // nearest 保像素点、bilinear 平滑、high 走高质量插值。
+// 外壳与底部按钮走 ModalShell：表单类内容用 md 档，不再写死 width。
 import { useEffect, useMemo, useState } from 'react'
 import {
   MAX_UPSCALE_LONG_EDGE,
@@ -12,7 +13,7 @@ import {
   type UpscaleAlgorithm,
 } from '../lib/imageOps'
 import { errMessage } from '../lib/format'
-import { primitives } from '../ui'
+import { ModalShell } from './modal-shell'
 
 export interface UpscaleDialogProps {
   src: string
@@ -29,7 +30,6 @@ const ALGOS: { value: UpscaleAlgorithm; label: string }[] = [
 const PRESETS = [1024, 1536, 2048, 3072, MAX_UPSCALE_LONG_EDGE]
 
 export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
-  const ui = primitives()
   const [size, setSize] = useState<ImageSize | null>(null)
   const [target, setTarget] = useState(2048)
   const [algo, setAlgo] = useState<UpscaleAlgorithm>('high')
@@ -77,35 +77,55 @@ export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
   }
 
   return (
-    <ui.Modal open onClose={onClose} title="放大图片">
-      <div style={{ display: 'grid', gap: 12, width: 520, maxWidth: '82vw' }}>
+    <ModalShell
+      title="放大图片"
+      subtitle="按长边目标本地重采样放大，不调用接口、不花钱。"
+      size="md"
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="im-btn-ghost im-btn-sm" onClick={onClose}>
+            取消
+          </button>
+          <button
+            type="button"
+            className="im-btn-primary im-btn-sm"
+            disabled={busy || !size || out.width < 8 || out.height < 8}
+            onClick={() => void confirm()}
+          >
+            {busy ? '处理中…' : '放大并放入画布'}
+          </button>
+        </>
+      }
+    >
+      <div style={{ display: 'grid', gap: 14 }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={{ fontSize: 12, color: 'var(--im-ink-3)' }}>长边目标</span>
           {PRESETS.map(edge => (
-            <ui.Button
+            <button
               key={edge}
               type="button"
-              size="sm"
-              variant={edge === target ? 'primary' : 'toolbar'}
+              aria-pressed={edge === target}
+              className={`im-btn-sm ${edge === target ? 'im-btn-primary' : 'im-btn-ghost'}`}
               onClick={() => setTarget(edge)}
             >
               {edge}
-            </ui.Button>
+            </button>
           ))}
         </div>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={{ fontSize: 12, color: 'var(--im-ink-3)' }}>算法</span>
           {ALGOS.map(row => (
-            <ui.Button
+            <button
               key={row.value}
               type="button"
-              size="sm"
-              variant={row.value === algo ? 'primary' : 'toolbar'}
+              aria-pressed={row.value === algo}
+              className={`im-btn-sm ${row.value === algo ? 'im-btn-primary' : 'im-btn-ghost'}`}
               onClick={() => setAlgo(row.value)}
             >
               {row.label}
-            </ui.Button>
+            </button>
           ))}
         </div>
 
@@ -130,22 +150,7 @@ export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
         </p>
 
         {error ? <p style={{ margin: 0, fontSize: 12, color: 'var(--im-danger)' }}>{error}</p> : null}
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <ui.Button type="button" size="sm" variant="toolbar" onClick={onClose}>
-            取消
-          </ui.Button>
-          <ui.Button
-            type="button"
-            size="sm"
-
-            disabled={busy || !size || out.width < 8 || out.height < 8}
-            onClick={() => void confirm()}
-          >
-            {busy ? '处理中…' : '放大并放入画布'}
-          </ui.Button>
-        </div>
       </div>
-    </ui.Modal>
+    </ModalShell>
   )
 }

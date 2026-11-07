@@ -5,6 +5,9 @@
 // - CropRect：归一化 0~1，**唯一的状态真相**，跨缩放不丢精度；
 // - stage 像素：框画在这一层，left/top/width/height 由 crop 乘 stage 尺寸得来。
 //   指针位移也先归一化再交给 moveCrop / resizeCrop，否则放大后拖一下会位移过头。
+//
+// 外壳与底部按钮走 ModalShell：宽度由 size 档决定（不再写死 minWidth/width），
+// 内容区自己滚，所以这里也不写 maxHeight / overflow。
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   CROP_MIN_SIZE,
@@ -20,7 +23,7 @@ import {
   type ImageSize,
 } from '../lib/imageOps'
 import { errMessage } from '../lib/format'
-import { primitives } from '../ui'
+import { ModalShell } from './modal-shell'
 
 export interface CropDialogProps {
   src: string
@@ -54,7 +57,6 @@ const HANDLE_POS: Record<CropHandle, { left: string; top: string; cursor: string
 }
 
 export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
-  const ui = primitives()
   const stageRef = useRef<HTMLDivElement | null>(null)
   const [size, setSize] = useState<ImageSize | null>(null)
   const [crop, setCrop] = useState<CropRect>({ x: 0.08, y: 0.08, width: 0.84, height: 0.84 })
@@ -134,20 +136,40 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
   const pxH = size ? Math.round(crop.height * size.height) : 0
 
   return (
-    <ui.Modal open onClose={onClose} title="裁剪图片">
-      <div style={{ display: 'grid', gap: 12, width: 720, maxWidth: '86vw' }}>
+    <ModalShell
+      title="裁剪图片"
+      subtitle="拖框内平移、拖八个手柄改尺寸，确认后放入画布。"
+      size="lg"
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="im-btn-ghost im-btn-sm" onClick={onClose}>
+            取消
+          </button>
+          <button
+            type="button"
+            className="im-btn-primary im-btn-sm"
+            disabled={busy || !size || pxW < 8 || pxH < 8}
+            onClick={() => void confirm()}
+          >
+            {busy ? '处理中…' : '裁剪并放入画布'}
+          </button>
+        </>
+      }
+    >
+      <div style={{ display: 'grid', gap: 12 }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={{ fontSize: 12, color: 'var(--im-ink-3)' }}>比例</span>
           {RATIOS.map(row => (
-            <ui.Button
+            <button
               key={row.label}
               type="button"
-              size="sm"
-              variant={row.ratio === ratio ? 'primary' : 'toolbar'}
+              aria-pressed={row.ratio === ratio}
+              className={`im-btn-sm ${row.ratio === ratio ? 'im-btn-primary' : 'im-btn-ghost'}`}
               onClick={() => applyRatio(row.ratio)}
             >
               {row.label}
-            </ui.Button>
+            </button>
           ))}
         </div>
 
@@ -219,22 +241,7 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
         </div>
 
         {error ? <p style={{ margin: 0, fontSize: 12, color: 'var(--im-danger)' }}>{error}</p> : null}
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <ui.Button type="button" size="sm" variant="toolbar" onClick={onClose}>
-            取消
-          </ui.Button>
-          <ui.Button
-            type="button"
-            size="sm"
-
-            disabled={busy || !size || pxW < 8 || pxH < 8}
-            onClick={() => void confirm()}
-          >
-            {busy ? '处理中…' : '裁剪并放入画布'}
-          </ui.Button>
-        </div>
       </div>
-    </ui.Modal>
+    </ModalShell>
   )
 }

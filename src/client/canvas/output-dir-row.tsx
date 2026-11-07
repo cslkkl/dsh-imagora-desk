@@ -1,5 +1,6 @@
 // 设置弹窗里的「默认输出路径」一段：与接口地址/密钥分开一块，
 // 因为它改的是文件落点，跟出图能不能成没关系。
+// 对外 props 不变；只把行内按钮换成自家胶囊按钮（宿主 Button 在弹窗里行为不稳定）。
 import { useState } from 'react'
 import { revealPath, setBudget, setOutputDir, type ImagoraConfig } from '../api'
 import { errMessage } from '../lib/format'
@@ -47,8 +48,8 @@ export function OutputDirRow({ config, onSaved, onFlash }: OutputDirRowProps) {
   }
 
   return (
-    <div style={{ display: 'grid', gap: 8, paddingTop: 4, borderTop: '1px solid var(--im-line)' }}>
-      <span style={{ fontSize: 12, fontWeight: 600 }}>默认输出路径</span>
+    <div style={{ display: 'grid', gap: 8, paddingTop: 10, borderTop: '1px solid var(--im-line)' }}>
+      <span className="im-label">默认输出路径</span>
       <ui.SettingsValueField
         id="imagora-output-dir"
         label="图片落盘目录"
@@ -59,38 +60,30 @@ export function OutputDirRow({ config, onSaved, onFlash }: OutputDirRowProps) {
         onEdit={(text: string) => setDraft(text)}
       />
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <ui.Button
+        <button
           type="button"
-          size="sm"
-          variant="toolbar"
-
+          className="im-btn-ghost im-btn-sm"
           disabled={busy}
           onClick={() => void revealPath(current)}
         >
           打开目录
-        </ui.Button>
-        <ui.Button
+        </button>
+        <button
           type="button"
-          size="sm"
-
+          className="im-btn-primary im-btn-sm"
           disabled={busy || !draft.trim() || draft.trim() === current}
           onClick={() => void apply(draft.trim())}
         >
           设为默认
-        </ui.Button>
-        <ui.Button
-          type="button"
-          size="sm"
-          variant="toolbar"
-
-          disabled={busy}
-          onClick={() => void apply('')}
-        >
+        </button>
+        <button type="button" className="im-btn-ghost im-btn-sm" disabled={busy} onClick={() => void apply('')}>
           回到默认
-        </ui.Button>
+        </button>
       </div>
 
-      <span style={{ fontSize: 12, fontWeight: 600, marginTop: 6 }}>预算上限</span>
+      <span className="im-label" style={{ marginTop: 6 }}>
+        预算上限
+      </span>
       <ui.SettingsValueField
         id="imagora-budget"
         label="本画布最多花多少（元）"
@@ -106,25 +99,22 @@ export function OutputDirRow({ config, onSaved, onFlash }: OutputDirRowProps) {
         onEdit={(text: string) => setBudgetDraft(text)}
       />
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <ui.Button
+        <button
           type="button"
-          size="sm"
-
+          className="im-btn-primary im-btn-sm"
           disabled={busy || !budgetDraft.trim()}
           onClick={() => void applyBudget(Number(budgetDraft))}
         >
           保存预算
-        </ui.Button>
-        <ui.Button
+        </button>
+        <button
           type="button"
-          size="sm"
-          variant="toolbar"
-
+          className="im-btn-ghost im-btn-sm"
           disabled={busy || !config?.budget}
           onClick={() => void applyBudget(0)}
         >
           取消上限
-        </ui.Button>
+        </button>
       </div>
     </div>
   )

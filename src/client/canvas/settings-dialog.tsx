@@ -89,12 +89,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
       footer={
         <>
           {usingPlugin ? (
-            <button
-              type="button"
-              className="im-btn-ghost im-btn-sm"
-              disabled={busy}
-              onClick={() => void reset()}
-            >
+            <button type="button" className="im-btn-ghost im-btn-sm" disabled={busy} onClick={() => void reset()}>
               清空并回到 Imagora 配置
             </button>
           ) : null}
@@ -149,12 +144,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
         />
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className="im-btn-ghost im-btn-sm"
-            disabled={busy}
-            onClick={() => void probe()}
-          >
+          <button type="button" className="im-btn-ghost im-btn-sm" disabled={busy} onClick={() => void probe()}>
             测试连通
           </button>
           {probeResult ? <span style={{ fontSize: 12, color: 'var(--im-ink-2)' }}>{probeResult}</span> : null}
