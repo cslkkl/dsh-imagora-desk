@@ -105,7 +105,7 @@ npm login --registry=https://registry.npmjs.org
 ### 发布
 
 ```powershell
-cd C:\Users\11965\Desktop\dsh-imagora
+cd C:\Users\11965\Desktop\dsh-imagora-desk
 pnpm install --frozen-lockfile
 pnpm run test                 # 45 + 13 + 索引校验，全绿再往下
 npm publish                   # registry 与 access 已在 publishConfig 里
