@@ -15,7 +15,10 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      # 需要完整历史：dist 同步检查要 diff，索引检查要确认 commit 真实存在
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
         with:

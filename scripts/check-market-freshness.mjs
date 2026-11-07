@@ -36,11 +36,25 @@ if (!/^[0-9a-f]{40}$/.test(commit)) {
 }
 
 // commit 必须是仓库里真实存在的提交（不能是手写的占位）
+//
+// 浅克隆（CI 默认 fetch-depth: 1）里查不到历史提交，这时不能判失败：
+// 那不是索引的问题，是检出深度的问题。测一下是否浅克隆，是就跳过这一条。
+let shallow = false
 try {
-  execFileSync('git', ['cat-file', '-e', `${commit}^{commit}`], { cwd: ROOT, stdio: 'ignore' })
+  shallow =
+    execFileSync('git', ['rev-parse', '--is-shallow-repository'], { cwd: ROOT, encoding: 'utf8' }).trim() === 'true'
 } catch {
-  console.error(`FAIL 索引里的 commit ${commit.slice(0, 10)} 不存在于本仓库`)
-  process.exit(1)
+  // 老 git 没有这个参数，当作完整克隆继续查
+}
+if (shallow) {
+  console.log(`SKIP 浅克隆检出，跳过「commit 存在性」检查（${commit.slice(0, 10)}）`)
+} else {
+  try {
+    execFileSync('git', ['cat-file', '-e', `${commit}^{commit}`], { cwd: ROOT, stdio: 'ignore' })
+  } catch {
+    console.error(`FAIL 索引里的 commit ${commit.slice(0, 10)} 不存在于本仓库`)
+    process.exit(1)
+  }
 }
 
 // 改了会影响安装内容的文件却没动索引 → 提示
