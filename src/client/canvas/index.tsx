@@ -7,7 +7,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Background,
   BackgroundVariant,
-  Controls,
   MarkerType,
   MiniMap,
   ReactFlow,
@@ -21,6 +20,7 @@ import {
 import { deleteAsset, listWorkflows } from '../api'
 import {
   autoConnect,
+  autoConnectSelection,
   buildGroupNode,
   buildImageNode,
   buildPromptNode,
@@ -38,6 +38,8 @@ import { NodeActionContext } from '../nodes'
 import { CANVAS_CSS } from '../styles'
 import { NODE_TYPES } from './node-types'
 import { CanvasToolbar } from './toolbar'
+import { CanvasDock } from './dock'
+import { SelectionInspector } from './inspector'
 import { Banner, EmptyState, LogPanel, PreviewOverlay, Toast } from './overlays'
 import { HelpDialog, LoadDialog, SaveDialog } from './dialogs'
 import { CropDialog } from './crop-dialog'
@@ -71,7 +73,8 @@ export function CanvasApp() {
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null)
   const [zoom, setZoom] = useState(1)
-  const [minimapOpen, setMinimapOpen] = useState(true)
+  // 小地图默认关（与 Imagora 一致：卡片铺开了才需要它，平时白占地方）
+  const [minimapOpen, setMinimapOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [snapEnabled, setSnapEnabled] = useState(() => readSnapEnabled())
@@ -247,12 +250,41 @@ export function CanvasApp() {
     flash('已按位置补齐明显的连线')
   }, [setEdges, flash])
 
+  /** 只补选中节点之间的边（选中栏的「自动连线」，与顶栏那个全局的不一样）。 */
+  const autoConnectSelected = useCallback(() => {
+    const ids = new Set(selectedIds)
+    if (!ids.size) {
+      flash('先选中要连线的节点')
+      return
+    }
+    history.record()
+    setEdges(autoConnectSelection(nodesRef.current, edgesRef.current as WorkflowEdge[], ids) as Edge[])
+    flash('已补齐选中节点间的连线')
+  }, [selectedIds, setEdges, flash, history])
+
+  /** 把选中的提示词卡片统一设为默认输出路径。
+   *  原版走服务端的目录选择窗口；插件 host 没有这个接口，所以取「设置里那个默认输出路径」，
+   *  按钮标题写清楚用的就是这个值，不做无声的猜测。 */
+  const setSelectedOutputDir = useCallback(() => {
+    const ids = new Set(selectedIds)
+    const target = configRef.current?.defaultOutputDir ?? ''
+    if (!ids.size) return
+    history.record()
+    setNodes(current =>
+      current.map(node =>
+        node.type === 'prompt' && ids.has(node.id) ? { ...node, data: { ...node.data, outputDir: target } } : node,
+      ),
+    )
+    flash(target ? `已把选中的卡片输出路径设为 ${target}` : '已把选中的卡片改回「只留在画布」')
+  }, [selectedIds, setNodes, flash, history])
+
   const arrangeSelected = useCallback(() => {
     const ids = new Set(selectedIds)
     if (!ids.size) {
       flash('先选中要整理的节点')
       return
     }
+    history.record()
     setNodes(current => {
       const images = current.filter(node => ids.has(node.id) && node.type === 'image')
       if (!images.length) return current
@@ -265,7 +297,7 @@ export function CanvasApp() {
         return { ...node, position: { x: baseX + index * 172, y: baseY } }
       })
     })
-  }, [selectedIds, setNodes, flash])
+  }, [selectedIds, setNodes, flash, history])
 
   /* ---------------- 拖放 / 粘贴 ---------------- */
   const onDrop = useCallback(
@@ -374,6 +406,13 @@ export function CanvasApp() {
           snapEnabled={snapEnabled}
           canvasLocked={canvasLocked}
           cost={cost}
+          canUndo={history.canUndo}
+          canRestore={history.canRestore}
+          onUndo={() => {
+            history.record()
+            history.undo()
+          }}
+          onRestore={history.restore}
           onToggleLock={() =>
             setCanvasLocked(value => {
               const next = !value
@@ -416,18 +455,31 @@ export function CanvasApp() {
           onOpenHistory={() => setDialog({ kind: 'history' })}
           onOpenHelp={() => setDialog({ kind: 'help' })}
         />
-
         {configError ? <Banner tone="error">{configError}</Banner> : null}
+
+        {/* 右上角选中操作栏：只在选中 ≥1 个节点时出现（与 Imagora 同一位置与条件） */}
+        <SelectionInspector
+          selectedCount={selectedIds.length}
+          selectedPromptCount={selectedIds.filter(id => nodes.some(n => n.id === id && n.type === 'prompt')).length}
+          selectedRunnableIds={runnableIds.filter(id => selectedIds.includes(id))}
+          pickingOutputDir={false}
+          onRunSelected={() => runMany(runnableIds.filter(id => selectedIds.includes(id)))}
+          onAutoLayout={arrangeSelected}
+          onAutoConnectSelected={autoConnectSelected}
+          onSetOutputDir={setSelectedOutputDir}
+          onDeleteSelected={() => {
+            removeNodes(selectedIds)
+            setSelectedIds([])
+          }}
+        />
+        {/* 不设常驻提示条：Imagora 把这一行删了（占画布高度、浮层还会被画布盖住），
+            用法收进左下角控件坞的「帮助」弹窗里 */}
+
         {restored && !configError ? (
           <Banner
             tone="warn"
             action={
-              <button
-                type="button"
-                className="im-btn is-ghost"
-                style={{ height: 22 }}
-                onClick={() => setRestored(null)}
-              >
+              <button type="button" className="im-btn-ghost im-btn-xs" onClick={() => setRestored(null)}>
                 知道了
               </button>
             }
@@ -435,8 +487,8 @@ export function CanvasApp() {
             已恢复上次画布
           </Banner>
         ) : null}
-
         <div className="im-canvas" ref={flowRef} onDragOver={event => event.preventDefault()} onDrop={onDrop}>
+          {' '}
           <ReactFlow
             nodes={renderNodes}
             edges={edges}
@@ -513,18 +565,39 @@ export function CanvasApp() {
             multiSelectionKeyCode={['Meta', 'Control']}
           >
             <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
-            <Controls position="bottom-left" showInteractive={false} />
+            {/* 缩放控件栈由 CanvasDock 接管（React Flow 自带的那套图标不带文字，认不出） */}
+            {/* 小地图放左上（Imagora 的位置）：右下角留给日志，那是「刚刚发生了什么」的即时反馈，
+                被小地图压住就读不到了；左下角是缩放控件栈，右上角是选中操作栏。 */}
             {minimapOpen ? (
-              <MiniMap pannable zoomable position="bottom-right" style={{ width: 160, height: 110 }} />
+              <MiniMap
+                pannable
+                zoomable
+                position="top-left"
+                style={{ width: 160, height: 110 }}
+                nodeColor={node => (node.type === 'prompt' ? 'var(--im-brand)' : 'var(--im-ink-3)')}
+                maskColor="rgba(31, 41, 55, 0.08)"
+                nodeStrokeWidth={2}
+              />
             ) : null}
             <SnapGuideLayer guides={guides} />
           </ReactFlow>
-
+          <CanvasDock
+            zoom={zoom}
+            snapEnabled={snapEnabled}
+            canvasLocked={canvasLocked}
+            minimapOpen={minimapOpen}
+            onZoomIn={() => void instanceRef.current?.zoomIn({ duration: 180 })}
+            onZoomOut={() => void instanceRef.current?.zoomOut({ duration: 180 })}
+            onFitView={() => instanceRef.current?.fitView({ padding: 0.2, duration: 300 })}
+            onToggleSnap={() => setSnapEnabled(value => !value)}
+            onToggleLock={() => setCanvasLocked(value => !value)}
+            onToggleMinimap={() => setMinimapOpen(value => !value)}
+            onOpenHelp={() => setDialog({ kind: 'help' })}
+          />
           {nodes.length === 0 ? <EmptyState /> : null}
-          <LogPanel logs={logs} onClear={() => setLogs([])} />
+          <LogPanel logs={logs} />
           <Toast text={toast} />
         </div>
-
         <input
           ref={fileInputRef}
           type="file"
@@ -537,9 +610,7 @@ export function CanvasApp() {
             void addImages(files, createPosition())
           }}
         />
-
         <PreviewOverlay preview={preview} onClose={() => setPreview(null)} />
-
         {dialog?.kind === 'save' ? (
           <SaveDialog onCancel={() => setDialog(null)} onSubmit={name => void doSave(name)} />
         ) : null}

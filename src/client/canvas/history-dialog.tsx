@@ -57,7 +57,7 @@ export function HistoryDialog({ onClose, onImport }: HistoryDialogProps) {
   }
 
   return (
-    <ui.Modal open onClose={onClose} title="生成历史" className="im-modal">
+    <ui.Modal open onClose={onClose} title="生成历史">
       <div style={{ display: 'grid', gap: 12, width: 620, maxWidth: '82vw' }}>
         <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.7, color: 'var(--im-ink-3)' }}>
           这里是磁盘上真实存在的图片，删掉画布节点也能找回。选中的图会作为独立图片节点放进画布。
@@ -94,10 +94,10 @@ export function HistoryDialog({ onClose, onImport }: HistoryDialogProps) {
                   style={{
                     position: 'relative',
                     padding: 0,
-                    border: `2px solid ${on ? 'var(--im-prompt)' : 'var(--im-line)'}`,
+                    border: `2px solid ${on ? 'var(--im-brand)' : 'var(--im-line)'}`,
                     borderRadius: 8,
                     overflow: 'hidden',
-                    background: 'var(--im-layer-2)',
+                    background: 'var(--im-surface-inset)',
                     cursor: 'pointer',
                     aspectRatio: '1 / 1',
                   }}
@@ -138,13 +138,13 @@ export function HistoryDialog({ onClose, onImport }: HistoryDialogProps) {
             共 {shown.length} 张{filter.trim() ? `（已筛选）` : ''}
             {picked.length ? ` · 选中 ${picked.length}` : ''}
           </span>
-          <ui.Button type="button" size="sm" variant="toolbar" className="im-secondary" onClick={onClose}>
+          <ui.Button type="button" size="sm" variant="toolbar" onClick={onClose}>
             关闭
           </ui.Button>
           <ui.Button
             type="button"
             size="sm"
-            className="im-primary"
+
             disabled={!picked.length}
             onClick={() => onImport((images ?? []).filter(row => picked.includes(row.id)))}
           >

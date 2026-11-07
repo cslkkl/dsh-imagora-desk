@@ -13,18 +13,24 @@ export function EmptyState() {
   )
 }
 
-export function LogPanel({ logs, onClear }: { logs: string[]; onClear: () => void }) {
+/**
+ * 画布右下角日志轮播：只露最新几条，新条目淡入上移，旧的自然被挤出去。
+ *
+ * 与 Imagora 的 CanvasLog 同形：不可交互（pointer-events: none），否则会挡住右下角
+ * 画布的拖拽与框选——原来这里是个带标题栏和清空按钮的浮层面板，正好压住那块交互区。
+ * 日志是「刚刚发生了什么」的即时反馈，读到就够了，不需要在画布上操作它。
+ */
+const LOG_VISIBLE_COUNT = 5
+
+export function LogPanel({ logs }: { logs: string[] }) {
   if (!logs.length) return null
+  const recent = logs.slice(-LOG_VISIBLE_COUNT)
   return (
-    <div className="im-log">
-      <div className="im-log-head">
-        <span>日志</span>
-        <button type="button" className="im-icon-btn" onClick={onClear} aria-label="清空日志">
-          <Icon name="close" size={12} />
-        </button>
-      </div>
-      {logs.map((line, index) => (
-        <div key={`${index}-${line}`}>{line}</div>
+    <div className="im-log" aria-live="polite">
+      {recent.map((line, index) => (
+        <div key={`${index}-${line}`} className="im-log-line">
+          {line}
+        </div>
       ))}
     </div>
   )
@@ -38,7 +44,7 @@ const TOAST_STYLE: CSSProperties = {
   zIndex: 30,
   padding: '7px 14px',
   borderRadius: 999,
-  background: 'var(--dsw-alias-toast-bg, var(--im-layer))',
+  background: 'var(--dsw-alias-toast-bg, var(--im-surface-float))',
   border: '1px solid var(--im-line)',
   boxShadow: 'var(--dsw-elevation-panel, 0 6px 20px rgba(0,0,0,.14))',
   fontSize: 12,
@@ -54,7 +60,7 @@ const PREVIEW_STYLE: CSSProperties = {
   maxHeight: '86%',
   borderRadius: 12,
   boxShadow: '0 20px 60px rgba(0,0,0,.45)',
-  background: 'var(--im-layer)',
+  background: 'var(--im-surface-float)',
 }
 
 export function PreviewOverlay({

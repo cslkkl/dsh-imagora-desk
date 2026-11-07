@@ -63,7 +63,7 @@ export function OutputDirRow({ config, onSaved, onFlash }: OutputDirRowProps) {
           type="button"
           size="sm"
           variant="toolbar"
-          className="im-secondary"
+
           disabled={busy}
           onClick={() => void revealPath(current)}
         >
@@ -72,7 +72,7 @@ export function OutputDirRow({ config, onSaved, onFlash }: OutputDirRowProps) {
         <ui.Button
           type="button"
           size="sm"
-          className="im-primary"
+
           disabled={busy || !draft.trim() || draft.trim() === current}
           onClick={() => void apply(draft.trim())}
         >
@@ -82,7 +82,7 @@ export function OutputDirRow({ config, onSaved, onFlash }: OutputDirRowProps) {
           type="button"
           size="sm"
           variant="toolbar"
-          className="im-secondary"
+
           disabled={busy}
           onClick={() => void apply('')}
         >
@@ -109,7 +109,7 @@ export function OutputDirRow({ config, onSaved, onFlash }: OutputDirRowProps) {
         <ui.Button
           type="button"
           size="sm"
-          className="im-primary"
+
           disabled={busy || !budgetDraft.trim()}
           onClick={() => void applyBudget(Number(budgetDraft))}
         >
@@ -119,7 +119,7 @@ export function OutputDirRow({ config, onSaved, onFlash }: OutputDirRowProps) {
           type="button"
           size="sm"
           variant="toolbar"
-          className="im-secondary"
+
           disabled={busy || !config?.budget}
           onClick={() => void applyBudget(0)}
         >

@@ -77,7 +77,7 @@ export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
   }
 
   return (
-    <ui.Modal open onClose={onClose} title="放大图片" className="im-modal">
+    <ui.Modal open onClose={onClose} title="放大图片">
       <div style={{ display: 'grid', gap: 12, width: 520, maxWidth: '82vw' }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={{ fontSize: 12, color: 'var(--im-ink-3)' }}>长边目标</span>
@@ -86,8 +86,7 @@ export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
               key={edge}
               type="button"
               size="sm"
-              variant="toolbar"
-              className={edge === target ? 'im-primary' : 'im-secondary'}
+              variant={edge === target ? 'primary' : 'toolbar'}
               onClick={() => setTarget(edge)}
             >
               {edge}
@@ -102,8 +101,7 @@ export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
               key={row.value}
               type="button"
               size="sm"
-              variant="toolbar"
-              className={row.value === algo ? 'im-primary' : 'im-secondary'}
+              variant={row.value === algo ? 'primary' : 'toolbar'}
               onClick={() => setAlgo(row.value)}
             >
               {row.label}
@@ -116,7 +114,7 @@ export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
             <>
               原图 {size.width} × {size.height}
               {' → '}
-              <b style={{ color: shrink ? 'var(--im-warn)' : 'var(--im-image)' }}>
+              <b style={{ color: shrink ? 'var(--im-warn)' : 'var(--im-brand)' }}>
                 {out.width} × {out.height}
               </b>
               {scale ? ` · ${scale.toFixed(2)}×` : ''}
@@ -134,13 +132,13 @@ export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
         {error ? <p style={{ margin: 0, fontSize: 12, color: 'var(--im-danger)' }}>{error}</p> : null}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <ui.Button type="button" size="sm" variant="toolbar" className="im-secondary" onClick={onClose}>
+          <ui.Button type="button" size="sm" variant="toolbar" onClick={onClose}>
             取消
           </ui.Button>
           <ui.Button
             type="button"
             size="sm"
-            className="im-primary"
+
             disabled={busy || !size || out.width < 8 || out.height < 8}
             onClick={() => void confirm()}
           >

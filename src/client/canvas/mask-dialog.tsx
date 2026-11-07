@@ -224,14 +224,13 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
   const empty = isMaskEmpty(strokes)
 
   return (
-    <ui.Modal open onClose={onClose} title="蒙版重绘" className="im-modal">
+    <ui.Modal open onClose={onClose} title="蒙版重绘">
       <div style={{ display: 'grid', gap: 12, width: 720, maxWidth: '86vw' }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <ui.Button
             type="button"
             size="sm"
-            variant="toolbar"
-            className={mode === 'paint' ? 'im-primary' : 'im-secondary'}
+            variant={mode === 'paint' ? 'primary' : 'toolbar'}
             onClick={() => setMode('paint')}
           >
             涂（要重绘）
@@ -239,8 +238,7 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
           <ui.Button
             type="button"
             size="sm"
-            variant="toolbar"
-            className={mode === 'erase' ? 'im-primary' : 'im-secondary'}
+            variant={mode === 'erase' ? 'primary' : 'toolbar'}
             onClick={() => setMode('erase')}
           >
             擦
@@ -261,7 +259,7 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
             type="button"
             size="sm"
             variant="toolbar"
-            className="im-secondary"
+
             disabled={!strokes.length}
             onClick={() => setStrokes([])}
           >
@@ -276,7 +274,7 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
           style={{
             display: 'flex',
             justifyContent: 'center',
-            background: 'var(--im-layer-2)',
+            background: 'var(--im-surface-inset)',
             borderRadius: 10,
             padding: 8,
           }}
@@ -307,13 +305,13 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
         {error ? <p style={{ margin: 0, fontSize: 12, color: 'var(--im-danger)' }}>{error}</p> : null}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <ui.Button type="button" size="sm" variant="toolbar" className="im-secondary" onClick={onClose}>
+          <ui.Button type="button" size="sm" variant="toolbar" onClick={onClose}>
             取消
           </ui.Button>
           <ui.Button
             type="button"
             size="sm"
-            className="im-primary"
+
             disabled={busy || empty}
             onClick={() => void confirm()}
           >

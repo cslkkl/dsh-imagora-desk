@@ -79,7 +79,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
   }
 
   return (
-    <ui.Modal open onClose={onClose} title="画布设置" className="im-modal">
+    <ui.Modal open onClose={onClose} title="画布设置">
       <div style={{ display: 'grid', gap: 14, minWidth: 420 }}>
         <p style={{ margin: 0, fontSize: 12.5, color: 'var(--im-ink-3)', lineHeight: 1.7 }}>
           填一次接口地址和 API Key 就能用，不需要本机装 Imagora。
@@ -122,7 +122,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
             type="button"
             size="sm"
             variant="toolbar"
-            className="im-secondary"
+
             disabled={busy}
             onClick={() => void probe()}
           >
@@ -144,7 +144,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
                   background: 'none',
                   padding: '2px 0',
                   cursor: 'pointer',
-                  color: id === model ? 'var(--im-prompt)' : 'var(--im-ink-2)',
+                  color: id === model ? 'var(--im-brand)' : 'var(--im-ink-2)',
                   font: 'inherit',
                   textAlign: 'left',
                 }}
@@ -163,7 +163,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
               type="button"
               size="sm"
               variant="toolbar"
-              className="im-secondary"
+
               disabled={busy}
               onClick={() => void reset()}
             >
@@ -174,7 +174,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
             type="button"
             size="sm"
             variant="toolbar"
-            className="im-secondary"
+
             disabled={busy}
             onClick={onClose}
           >
@@ -183,7 +183,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
           <ui.Button
             type="button"
             size="sm"
-            className="im-primary"
+
             disabled={busy || !baseUrl.trim()}
             onClick={() => void save()}
           >

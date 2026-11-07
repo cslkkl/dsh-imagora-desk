@@ -53,5 +53,12 @@ export function useCanvasHistory({ nodesRef, edgesRef, setNodes, setEdges, flash
 
   const clear = useCallback(() => historyRef.current.clear(), [])
 
-  return { record, undo, restore, clear }
+  /**
+   * 能否撤销 / 恢复。每次渲染重算（画布状态一变就要重估按钮的可用态），
+   * 读的是纯内存栈，代价可以忽略。
+   */
+  const canUndo = historyRef.current.canUndo()
+  const canRestore = historyRef.current.canRestore()
+
+  return { record, undo, restore, clear, canUndo, canRestore }
 }
