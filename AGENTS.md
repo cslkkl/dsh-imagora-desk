@@ -58,6 +58,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - 提示统一用原生 `title`，不要引入宿主气泡组件：两种并存会出现「有的秒出黑框、有的等 1~2 秒」。见 [决策](.agents/notes/2026-11-07-native-title-only.md)。
 - 索引别用 jsDelivr：JSON 请求实测 4 次挂 1 次（ECONNRESET），宿主读不到就在界面报「Could not fetch」。用 GitHub Pages（`pages.yml`），同一份文件连测 4 次全通。
 - 索引里的 commit 不能写「刚提交的 HEAD」：索引文件本身是提交的一部分，写进去那次提交又产生新 HEAD，永远落后一格。现在指向 v<version> tag 指向的提交，`market:fresh` 兜住存在性。
+- 全局事件监听（点外部关闭、快捷键）如果目标区域可能是**画布**，必须用**捕获阶段**：React Flow 在 `mousedown` 上会 `stopPropagation`，冒泡阶段的 `document` 监听收不到。表现为「点画布空白关不掉下拉/浮层」。
 - 布局里写 `flex: 1` 的占位元素，选择器**不能带父级作用域**：`.im-toolbar .im-spacer` 管不到页头里的同名 span，表现为「按钮全挤左边、右侧空着」。`width` 与 `padding` 同时写时别忘了 `box-sizing: border-box`，否则宽度会多出两倍内边距。
 
 ## 文档地图
