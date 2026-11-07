@@ -63,6 +63,10 @@ body {
   --im-r-float: 11px;
   --im-r-sm: 8px;
   --im-r-control: 10px;
+  --im-r-xs: 4px;
+  /* 这两个是原版里专属的档：工具栏 13、品牌区 hover 12 */
+  --im-r-toolbar: 13px;
+  --im-r-brand: 12px;
 
   /* 阴影走宿主 elevation：写死 rgba 在深色主题下等于没有阴影 */
   --im-shadow-card: var(--dsw-elevation-soft, 0 1px 2px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(0, 0, 0, 0.04));
@@ -118,7 +122,7 @@ body {
   color: var(--im-ink);
 }
 .im-brand {
-  border-radius: 12px;
+  border-radius: var(--im-r-brand);
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), filter 0.28s ease;
 }
 /* 原版 hover：整块抬起 1px、放大 1.5%，光晕落在 logo 与标题上 */
@@ -161,7 +165,7 @@ body {
   padding: 9px 10px;
   position: relative;
   border: 1px solid var(--im-edge-idle);
-  border-radius: 13px;
+  border-radius: var(--im-r-toolbar);
   background: var(--im-surface);
   box-shadow: var(--im-shadow-card);
   z-index: 5;
@@ -235,7 +239,7 @@ body {
 .im-btn-ghost:hover:not(:disabled)::before { transform: scaleX(1); }
 
 .im-btn-primary {
-  border-radius: 11px;
+  border-radius: var(--im-r-float);
   background: var(--im-brand);
   color: var(--im-on-brand);
   /* 涟漪层 = 品牌底上的前景色：浅色主题白、深色主题近黑。
@@ -247,7 +251,7 @@ body {
   box-shadow: 0 0 20px color-mix(in srgb, var(--im-brand) 40%, transparent);
 }
 .im-btn-ghost {
-  border-radius: 10px;
+  border-radius: var(--im-r-control);
   background: transparent;
   color: var(--im-brand);
   --im-btn-fill: var(--im-brand);
@@ -275,7 +279,7 @@ body {
   min-height: 30px;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--im-r-sm);
   background: transparent;
   color: var(--im-ink-2);
   cursor: pointer;
@@ -329,7 +333,7 @@ body {
   box-sizing: border-box;
   border: 1px solid var(--im-line-strong);
   /* 原版 .field-control = rounded-lg（8px），不是 --r-control(10) */
-  border-radius: 8px;
+  border-radius: var(--im-r-sm);
   background: var(--im-surface);
   color: var(--im-ink);
   font-size: 14px;
@@ -409,7 +413,7 @@ body {
   padding: 0 10px;
   box-sizing: border-box;
   border: 1px solid var(--im-line-strong);
-  border-radius: 8px;
+  border-radius: var(--im-r-sm);
   background: var(--im-surface);
   color: var(--im-ink);
   font-family: inherit;
@@ -464,7 +468,7 @@ body {
   min-height: 34px;
   padding: 7px 10px;
   box-sizing: border-box;
-  border-radius: 7px;
+  border-radius: var(--im-r-sm);
   background: transparent;
   color: var(--im-ink-2);
   font-family: inherit;
@@ -496,7 +500,7 @@ body {
   padding: 0 9px;
   box-sizing: border-box;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--im-r-sm);
   background: color-mix(in srgb, var(--im-brand) 5%, transparent);
   color: var(--im-ink);
   font-family: inherit;
@@ -597,7 +601,7 @@ body {
   justify-content: center;
   overflow: hidden;
   /* 原版缩略图是 .rounded（4px），不是 8 */
-  border-radius: 4px;
+  border-radius: var(--im-r-xs);
   background: var(--im-surface-inset);
   cursor: zoom-in;
 }
@@ -616,7 +620,7 @@ body {
   align-items: center;
   gap: 4px;
   padding: 4px 4px 4px 8px;
-  border-radius: 8px;
+  border-radius: var(--im-r-sm);
   background: var(--im-surface-float);
   border: 1px solid var(--im-line);
   box-shadow: var(--im-shadow-float);
@@ -643,7 +647,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  border-radius: 8px;
+  border-radius: var(--im-r-sm);
   border: 1px solid color-mix(in srgb, var(--im-brand) 10%, transparent);
   background: color-mix(in srgb, var(--im-brand) 5%, transparent);
 }
@@ -651,7 +655,7 @@ body {
   position: relative;
   padding: 16px;
   text-align: center;
-  border-radius: 8px;
+  border-radius: var(--im-r-sm);
   border: 1px solid color-mix(in srgb, var(--im-brand) 15%, transparent);
   /* 原版 bg-brand/5：卡面本身带一层极浅的主体色，与叠卡同族 */
   background: color-mix(in srgb, var(--im-brand) 5%, transparent);
@@ -745,7 +749,7 @@ body {
   width: 32px;
   height: 12px;
   /* 原版连接点是 4px 圆角 + 白色外环，没有边框 */
-  border-radius: 4px;
+  border-radius: var(--im-r-xs);
   background: var(--im-brand);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--im-surface) 85%, transparent);
   opacity: 0;
@@ -1000,7 +1004,7 @@ body {
 .im-dot {
   width: 10px;
   height: 10px;
-  border-radius: 999px;
+  border-radius: var(--im-r-pill);
   background: color-mix(in srgb, var(--im-ink) 22%, transparent);
   flex: none;
 }
