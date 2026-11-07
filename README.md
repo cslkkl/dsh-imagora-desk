@@ -122,7 +122,8 @@ pnpm run harness      # 渲染验收台 http://127.0.0.1:4319/（mock 数据，�
 
 - 全部命令与检查选择 → [AGENTS.md](AGENTS.md)
 - 设计不变量与接口契约 → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- 发布到 npm 与市场收录 → [docs/PUBLISHING.md](docs/PUBLISHING.md)
+- 市场收录与安装方式 → [docs/PUBLISHING.md](docs/PUBLISHING.md)
+- 发版操作与回滚 → [docs/RELEASE.md](docs/RELEASE.md)
 
 ## 许可
 
