@@ -106,23 +106,34 @@ body {
 }
 .im-brand:hover .im-brand-title { color: var(--im-brand); }
 
+/* 顶栏两行各是一块卡片容器（原版 .studio-header / .studio-toolbar）：
+   细边框 + 卡片圆角 + 柔和阴影 + 卡片表面。做成贴边的裸条就会显得"毛坯"。
+   控件等高 28px，共用一条水平基线。 */
 .im-header {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  padding: 8px 12px 0;
-  background: var(--im-surface-inset);
+  margin: 12px 12px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--im-edge-idle);
+  border-radius: var(--im-r-card);
+  background: var(--im-surface);
+  box-shadow: var(--im-shadow-card);
 }
 .im-toolbar {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  padding: 6px 12px 8px;
+  /* 与页头同为卡片容器，但圆角略小（原版 .studio-toolbar 13px） */
+  margin: 8px 12px 0;
+  padding: 9px 10px;
   position: relative;
-  border-bottom: 1px solid var(--im-line);
+  border: 1px solid var(--im-edge-idle);
+  border-radius: 13px;
   background: var(--im-surface);
+  box-shadow: var(--im-shadow-card);
   z-index: 5;
 }
 .im-toolbar .im-spacer { flex: 1; }
@@ -132,6 +143,11 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+/* 左侧创建组右侧一条分隔线：两组动作性质不同，靠线分开比靠间距可靠（原版做法） */
+.im-toolbar-group:not(.im-toolbar-group--end) {
+  padding-right: 10px;
+  border-right: 1px solid var(--im-edge-idle);
 }
 .im-toolbar-group--end { flex: 1; min-width: 0; justify-content: flex-end; }
 
@@ -712,6 +728,7 @@ body {
 /* 文件拖拽悬停在画布上：系统 copy 光标（!important 需压过上面的准星规则） */
 .im-canvas.is-drop-active .react-flow__pane {
   cursor: copy !important;
+}
 
 /* ---------------- 浮层 ---------------- */
 /* 提示条：中性表面 + 只有图标着色。整块色底在暗色主题下很脏，也像报错页。 */

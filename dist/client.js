@@ -104,23 +104,34 @@ body {
 }
 .im-brand:hover .im-brand-title { color: var(--im-brand); }
 
+/* \u9876\u680F\u4E24\u884C\u5404\u662F\u4E00\u5757\u5361\u7247\u5BB9\u5668\uFF08\u539F\u7248 .studio-header / .studio-toolbar\uFF09\uFF1A
+   \u7EC6\u8FB9\u6846 + \u5361\u7247\u5706\u89D2 + \u67D4\u548C\u9634\u5F71 + \u5361\u7247\u8868\u9762\u3002\u505A\u6210\u8D34\u8FB9\u7684\u88F8\u6761\u5C31\u4F1A\u663E\u5F97"\u6BDB\u576F"\u3002
+   \u63A7\u4EF6\u7B49\u9AD8 28px\uFF0C\u5171\u7528\u4E00\u6761\u6C34\u5E73\u57FA\u7EBF\u3002 */
 .im-header {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  padding: 8px 12px 0;
-  background: var(--im-surface-inset);
+  margin: 12px 12px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--im-edge-idle);
+  border-radius: var(--im-r-card);
+  background: var(--im-surface);
+  box-shadow: var(--im-shadow-card);
 }
 .im-toolbar {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  padding: 6px 12px 8px;
+  /* \u4E0E\u9875\u5934\u540C\u4E3A\u5361\u7247\u5BB9\u5668\uFF0C\u4F46\u5706\u89D2\u7565\u5C0F\uFF08\u539F\u7248 .studio-toolbar 13px\uFF09 */
+  margin: 8px 12px 0;
+  padding: 9px 10px;
   position: relative;
-  border-bottom: 1px solid var(--im-line);
+  border: 1px solid var(--im-edge-idle);
+  border-radius: 13px;
   background: var(--im-surface);
+  box-shadow: var(--im-shadow-card);
   z-index: 5;
 }
 .im-toolbar .im-spacer { flex: 1; }
@@ -130,6 +141,11 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+/* \u5DE6\u4FA7\u521B\u5EFA\u7EC4\u53F3\u4FA7\u4E00\u6761\u5206\u9694\u7EBF\uFF1A\u4E24\u7EC4\u52A8\u4F5C\u6027\u8D28\u4E0D\u540C\uFF0C\u9760\u7EBF\u5206\u5F00\u6BD4\u9760\u95F4\u8DDD\u53EF\u9760\uFF08\u539F\u7248\u505A\u6CD5\uFF09 */
+.im-toolbar-group:not(.im-toolbar-group--end) {
+  padding-right: 10px;
+  border-right: 1px solid var(--im-edge-idle);
 }
 .im-toolbar-group--end { flex: 1; min-width: 0; justify-content: flex-end; }
 
@@ -710,6 +726,7 @@ body {
 /* \u6587\u4EF6\u62D6\u62FD\u60AC\u505C\u5728\u753B\u5E03\u4E0A\uFF1A\u7CFB\u7EDF copy \u5149\u6807\uFF08!important \u9700\u538B\u8FC7\u4E0A\u9762\u7684\u51C6\u661F\u89C4\u5219\uFF09 */
 .im-canvas.is-drop-active .react-flow__pane {
   cursor: copy !important;
+}
 
 /* ---------------- \u6D6E\u5C42 ---------------- */
 /* \u63D0\u793A\u6761\uFF1A\u4E2D\u6027\u8868\u9762 + \u53EA\u6709\u56FE\u6807\u7740\u8272\u3002\u6574\u5757\u8272\u5E95\u5728\u6697\u8272\u4E3B\u9898\u4E0B\u5F88\u810F\uFF0C\u4E5F\u50CF\u62A5\u9519\u9875\u3002 */
