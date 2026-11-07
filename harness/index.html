@@ -43,6 +43,55 @@
           this.entry = payload
         },
       }
+
+      // 宿主组件库的桩：这几条必须与宿主行为一致，否则验收结论不可信——
+      // Button / Input 是真按钮真输入框（验收要能点、能打字），
+      // Tooltip 只包一层（宿主里它是 hover 提示，不影响布局与点击），
+      // Modal 在 open 时把 children 原样渲染出来。
+      ;(function () {
+        var h = window.React.createElement
+        function passthrough(props) {
+          // 宿主组件库的私有 props（variant / size / side 等）不能落到 DOM 上
+          var next = {}
+          Object.keys(props || {}).forEach(function (key) {
+            if (key === 'variant' || key === 'size' || key === 'side' || key === 'label') return
+            if (key === 'children') return
+            next[key] = props[key]
+          })
+          return next
+        }
+        function Button(props) {
+          return h('button', passthrough(props), props.children)
+        }
+        function Input(props) {
+          return h('input', passthrough(props))
+        }
+        function Tooltip(props) {
+          return props.children
+        }
+        function Modal(props) {
+          return props.open === false ? null : h('div', { className: 'stub-modal' }, props.children)
+        }
+        function Nothing() {
+          return null
+        }
+        window.__dshPrimitivesStub = {
+          Button: Button,
+          Input: Input,
+          Tooltip: Tooltip,
+          Modal: Modal,
+          Toast: Nothing,
+          Switch: Nothing,
+          Checkbox: Nothing,
+          SegmentedControl: Nothing,
+          Tag: Nothing,
+          Pill: Nothing,
+          StateDot: Nothing,
+          SettingsValueField: Nothing,
+          SettingsSecretField: Nothing,
+          ShortcutKeys: Nothing,
+        }
+      })()
     </script>
     <script src="/dist/client.js"></script>
     <script>
@@ -59,6 +108,7 @@
           if (id === 'react-dom/client') return window.ReactDOMClient
           if (id === 'react/jsx-runtime') return window.__jsxRuntime
           if (id === 'react/jsx-dev-runtime') return window.__jsxRuntime
+          if (id === '@deepseek-ai/dsh-client-ui-primitives') return window.__dshPrimitivesStub
           throw new Error('未声明的外部模块：' + id)
         })
         if (!exported || typeof exported.apply !== 'function') {
