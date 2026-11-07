@@ -449,103 +449,100 @@ export function CanvasApp() {
 
   return (
     <NodeActionContext.Provider value={actions}>
-      {/* LOD 标志从这里下去，节点用 context 读（不用 prop —— nodeTypes 必须保持稳定，
-          否则节点会重挂载、入场动画重播、输入框失焦，见 nodes.tsx 的 LodContext 注释）。 */}
-      <LodContext.Provider value={lod}>
-        <style>{CANVAS_CSS}</style>
-        <div className="im-root">
-          <CanvasToolbar
-            config={config}
-            promptCount={promptNodes.length}
-            runnableIds={runnableIds}
-            busyIds={busyIds.length}
-            snapEnabled={snapEnabled}
-            canvasLocked={canvasLocked}
-            cost={cost}
-            canUndo={history.canUndo}
-            canRestore={history.canRestore}
-            onUndo={() => {
-              history.record()
-              history.undo()
-            }}
-            onRestore={history.restore}
-            onAddPrompt={() => addPromptNode()}
-            onPickFiles={() => fileInputRef.current?.click()}
-            onAddGroup={() => addGroupNode()}
-            onPasteImport={() => setDialog({ kind: 'import' })}
-            onDragCreateNode={startToolbarDrag}
-            onRun={runMany}
-            onCancelAll={() => busyIds.forEach(id => void cancelPrompt(id))}
-            onAutoConnect={autoConnectAll}
-            onOpenDefaultOutputDir={() => setDialog({ kind: 'settings' })}
-            onSwitchProfile={name => void switchProfile(name)}
-            onSwitchModel={model => void switchModel(model)}
-            onOpenSave={async () => {
-              // 保存弹窗要列出已有工作流（同名可覆盖），所以先取一次列表；
-              // 读不到也照样能存 —— 只是少了「覆盖已有」这条捷径。
-              try {
-                const data = await listWorkflows()
-                setDialog({ kind: 'save', workflows: data.workflows })
-              } catch {
-                setDialog({ kind: 'save' })
-              }
-            }}
-            onOpenLoad={async () => {
-              try {
-                const data = await listWorkflows()
-                setDialog({ kind: 'load', workflows: data.workflows })
-              } catch (error) {
-                flash(`读取失败：${errMessage(error)}`)
-              }
-            }}
-            onOpenSettings={() => setDialog({ kind: 'settings' })}
-            onOpenHelp={() => setDialog({ kind: 'help' })}
-            onOpenHistory={() => setDialog({ kind: 'history' })}
-          />
-          {/* 配置缺失：逐条列出来 + 一个直达设置的按钮，不做整块色底 */}
-          {configIssues.length ? (
-            <Banner
-              tone="error"
-              action={
-                <button
-                  type="button"
-                  className="im-btn-ghost im-btn-xs"
-                  onClick={() => setDialog({ kind: 'settings' })}
-                >
-                  去设置
-                </button>
-              }
-            >
-              <ul className="im-banner-list">
-                {configIssues.map(line => (
-                  <li key={line}>{line}</li>
-                ))}
-              </ul>
-            </Banner>
-          ) : null}
+      <style>{CANVAS_CSS}</style>
+      <div className="im-root">
+        <CanvasToolbar
+          config={config}
+          promptCount={promptNodes.length}
+          runnableIds={runnableIds}
+          busyIds={busyIds.length}
+          snapEnabled={snapEnabled}
+          canvasLocked={canvasLocked}
+          cost={cost}
+          canUndo={history.canUndo}
+          canRestore={history.canRestore}
+          onUndo={() => {
+            history.record()
+            history.undo()
+          }}
+          onRestore={history.restore}
+          onAddPrompt={() => addPromptNode()}
+          onPickFiles={() => fileInputRef.current?.click()}
+          onAddGroup={() => addGroupNode()}
+          onPasteImport={() => setDialog({ kind: 'import' })}
+          onDragCreateNode={startToolbarDrag}
+          onRun={runMany}
+          onCancelAll={() => busyIds.forEach(id => void cancelPrompt(id))}
+          onAutoConnect={autoConnectAll}
+          onOpenDefaultOutputDir={() => setDialog({ kind: 'settings' })}
+          onSwitchProfile={name => void switchProfile(name)}
+          onSwitchModel={model => void switchModel(model)}
+          onOpenSave={async () => {
+            // 保存弹窗要列出已有工作流（同名可覆盖），所以先取一次列表；
+            // 读不到也照样能存 —— 只是少了「覆盖已有」这条捷径。
+            try {
+              const data = await listWorkflows()
+              setDialog({ kind: 'save', workflows: data.workflows })
+            } catch {
+              setDialog({ kind: 'save' })
+            }
+          }}
+          onOpenLoad={async () => {
+            try {
+              const data = await listWorkflows()
+              setDialog({ kind: 'load', workflows: data.workflows })
+            } catch (error) {
+              flash(`读取失败：${errMessage(error)}`)
+            }
+          }}
+          onOpenSettings={() => setDialog({ kind: 'settings' })}
+          onOpenHelp={() => setDialog({ kind: 'help' })}
+          onOpenHistory={() => setDialog({ kind: 'history' })}
+        />
+        {/* 配置缺失：逐条列出来 + 一个直达设置的按钮，不做整块色底 */}
+        {configIssues.length ? (
+          <Banner
+            tone="error"
+            action={
+              <button type="button" className="im-btn-ghost im-btn-xs" onClick={() => setDialog({ kind: 'settings' })}>
+                去设置
+              </button>
+            }
+          >
+            <ul className="im-banner-list">
+              {configIssues.map(line => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </Banner>
+        ) : null}
 
-          {/* 不设常驻提示条：Imagora 把这一行删了（占画布高度、浮层还会被画布盖住），
+        {/* 不设常驻提示条：Imagora 把这一行删了（占画布高度、浮层还会被画布盖住），
             用法收进左下角控件坞的「帮助」弹窗里 */}
 
-          <div className={`im-canvas${dropIntent ? ` is-drop-active` : ``}`} ref={flowRef} {...dropHandlers}>
-            {/* 选中操作栏：相对**画布**右上角定位（原版挂在 .studio-canvas 里）。
+        <div className={`im-canvas${dropIntent ? ` is-drop-active` : ``}`} ref={flowRef} {...dropHandlers}>
+          {/* 选中操作栏：相对**画布**右上角定位（原版挂在 .studio-canvas 里）。
               放到 .im-root 上会跑到整个面板的右上角，离画布边距、工具栏都错开。 */}
-            <SelectionInspector
-              selectedCount={selectedIds.length}
-              selectedPromptCount={
-                selectedIds.filter(id => nodes.some(node => node.id === id && node.type === 'prompt')).length
-              }
-              selectedRunnableIds={runnableIds.filter(id => selectedIds.includes(id))}
-              pickingOutputDir={false}
-              onRunSelected={() => runMany(runnableIds.filter(id => selectedIds.includes(id)))}
-              onAutoLayout={arrangeSelected}
-              onAutoConnectSelected={autoConnectSelected}
-              onSetOutputDir={setSelectedOutputDir}
-              onDeleteSelected={() => {
-                removeNodes(selectedIds)
-                setSelectedIds([])
-              }}
-            />
+          <SelectionInspector
+            selectedCount={selectedIds.length}
+            selectedPromptCount={
+              selectedIds.filter(id => nodes.some(node => node.id === id && node.type === 'prompt')).length
+            }
+            selectedRunnableIds={runnableIds.filter(id => selectedIds.includes(id))}
+            pickingOutputDir={false}
+            onRunSelected={() => runMany(runnableIds.filter(id => selectedIds.includes(id)))}
+            onAutoLayout={arrangeSelected}
+            onAutoConnectSelected={autoConnectSelected}
+            onSetOutputDir={setSelectedOutputDir}
+            onDeleteSelected={() => {
+              removeNodes(selectedIds)
+              setSelectedIds([])
+            }}
+          />
+          {/* LOD 标志只包住 ReactFlow：节点是它渲染的，包在外面那一层唯一的区别
+              就是把整块 JSX 重新缩进一遍（diff 变成几百行噪音）。
+              用 context 而不是 prop 的原因见 nodes.tsx 的 LodContext 注释。 */}
+          <LodContext.Provider value={lod}>
             <ReactFlow
               nodes={renderNodes}
               edges={edges}
@@ -583,8 +580,8 @@ export function CanvasApp() {
               }}
               onMove={(_, viewport) => {
                 setZoom(viewport.zoom)
-                // LOD 状态机放这里跟着视口走（原版 handleViewportMove 同位置）。
-                // 用函数式更新 + 纯函数 nextLod：迟滞判定不需要知道上一帧 zoom，
+                // LOD 状态机跟着视口走（原版 handleViewportMove 在同一位置）。
+                // 函数式更新 + 纯函数 nextLod：迟滞判定不需要知道上一帧 zoom，
                 // 只知道自己现在在哪个档，所以快速拖动合并帧也不会把它卡反。
                 setLod(current => nextLod(current, viewport.zoom))
               }}
@@ -607,7 +604,7 @@ export function CanvasApp() {
               minZoom={0.05}
               maxZoom={2.5}
               proOptions={{ hideAttribution: true }}
-              /* 连线外观：原版 defaultEdgeOptions 只有 `{ animated: !lod }`，
+              /* 连线外观：原版 defaultEdgeOptions 只有 { animated: !lod }，
                **没有 markerEnd**。我们以前加了 ArrowClosed 箭头，于是每条连线
                末端挂一个实心三角 —— 原版根本没有这个元素，是纯粹多出来的。
                现在按原版来：不设 marker；animated 随 LOD 走（抽象模式下静止，
@@ -656,192 +653,192 @@ export function CanvasApp() {
               ) : null}
               <SnapGuideLayer guides={guides} />
             </ReactFlow>
-            <CanvasDock
-              zoom={zoom}
-              snapEnabled={snapEnabled}
-              canvasLocked={canvasLocked}
-              minimapOpen={minimapOpen}
-              onZoomIn={() => void instanceRef.current?.zoomIn({ duration: 180 })}
-              onZoomOut={() => void instanceRef.current?.zoomOut({ duration: 180 })}
-              onFitView={() => instanceRef.current?.fitView({ padding: 0.2, duration: 300 })}
-              onFocusSelected={focusSelected}
-              onToggleSnap={() =>
-                setSnapEnabled(value => {
-                  const next = !value
-                  saveSnapEnabled(next)
-                  if (!next) setGuides([])
-                  flash(next ? '吸附已开：拖动时会贴齐邻居' : '吸附已关：自由摆放')
-                  return next
-                })
-              }
-              onToggleLock={() =>
-                setCanvasLocked(value => {
-                  const next = !value
-                  flash(next ? '画布已锁：只可缩放，拖动/连线/选中/平移都停了' : '画布已解锁')
-                  return next
-                })
-              }
-              onToggleMinimap={() =>
-                setMinimapOpen(value => {
-                  const next = !value
-                  saveMinimapVisible(next)
-                  return next
-                })
-              }
-              onOpenHelp={() => setDialog({ kind: 'help' })}
-            />
-            {nodes.length === 0 ? <EmptyState /> : null}
-            <LogPanel logs={logs} />
-            <Toast text={toast} />
-            {dropChip}
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            style={{ display: 'none' }}
-            onChange={event => {
-              const files = Array.from(event.target.files ?? [])
-              event.target.value = ''
-              void addImages(files, createPosition())
+          </LodContext.Provider>
+          <CanvasDock
+            zoom={zoom}
+            snapEnabled={snapEnabled}
+            canvasLocked={canvasLocked}
+            minimapOpen={minimapOpen}
+            onZoomIn={() => void instanceRef.current?.zoomIn({ duration: 180 })}
+            onZoomOut={() => void instanceRef.current?.zoomOut({ duration: 180 })}
+            onFitView={() => instanceRef.current?.fitView({ padding: 0.2, duration: 300 })}
+            onFocusSelected={focusSelected}
+            onToggleSnap={() =>
+              setSnapEnabled(value => {
+                const next = !value
+                saveSnapEnabled(next)
+                if (!next) setGuides([])
+                flash(next ? '吸附已开：拖动时会贴齐邻居' : '吸附已关：自由摆放')
+                return next
+              })
+            }
+            onToggleLock={() =>
+              setCanvasLocked(value => {
+                const next = !value
+                flash(next ? '画布已锁：只可缩放，拖动/连线/选中/平移都停了' : '画布已解锁')
+                return next
+              })
+            }
+            onToggleMinimap={() =>
+              setMinimapOpen(value => {
+                const next = !value
+                saveMinimapVisible(next)
+                return next
+              })
+            }
+            onOpenHelp={() => setDialog({ kind: 'help' })}
+          />
+          {nodes.length === 0 ? <EmptyState /> : null}
+          <LogPanel logs={logs} />
+          <Toast text={toast} />
+          {dropChip}
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          style={{ display: 'none' }}
+          onChange={event => {
+            const files = Array.from(event.target.files ?? [])
+            event.target.value = ''
+            void addImages(files, createPosition())
+          }}
+        />
+        {preview ? (
+          <ZoomModal
+            imageUrl={preview.url}
+            name={preview.name}
+            copyPath={preview.path}
+            onClose={() => setPreview(null)}
+          />
+        ) : null}
+        {dialog?.kind === 'save' ? (
+          <SaveDialog
+            workflows={dialog.workflows ?? []}
+            imagoraRoot={config?.imagoraRoot}
+            onCancel={() => setDialog(null)}
+            onSubmit={name => void doSave(name)}
+          />
+        ) : null}
+        {dialog?.kind === 'load' ? (
+          <LoadDialog
+            workflows={dialog.workflows ?? []}
+            imagoraRoot={config?.imagoraRoot}
+            onCancel={() => setDialog(null)}
+            onPick={name => void doLoad(name)}
+          />
+        ) : null}
+        {dialog?.kind === 'crop' && dialog.target ? (
+          <CropDialog
+            src={dialog.target.src}
+            name={dialog.target.name}
+            onClose={() => setDialog(null)}
+            onConfirm={async (dataUrl, note) => {
+              history.record()
+              await addDataUrl(dataUrl, `${dialog.target!.name.replace(/\.[^.]+$/, '')}_crop_${Date.now()}.png`)
+              setDialog(null)
+              flash(note)
             }}
           />
-          {preview ? (
-            <ZoomModal
-              imageUrl={preview.url}
-              name={preview.name}
-              copyPath={preview.path}
-              onClose={() => setPreview(null)}
-            />
-          ) : null}
-          {dialog?.kind === 'save' ? (
-            <SaveDialog
-              workflows={dialog.workflows ?? []}
-              imagoraRoot={config?.imagoraRoot}
-              onCancel={() => setDialog(null)}
-              onSubmit={name => void doSave(name)}
-            />
-          ) : null}
-          {dialog?.kind === 'load' ? (
-            <LoadDialog
-              workflows={dialog.workflows ?? []}
-              imagoraRoot={config?.imagoraRoot}
-              onCancel={() => setDialog(null)}
-              onPick={name => void doLoad(name)}
-            />
-          ) : null}
-          {dialog?.kind === 'crop' && dialog.target ? (
-            <CropDialog
-              src={dialog.target.src}
-              name={dialog.target.name}
-              onClose={() => setDialog(null)}
-              onConfirm={async (dataUrl, note) => {
-                history.record()
-                await addDataUrl(dataUrl, `${dialog.target!.name.replace(/\.[^.]+$/, '')}_crop_${Date.now()}.png`)
-                setDialog(null)
-                flash(note)
-              }}
-            />
-          ) : null}
-          {dialog?.kind === 'split' && dialog.target ? (
-            <SplitDialog
-              src={dialog.target.src}
-              onClose={() => setDialog(null)}
-              onConfirm={async parts => {
-                history.record()
-                const base = dialog.target!.name.replace(/\.[^.]+$/, '')
-                const origin = createPosition()
-                for (const [index, part] of parts.entries()) {
-                  await addDataUrl(part.dataUrl, `${base}_${index + 1}.png`, {
-                    x: origin.x + index * 160,
-                    y: origin.y,
-                  })
-                }
-                setDialog(null)
-                flash(`已切出 ${parts.length} 张`)
-              }}
-            />
-          ) : null}
-          {dialog?.kind === 'upscale' && dialog.target ? (
-            <UpscaleDialog
-              src={dialog.target.src}
-              onClose={() => setDialog(null)}
-              onConfirm={async (dataUrl, note) => {
-                history.record()
-                await addDataUrl(dataUrl, `${dialog.target!.name.replace(/\.[^.]+$/, '')}_up_${Date.now()}.png`)
-                setDialog(null)
-                flash(note)
-              }}
-            />
-          ) : null}
-          {dialog?.kind === 'mask' && dialog.target ? (
-            <MaskDialog
-              src={dialog.target.src}
-              name={dialog.target.name}
-              onClose={() => setDialog(null)}
-              onConfirm={async (maskDataUrl, note) => {
-                // 蒙版挂在图片节点上而不是提示词卡：它描述的是「这张图的哪块要改」，
-                // 换提示词重画同一块是常态，蒙版该跟着图走
-                history.record()
-                setNodes(current =>
-                  current.map(row =>
-                    row.id === dialog.target!.nodeId && row.type === 'image'
-                      ? { ...row, data: { ...row.data, maskDataUrl } }
-                      : row,
-                  ),
-                )
-                setDialog(null)
-                flash(note)
-              }}
-            />
-          ) : null}
-          {dialog?.kind === 'help' ? <HelpDialog config={config} onClose={() => setDialog(null)} /> : null}
-          {dialog?.kind === 'history' ? (
-            <HistoryDialog
-              imagoraRoot={config?.imagoraRoot}
-              onClose={() => setDialog(null)}
-              onImport={entries => {
-                if (!entries.length) return
-                history.record()
-                const origin = createPosition()
-                // 逐张错位摆放，别叠成一摞
-                const created = entries.map((entry, index) =>
-                  buildImageNode(entry, { x: origin.x + index * 172, y: origin.y }),
-                )
-                setNodes(current => [...current, ...created])
-                setDialog(null)
-                flash(`已放入 ${created.length} 张图`)
-              }}
-            />
-          ) : null}
-          {dialog?.kind === 'import' ? (
-            <PromptImportDialog
-              sizes={config?.sizes ?? []}
-              onCancel={() => setDialog(null)}
-              onConfirm={cards => {
-                history.record()
-                const cfg = configRef.current
-                const created = buildPromptNodes(
-                  cards,
-                  {
-                    sizes: cfg?.sizes ?? [],
-                    defaultQuality: cfg?.qualities[0] ?? 'high',
-                    defaultOutputDir: '',
-                  },
-                  createPosition(),
-                )
-                setNodes(current => [...current, ...created])
-                setDialog(null)
-                flash(`已建 ${created.length} 张提示词卡`)
-              }}
-            />
-          ) : null}
-          {dialog?.kind === 'settings' ? (
-            <SettingsDialog config={config} onClose={() => setDialog(null)} onSaved={replaceConfig} onFlash={flash} />
-          ) : null}
-        </div>
-      </LodContext.Provider>
+        ) : null}
+        {dialog?.kind === 'split' && dialog.target ? (
+          <SplitDialog
+            src={dialog.target.src}
+            onClose={() => setDialog(null)}
+            onConfirm={async parts => {
+              history.record()
+              const base = dialog.target!.name.replace(/\.[^.]+$/, '')
+              const origin = createPosition()
+              for (const [index, part] of parts.entries()) {
+                await addDataUrl(part.dataUrl, `${base}_${index + 1}.png`, {
+                  x: origin.x + index * 160,
+                  y: origin.y,
+                })
+              }
+              setDialog(null)
+              flash(`已切出 ${parts.length} 张`)
+            }}
+          />
+        ) : null}
+        {dialog?.kind === 'upscale' && dialog.target ? (
+          <UpscaleDialog
+            src={dialog.target.src}
+            onClose={() => setDialog(null)}
+            onConfirm={async (dataUrl, note) => {
+              history.record()
+              await addDataUrl(dataUrl, `${dialog.target!.name.replace(/\.[^.]+$/, '')}_up_${Date.now()}.png`)
+              setDialog(null)
+              flash(note)
+            }}
+          />
+        ) : null}
+        {dialog?.kind === 'mask' && dialog.target ? (
+          <MaskDialog
+            src={dialog.target.src}
+            name={dialog.target.name}
+            onClose={() => setDialog(null)}
+            onConfirm={async (maskDataUrl, note) => {
+              // 蒙版挂在图片节点上而不是提示词卡：它描述的是「这张图的哪块要改」，
+              // 换提示词重画同一块是常态，蒙版该跟着图走
+              history.record()
+              setNodes(current =>
+                current.map(row =>
+                  row.id === dialog.target!.nodeId && row.type === 'image'
+                    ? { ...row, data: { ...row.data, maskDataUrl } }
+                    : row,
+                ),
+              )
+              setDialog(null)
+              flash(note)
+            }}
+          />
+        ) : null}
+        {dialog?.kind === 'help' ? <HelpDialog config={config} onClose={() => setDialog(null)} /> : null}
+        {dialog?.kind === 'history' ? (
+          <HistoryDialog
+            imagoraRoot={config?.imagoraRoot}
+            onClose={() => setDialog(null)}
+            onImport={entries => {
+              if (!entries.length) return
+              history.record()
+              const origin = createPosition()
+              // 逐张错位摆放，别叠成一摞
+              const created = entries.map((entry, index) =>
+                buildImageNode(entry, { x: origin.x + index * 172, y: origin.y }),
+              )
+              setNodes(current => [...current, ...created])
+              setDialog(null)
+              flash(`已放入 ${created.length} 张图`)
+            }}
+          />
+        ) : null}
+        {dialog?.kind === 'import' ? (
+          <PromptImportDialog
+            sizes={config?.sizes ?? []}
+            onCancel={() => setDialog(null)}
+            onConfirm={cards => {
+              history.record()
+              const cfg = configRef.current
+              const created = buildPromptNodes(
+                cards,
+                {
+                  sizes: cfg?.sizes ?? [],
+                  defaultQuality: cfg?.qualities[0] ?? 'high',
+                  defaultOutputDir: '',
+                },
+                createPosition(),
+              )
+              setNodes(current => [...current, ...created])
+              setDialog(null)
+              flash(`已建 ${created.length} 张提示词卡`)
+            }}
+          />
+        ) : null}
+        {dialog?.kind === 'settings' ? (
+          <SettingsDialog config={config} onClose={() => setDialog(null)} onSaved={replaceConfig} onFlash={flash} />
+        ) : null}
+      </div>
     </NodeActionContext.Provider>
   )
 }
