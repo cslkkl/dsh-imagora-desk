@@ -7,7 +7,11 @@
 //
 // 这一行里绝不能混进依赖选区的动作（运行所选 / 自动整理 /……）——那些在右上角
 // 选中操作栏里（inspector.tsx），混进来会被误读成「对整张画布生效」。
-import { primitives } from '../ui'
+//
+// **提示一律用原生 title，不用宿主气泡**：原版全仓 25 处提示都是 title
+// （工具栏 ControlButton、控件坞 DockRow、节点操作按钮都一样）。混用会出现
+// 「有的秒出黑框、有的等 1~2 秒」——气泡是宿主组件（即时、有样式），title 是系统
+// 提示（延迟、黑框）。同一处界面必须只用一种，所以这里全部退回 title。
 import { BrandHeader } from '../brand'
 import { CostBadge, type CostSummary } from './cost'
 import type { ImagoraConfig } from '../api'
@@ -44,16 +48,20 @@ export interface ToolbarProps {
 }
 
 export function CanvasToolbar(props: ToolbarProps) {
-  const ui = primitives()
   const { config, promptCount, runnableIds, busyIds, canUndo, canRestore } = props
 
   /** 次要行动：原版的 .btn-ghost（胶囊 + 主体色文字 + hover 涟漪反白） */
   const tool = (label: string, onClick: () => void, extra?: Record<string, unknown>) => (
-    <ui.Tooltip label={label} side="bottom">
-      <button type="button" className="im-btn-ghost im-btn-sm nodrag" aria-label={label} onClick={onClick} {...extra}>
-        {label}
-      </button>
-    </ui.Tooltip>
+    <button
+      type="button"
+      className="im-btn-ghost im-btn-sm nodrag"
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+      {...extra}
+    >
+      {label}
+    </button>
   )
 
   return (
@@ -100,63 +108,67 @@ export function CanvasToolbar(props: ToolbarProps) {
 
         <span className="im-spacer" />
 
-        {tool('设置', props.onOpenSettings)}
+        {tool('设置', props.onOpenSettings, { title: '接口地址、API Key、模型与目录设置' })}
       </div>
 
       {/* ---------- 第二行：画布工具栏（左创建 / 右工作流，与 Imagora 同序） ---------- */}
       <div className="im-toolbar">
         <div className="im-toolbar-group">
-          {tool('上传图片', props.onPickFiles)}
-          {tool('粘贴导入', props.onPasteImport)}
+          {tool('上传图片', props.onPickFiles, { title: '从本机选图片放上画布（也可直接拖入或粘贴）' })}
+          {tool('粘贴导入', props.onPasteImport, { title: '粘贴模型回复，按行解析成多张提示词卡片' })}
           {/* 这两个可以拖进画布：松开的位置就是新节点的位置 */}
-          <ui.Tooltip label="新建提示词卡片（也可拖到画布上，松开处即新卡位置）" side="bottom">
-            <button
-              type="button"
-              className="im-btn-ghost im-btn-sm nodrag im-drag-source"
-              draggable
-              onDragStart={event => props.onDragCreateNode(event, 'prompt')}
-              onClick={props.onAddPrompt}
-            >
-              新建提示词卡片
-            </button>
-          </ui.Tooltip>
-          <ui.Tooltip label="新建图片组（也可拖到画布上）" side="bottom">
-            <button
-              type="button"
-              className="im-btn-ghost im-btn-sm nodrag im-drag-source"
-              draggable
-              onDragStart={event => props.onDragCreateNode(event, 'group')}
-              onClick={props.onAddGroup}
-            >
-              新建图片组
-            </button>
-          </ui.Tooltip>
+          <button
+            type="button"
+            className="im-btn-ghost im-btn-sm nodrag im-drag-source"
+            title="新建提示词卡片（也可拖到画布上，松开处即新卡位置）"
+            draggable
+            onDragStart={event => props.onDragCreateNode(event, 'prompt')}
+            onClick={props.onAddPrompt}
+          >
+            新建提示词卡片
+          </button>
+          <button
+            type="button"
+            className="im-btn-ghost im-btn-sm nodrag im-drag-source"
+            title="新建图片组（也可拖到画布上，松开处即新组位置）"
+            draggable
+            onDragStart={event => props.onDragCreateNode(event, 'group')}
+            onClick={props.onAddGroup}
+          >
+            新建图片组
+          </button>
         </div>
 
         <div className="im-toolbar-group im-toolbar-group--end">
-          {tool('保存工作流', props.onOpenSave)}
-          {tool('加载工作流', props.onOpenLoad)}
-          {tool('生成历史', props.onOpenHistory)}
+          {tool('保存工作流', props.onOpenSave, { title: '给这个画布起个名字存下来，之后可以再加载' })}
+          {tool('加载工作流', props.onOpenLoad, { title: '选一份已保存的画布继续工作' })}
+          {tool('生成历史', props.onOpenHistory, { title: '磁盘上真实存在的图片，删掉画布节点也能找回' })}
           {tool('默认输出路径', props.onOpenDefaultOutputDir, {
-            title: `新建卡片默认保存到：${config?.defaultOutputDir || '（未设置）'}`,
+            title: `默认输出路径（新建卡片用这个值）：${config?.defaultOutputDir || '（未设置）'}`,
           })}
-          {tool('撤销', props.onUndo, { disabled: !canUndo })}
-          {tool('恢复', props.onRestore, { disabled: !canRestore })}
-          {tool('自动连线', props.onAutoConnect)}
+          {tool('撤销', props.onUndo, { disabled: !canUndo, title: '撤销上一步（Ctrl+Z）' })}
+          {tool('恢复', props.onRestore, { disabled: !canRestore, title: '恢复被撤销的一步（Ctrl+Y）' })}
+          {tool('自动连线', props.onAutoConnect, {
+            title: '按位置补齐明显的连线：图片/图片组 → 提示词，提示词 → 图片',
+          })}
 
-          <ui.Tooltip label="运行所有提示词卡" side="bottom">
+          <button
+            type="button"
+            className="im-btn-primary im-btn-sm nodrag"
+            title="运行所有提示词卡片"
+            aria-label="全部运行"
+            disabled={!promptCount}
+            onClick={() => props.onRun(runnableIds)}
+          >
+            全部运行
+          </button>
+          {busyIds > 0 ? (
             <button
               type="button"
-              className="im-btn-primary im-btn-sm nodrag"
-              aria-label="全部运行"
-              disabled={!promptCount}
-              onClick={() => props.onRun(runnableIds)}
+              className="im-btn-ghost im-btn-sm nodrag"
+              title="取消所有在跑的任务：排队中的不再发出去；生成中的等当前这张完成后作废（图仍落盘并计费）"
+              onClick={props.onCancelAll}
             >
-              全部运行
-            </button>
-          </ui.Tooltip>
-          {busyIds > 0 ? (
-            <button type="button" className="im-btn-ghost im-btn-sm nodrag" onClick={props.onCancelAll}>
               取消全部 ({busyIds})
             </button>
           ) : null}
