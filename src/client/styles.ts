@@ -502,31 +502,29 @@ body {
 .im-banner.is-error { background: color-mix(in srgb, var(--im-danger) 12%, transparent); }
 
 .im-log {
+  /* 原版形态：右下角一列纯文字，不可交互 —— 面板会挡住画布的拖拽与框选 */
   position: absolute;
   right: 12px;
   bottom: 12px;
-  z-index: 6;
-  width: 320px;
-  max-height: 150px;
-  overflow: auto;
-  padding: 9px 11px;
-  border-radius: var(--im-r-control);
-  background: var(--im-surface-float);
-  border: 1px solid var(--im-line);
-  box-shadow: var(--im-shadow-float);
-  font-size: 11.5px;
-  line-height: 1.7;
-  color: var(--im-ink-2);
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-.im-log-head {
+  z-index: 40;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-weight: 600;
-  color: var(--im-ink);
-  margin-bottom: 4px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  max-width: 320px;
+  pointer-events: none;
+}
+.im-log-line {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--im-ink-3);
+  text-align: right;
+  word-break: break-all;
+  animation: im-log-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes im-log-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .im-modal-mask {
@@ -585,5 +583,20 @@ input[type='range']:focus-visible {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ---------------- 动效层 ----------------
+   与 Imagora 的 index.css 同一套：节点入场只动内层卡片，不动外层
+   .react-flow__node —— 那层是 React Flow 的定位 transform，动它节点会甩飞。 */
+.react-flow__node .im-panel-card { animation: im-enter-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes im-enter-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* 生成中按钮的呼吸光晕：原来只有状态灯在跳，卡片上的运行按钮完全静止 */
+.im-btn-busy { animation: im-pulse-glow 1.6s ease-in-out infinite; }
+@keyframes im-pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--im-brand) 0%, transparent); }
+  50%      { box-shadow: 0 0 0 6px color-mix(in srgb, var(--im-brand) 14%, transparent); }
 }
 `

@@ -595,7 +595,7 @@ export function CanvasApp() {
             onOpenHelp={() => setDialog({ kind: 'help' })}
           />
           {nodes.length === 0 ? <EmptyState /> : null}
-          <LogPanel logs={logs} onClear={() => setLogs([])} />
+          <LogPanel logs={logs} />
           <Toast text={toast} />
         </div>
         <input

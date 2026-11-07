@@ -307,7 +307,7 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
       <div className="nodrag" style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
         <button
           type="button"
-          className="im-btn-primary im-btn-sm nodrag"
+          className={`im-btn-primary im-btn-sm nodrag${busy ? ' im-btn-busy' : ''}`}
           style={{ flex: 1 }}
           disabled={busy || !data.prompt.trim()}
           onClick={event => {
