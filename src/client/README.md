@@ -6,17 +6,18 @@
 
 ## 文件
 
-| 文件         | 职责                                                                | 关键导出                                                      |
-| ------------ | ------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `index.tsx`  | 入口：注册 `main` 与 `sidebar.panellist` 两个插槽，注入 xyflow 样式 | `apply`、`inject`                                             |
-| `api.ts`     | `/imagora/*` 的浏览器侧封装                                         | `getConfig`、`submitGenerate`、`fetchTask`、`saveWorkflow` 等 |
-| `nodes.tsx`  | 三类节点组件与节点上下文                                            | `ImageNode`、`PromptNode`、`GroupNode`、`NodeActionContext`   |
-| `icons.tsx`  | 内联 SVG 图标，不引图标库                                           | `Icon`                                                        |
-| `select.tsx` | 自绘下拉框（listbox）：分组 / 搜索 / 键盘导航，浮层 portal 到 body  | `Select`、`SelectOption`                                      |
-| `brand.tsx`  | 品牌区：Imagora 字形与标题                                          | `BrandLogo`、`BrandHeader`                                    |
-| `styles.ts`  | 设计层（`--im-*` 语义 token 为主，`im-` 前缀类名）                  | `CANVAS_CSS`                                                  |
-| `env.d.ts`   | 声明 `*.css` 走 esbuild 的文本插件                                  | —                                                             |
-| `lib/`       | 从 Imagora 移植的纯逻辑，见下                                       | —                                                             |
+| 文件                    | 职责                                                                | 关键导出                                                      |
+| ----------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `index.tsx`             | 入口：注册 `main` 与 `sidebar.panellist` 两个插槽，注入 xyflow 样式 | `apply`、`inject`                                             |
+| `api.ts`                | `/imagora/*` 的浏览器侧封装                                         | `getConfig`、`submitGenerate`、`fetchTask`、`saveWorkflow` 等 |
+| `nodes.tsx`             | 三类节点组件与节点上下文                                            | `ImageNode`、`PromptNode`、`GroupNode`、`NodeActionContext`   |
+| `icons.tsx`             | 内联 SVG 图标，不引图标库                                           | `Icon`                                                        |
+| `select.tsx`            | 自绘下拉框（listbox）：分组 / 搜索 / 键盘导航，浮层 portal 到 body  | `Select`、`SelectOption`                                      |
+| `brand.tsx`             | 品牌区：Imagora 字形与标题                                          | `BrandLogo`、`BrandHeader`                                    |
+| `canvas/zoom-modal.tsx` | 大图预览：缩放 / 平移 / 复制 / 新标签，portal 到 body               | `ZoomModal`                                                   |
+| `styles.ts`             | 设计层（`--im-*` 语义 token 为主，`im-` 前缀类名）                  | `CANVAS_CSS`                                                  |
+| `env.d.ts`              | 声明 `*.css` 走 esbuild 的文本插件                                  | —                                                             |
+| `lib/`                  | 从 Imagora 移植的纯逻辑，见下                                       | —                                                             |
 
 ## canvas/ 子目录
 
@@ -50,6 +51,7 @@
 - 关键规则都在这里：连线方向约束、`@` 引用解析、组递归聚合、引用计数溯源、落点错开、工作流归一化。
 - 下拉框相关：`optionGroups`（分组）、`popupLayer`（浮层栈，Esc 让位）、`rankByName`（搜索排序）、`apiCatalog`、`customValue`（自由输入归一化）。
 - 生成中占位的进度曲线与文案轮播：`generationPending`。
+- 大图预览的缩放与平移换算：`previewZoom`；剪贴板写入：`imageCopy`。
 
 ## 被谁依赖
 
