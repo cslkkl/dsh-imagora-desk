@@ -63,29 +63,6 @@ export function Toast({ text }: { text: string | null }) {
   return <div style={TOAST_STYLE}>{text}</div>
 }
 
-const PREVIEW_STYLE: CSSProperties = {
-  maxWidth: '86%',
-  maxHeight: '86%',
-  borderRadius: 12,
-  boxShadow: '0 20px 60px rgba(0,0,0,.45)',
-  background: 'var(--im-surface-float)',
-}
-
-export function PreviewOverlay({
-  preview,
-  onClose,
-}: {
-  preview: { url: string; name: string } | null
-  onClose: () => void
-}) {
-  if (!preview) return null
-  return (
-    <div className="im-modal-mask" onClick={onClose}>
-      <img src={preview.url} alt={preview.name} onClick={event => event.stopPropagation()} style={PREVIEW_STYLE} />
-    </div>
-  )
-}
-
 /**
  * 顶部提示条：配置问题 / 已恢复上次画布。
  *
