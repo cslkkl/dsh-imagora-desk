@@ -97,8 +97,14 @@ body {
   /* 画布台面：原版实测 0 18px 45px rgba(31,41,55,.09) + 顶部 1px 内高光 */
   --im-shadow-canvas: var(--dsw-elevation-prominent, 0 18px 45px rgba(31, 41, 55, 0.09)),
     inset 0 1px color-mix(in srgb, var(--im-surface) 90%, #fff);
-  /* 弹窗遮罩：半透明纯色，不与任何前景配对 */
-  --im-scrim: var(--dsw-alias-bg-mask-1, rgba(0, 0, 0, 0.32));
+  /* 弹窗 / 预览遮罩：**不跟主题翻转、也不取宿主的 mask token**。
+   *
+   * 原版是固定值 rgba(20,26,31,.62)，弹窗与放大预览共用这一个（index.css 的
+   * --scrim-bg）。宿主 bg-mask-1 浅色只有 24%（#0000003d），比原版淡一大截 ——
+   * 整屏预览时底下界面还看得清清楚楚，图和背景抢注意力。
+   * 遮罩的语义是「把底下的界面推远」，两种主题下都该压暗，所以写死这档深色：
+   * 暗色下它同样只是压暗（不会像从 ink 派生那样变成白纱）。 */
+  --im-scrim: color-mix(in srgb, #141a1f 62%, transparent);
 }
 
 /* 暗色主题下**必须单独覆盖的两条**（其余 token 都会随宿主自动翻转）。
@@ -1352,16 +1358,27 @@ body[data-ds-dark-theme] {
    预览永远在深色胶片上；插件要跟宿主明暗一起走，所以这里让对比方向跟着主题。
    两种做法都能保证可读，跨体系混色才会出现「黑底黑字」。 */
 .im-zoom-overlay {
-  --im-chrome-bg: color-mix(in srgb, var(--im-ink) 58%, transparent);
-  --im-chrome-bg-hover: color-mix(in srgb, var(--im-ink) 76%, transparent);
-  --im-chrome-ink: var(--im-surface);
-  --im-chrome-line: color-mix(in srgb, var(--im-surface) 24%, transparent);
+  /* 遮罩层里那几块「压在照片上」的控件台。它们必须与照片内容形成对比，
+     所以要在暗遮罩上浮浅色、在浅遮罩上浮深色 —— 也就是**和遮罩反着来**，
+     不能跟主题走。因此这里一律从 #fff / #000 直接派生，不用 --im-ink。 */
+  --im-chrome-bg: rgba(0, 0, 0, 0.42);
+  --im-chrome-bg-hover: rgba(255, 255, 255, 0.2);
+  --im-chrome-ink: #fff;
+  --im-chrome-line: rgba(255, 255, 255, 0.2);
 
   position: fixed;
   inset: 0;
   z-index: 60;
   user-select: none;
-  background: color-mix(in srgb, var(--im-ink) 62%, transparent);
+  /* ⚠️ 遮罩只负责**压暗**，永远不跟主题翻转。
+   *
+   * 之前这里写的是 color-mix(in srgb, var(--im-ink) 62%, transparent) —— 想"跟随主题"，
+   * 结果 --im-ink 在暗色下是近白（#f9fafb），62% 的白直接糊成一层亮纱：
+   * 维护者报「放大图片后背景变亮了很多，是不是加了个白色图层」。就是这个。
+   *
+   * 遮罩的语义是"把底下的界面推远"，两种主题下都该更黑，所以用蒙版 token：
+   * 浅色 #0000003d、暗色 #00000080（暗色本来就压得更狠，符合直觉）。 */
+  background: var(--im-scrim);
   /* 比弹窗那档更轻的模糊：预览是「看这张图」，背景只需退到看不清字 */
   backdrop-filter: blur(4px) saturate(0.96);
   -webkit-backdrop-filter: blur(4px) saturate(0.96);

@@ -61,6 +61,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - 全局事件监听（点外部关闭、快捷键）如果目标区域可能是**画布**，必须用**捕获阶段**：React Flow 在 `mousedown` 上会 `stopPropagation`，冒泡阶段的 `document` 监听收不到。表现为「点画布空白关不掉下拉/浮层」。
 - 布局里写 `flex: 1` 的占位元素，选择器**不能带父级作用域**：`.im-toolbar .im-spacer` 管不到页头里的同名 span，表现为「按钮全挤左边、右侧空着」。`width` 与 `padding` 同时写时别忘了 `box-sizing: border-box`，否则宽度会多出两倍内边距。
 - **改了 `src/host/` 后「界面上没变化」不等于改漏了**：插件是软链装的，但宿主进程**只在启动时加载 host 模块**，软链只省掉重装、不省掉重载。判据是「这个产物在什么时候被读」——host 代码**启动时读一次**，client 代码按指纹在浏览器里换。所以改完 host 要 `dsh_hot_reload`（entryId 是 `include:imagora`；热重载失败会回滚）或重启宿主，改完 client 要重建 `dist/client.js` 再刷新页面。用户报过「你改了吗？为什么还是没有」——那次就是只改了文件、进程还拿着旧模块。**验证 host 侧的改动要用真实数据走一遍完整 HTTP 路径**（假 ctx 挂起 host 半端，像 `scripts/smoke-host.mjs` 那样），别只看源码。
+- **不要把 Markdown 正文塞进 PowerShell 变量再交给 `gh`**：反引号在 pwsh 里是转义符（`` `b `` → 退格、`` `0 `` → NUL），正文会被吃掉或变成乱码，GitHub 收到的是一条残缺评论/PR 描述（踩过两次：一次评论只剩一句、一次 `border-box` 变成 `\order-box` 且中文变 `图��`）。**一律用 `write` 工具写成 UTF-8 文件再 `gh pr create/edit --body-file <路径>`**。另外本机 `gh` 2.96.0 没有 `--attach`，别用它挂图。
 
 ## 文档地图
 
