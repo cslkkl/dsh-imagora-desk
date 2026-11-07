@@ -131,6 +131,9 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
           name: entry.name,
           size: entry.size,
           ext: entry.ext,
+          // 落盘位置就是 assets/<id>.<ext>；registry 里的旧条目可能没记 relPath，
+          // 按这个规则补出来，客户端拿到的条目结构才一致
+          relPath: entry.relPath || `${entry.id}.${entry.ext}`,
           url: `/imagora/file?id=${encodeURIComponent(entry.id)}`,
           absPath: entry.absPath,
           createdAt: entry.createdAt,

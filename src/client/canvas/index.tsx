@@ -22,6 +22,7 @@ import { deleteAsset, listWorkflows } from '../api'
 import {
   autoConnect,
   buildGroupNode,
+  buildImageNode,
   buildPromptNode,
   canConnect,
   computeCounts,
@@ -37,6 +38,7 @@ import { NODE_TYPES } from './node-types'
 import { CanvasToolbar } from './toolbar'
 import { Banner, EmptyState, LogPanel, PreviewOverlay, Toast } from './overlays'
 import { HelpDialog, LoadDialog, SaveDialog } from './dialogs'
+import { HistoryDialog } from './history-dialog'
 import { PromptImportDialog } from './prompt-import-dialog'
 import { SettingsDialog } from './settings-dialog'
 import { connectEdge, useCanvasImages } from './use-canvas-images'
@@ -47,7 +49,7 @@ import { useCanvasKeys } from './use-canvas-keys'
 import { useCanvasWorkflow } from './use-canvas-workflow'
 
 type DialogState = {
-  kind: 'save' | 'load' | 'help' | 'settings' | 'import'
+  kind: 'save' | 'load' | 'help' | 'settings' | 'import' | 'history'
   workflows?: { name: string; modified: string }[]
 }
 
@@ -350,6 +352,7 @@ export function CanvasApp() {
             }
           }}
           onOpenSettings={() => setDialog({ kind: 'settings' })}
+          onOpenHistory={() => setDialog({ kind: 'history' })}
           onOpenHelp={() => setDialog({ kind: 'help' })}
         />
 
@@ -462,6 +465,23 @@ export function CanvasApp() {
           />
         ) : null}
         {dialog?.kind === 'help' ? <HelpDialog config={config} onClose={() => setDialog(null)} /> : null}
+        {dialog?.kind === 'history' ? (
+          <HistoryDialog
+            onClose={() => setDialog(null)}
+            onImport={entries => {
+              if (!entries.length) return
+              history.record()
+              const origin = createPosition()
+              // 逐张错位摆放，别叠成一摞
+              const created = entries.map((entry, index) =>
+                buildImageNode(entry, { x: origin.x + index * 172, y: origin.y }),
+              )
+              setNodes(current => [...current, ...created])
+              setDialog(null)
+              flash(`已放入 ${created.length} 张图`)
+            }}
+          />
+        ) : null}
         {dialog?.kind === 'import' ? (
           <PromptImportDialog
             sizes={config?.sizes ?? []}

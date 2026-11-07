@@ -1,5 +1,5 @@
 // /imagora/* 的浏览器侧封装。host 半片已做鉴权，这里只负责把回答变成对象。
-import type { WorkflowEdge, WorkflowNode } from './lib/types'
+import type { AssetEntry, WorkflowEdge, WorkflowNode } from './lib/types'
 
 export interface ImagoraConfig {
   source?: 'plugin' | 'imagora'
@@ -24,15 +24,9 @@ export interface ImagoraConfig {
   issues: string[]
 }
 
-export interface AssetEntry {
-  id: string
-  name: string
-  size: number
-  ext: string
-  url: string
-  absPath: string
-  createdAt?: string
-}
+// 资产的类型定义只有一份：lib/types.ts（移植区）。这里不再重复声明，
+// 否则两边字段一漂移，调用点就会出现「结构兼容但类型不兼容」。
+export type { AssetEntry } from './lib/types'
 
 export interface TaskSnapshot {
   taskId: string

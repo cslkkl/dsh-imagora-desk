@@ -27,6 +27,7 @@ export interface ToolbarProps {
   onFitView: () => void
   onOpenSave: () => void
   onOpenLoad: () => void
+  onOpenHistory: () => void
   onOpenSettings: () => void
   onOpenHelp: () => void
 }
@@ -102,6 +103,7 @@ export function CanvasToolbar(props: ToolbarProps) {
       {toolButton('全览', props.onFitView)}
       {toolButton('保存', props.onOpenSave)}
       {toolButton('加载', props.onOpenLoad)}
+      {toolButton('生成历史', props.onOpenHistory)}
       {toolButton('设置', props.onOpenSettings)}
       {toolButton('帮助', props.onOpenHelp)}
     </div>
