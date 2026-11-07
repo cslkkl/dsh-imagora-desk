@@ -107,6 +107,12 @@ function normalizeProvider(raw) {
   return provider.baseUrl ? provider : null
 }
 
+/** 默认输出目录：设置里填过就用它，否则落在 `<插件数据目录>/output`。 */
+function resolveOutputDir(settings, root) {
+  const custom = typeof settings?.outputDir === 'string' ? settings.outputDir.trim() : ''
+  return custom ? resolve(custom) : join(root || homedir(), 'output')
+}
+
 /** 自带 provider 生效时用它解析，不看本机 Imagora。 */
 function resolveFromProvider(provider, settings, root) {
   const modelId = provider.model || String(settings?.model || '').trim()
@@ -132,7 +138,7 @@ function resolveFromProvider(provider, settings, root) {
     qualities,
     qualityEffective: qualities.length > 1,
     outputFormats: ['png', 'jpeg', 'webp'],
-    defaultOutputDir: join(root || homedir(), 'output'),
+    defaultOutputDir: resolveOutputDir(settings, root),
     issues,
     providerView: providerView({ provider }),
   }
@@ -198,7 +204,7 @@ export function loadImagoraConfig(settings) {
     ? model.quality_options
     : profile.quality_options || ['low', 'medium', 'high']
 
-  const defaultOutputDir = join(root || homedir(), 'output')
+  const defaultOutputDir = resolveOutputDir(settings, root)
   const issues = []
   if (!cfg.profiles) issues.push('没读到 imagora 的 config.json（也没在插件里填过接口地址）')
   if (!apiKey) issues.push(`当前 profile「${profileName || '未命名'}」没有配置密钥`)

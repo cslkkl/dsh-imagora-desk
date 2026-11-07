@@ -126,6 +126,8 @@ export const latestRecovery = () =>
 
 export const setModel = (model: string) => request<ImagoraConfig>('settings', jsonBody({ model }))
 export const setProfile = (profile: string) => request<ImagoraConfig>('settings', jsonBody({ profile }))
+/** 默认输出路径：传空串 = 回到来源根目录下的 output。 */
+export const setOutputDir = (outputDir: string) => request<ImagoraConfig>('settings', jsonBody({ outputDir }))
 export const revealPath = (path: string) => request<{ ok: boolean }>('reveal', jsonBody({ path }))
 
 export interface ProviderPatch {

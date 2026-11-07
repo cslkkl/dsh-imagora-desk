@@ -261,6 +261,27 @@ try {
   }).then(res => res.json())
   check('POST /provider reset 回到 imagora 配置', reset.source === 'imagora', reset.source)
 
+  // 默认输出路径：填了就生效，清空就回落到 <数据目录>/output
+  const customOut = join(SANDBOX, 'my-output')
+  const withOut = await fetch(`${base}/settings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ outputDir: customOut }),
+  }).then(res => res.json())
+  check('POST /settings 默认输出路径生效', withOut.defaultOutputDir === customOut, withOut.defaultOutputDir)
+
+  const resetOut = await fetch(`${base}/settings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ outputDir: '' }),
+  }).then(res => res.json())
+  // 回落的落点是「配置来源的根目录」，冒烟里是 fixture 的 imagora 根
+  check(
+    'POST /settings 清空输出路径回到来源根目录',
+    resetOut.defaultOutputDir === join(FIXTURE_ROOT, 'output'),
+    resetOut.defaultOutputDir,
+  )
+
   const probeMissing = await fetch(`${base}/provider/probe`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

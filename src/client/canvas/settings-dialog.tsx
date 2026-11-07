@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { probeProvider, saveProvider, type ImagoraConfig } from '../api'
 import { errMessage } from '../lib/format'
 import { primitives } from '../ui'
+import { OutputDirRow } from './output-dir-row'
 
 export interface SettingsDialogProps {
   config: ImagoraConfig | null
@@ -37,6 +38,8 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
       onSaved(next)
       setApiKey('')
       onFlash('已保存设置')
+      // 接口配置落盘后可以关掉；输出路径那段自己会即时生效，不需要重开弹窗
+      onClose()
     } catch (error) {
       onFlash(`保存失败：${errMessage(error)}`)
     } finally {
@@ -144,6 +147,8 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
             ))}
           </div>
         ) : null}
+
+        <OutputDirRow config={config} onSaved={onSaved} onFlash={onFlash} />
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           {usingPlugin ? (

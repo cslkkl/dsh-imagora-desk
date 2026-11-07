@@ -505,15 +505,7 @@ export function CanvasApp() {
           />
         ) : null}
         {dialog?.kind === 'settings' ? (
-          <SettingsDialog
-            config={config}
-            onClose={() => setDialog(null)}
-            onSaved={next => {
-              replaceConfig(next)
-              setDialog(null)
-            }}
-            onFlash={flash}
-          />
+          <SettingsDialog config={config} onClose={() => setDialog(null)} onSaved={replaceConfig} onFlash={flash} />
         ) : null}
       </div>
     </NodeActionContext.Provider>

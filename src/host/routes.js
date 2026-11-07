@@ -90,6 +90,8 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
       // 传空字符串 = 清掉插件里的来源覆盖，回到跟随 imagora 的 .env
       if (typeof body.profile === 'string') applySettings({ profile: body.profile.trim() })
       if (typeof body.imagoraRoot === 'string') applySettings({ imagoraRoot: body.imagoraRoot.trim() })
+      // 默认输出路径：空字符串 = 回到插件数据目录下的 output
+      if (typeof body.outputDir === 'string') applySettings({ outputDir: body.outputDir.trim() })
       return json(res, 200, publicConfig(getConfig()))
     }
 
