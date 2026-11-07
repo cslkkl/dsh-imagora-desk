@@ -519,6 +519,16 @@ body {
   background: var(--im-hover);
   color: var(--im-ink-2);
 }
+/* 可点的角标（蒙版）：看起来是标签，实际是按钮 —— 所以要有 pointer 与 hover 反馈，
+   否则用户永远不知道它能点。 */
+.im-chip--action {
+  border: 0;
+  font: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.im-chip--action:hover { filter: brightness(0.94); }
 .im-chip.is-brand { background: color-mix(in srgb, var(--im-brand) 12%, transparent); color: var(--im-brand); }
 .im-chip.is-danger { background: color-mix(in srgb, var(--im-danger) 14%, transparent); color: var(--im-danger); }
 .im-chip.is-ok { background: color-mix(in srgb, var(--im-ok) 14%, transparent); color: var(--im-ok); }
