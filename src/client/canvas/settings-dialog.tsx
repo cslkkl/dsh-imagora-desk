@@ -137,7 +137,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
                   background: 'none',
                   padding: '2px 0',
                   cursor: 'pointer',
-                  color: id === model ? 'var(--im-brand)' : 'var(--im-ink-2)',
+                  color: id === model ? 'var(--im-prompt)' : 'var(--im-ink-2)',
                   font: 'inherit',
                   textAlign: 'left',
                 }}

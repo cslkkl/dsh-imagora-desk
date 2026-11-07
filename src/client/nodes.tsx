@@ -74,7 +74,7 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
   const missing = data.missing || broken
   return (
     <div
-      className={`im-card${selected ? ' is-selected' : ''}${missing ? ' is-missing' : ''}`}
+      className={`im-card im-card--image${selected ? ' is-selected' : ''}${missing ? ' is-missing' : ''}`}
       style={{ padding: 8, width: 148 }}
     >
       <Handles />
@@ -134,7 +134,7 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
       >
         {data.name}
       </div>
-      <div style={{ fontSize: 11, color: data.refCount > 0 ? 'var(--im-brand)' : 'var(--im-ink-3)' }}>
+      <div style={{ fontSize: 11, color: data.refCount > 0 ? 'var(--im-prompt)' : 'var(--im-ink-3)' }}>
         {data.refCount > 0 ? `引用 ${data.refCount} 处` : '未引用'}
       </div>
     </div>
@@ -150,8 +150,8 @@ export const GroupNode = memo(function GroupNode({ id, data, selected }: NodePro
   const dup = data.duplicateCount ?? 0
   return (
     <div
-      className={`im-card${selected ? ' is-selected' : ''}`}
-      style={{ width: 196, padding: 14, background: 'color-mix(in srgb, var(--im-brand) 5%, var(--im-layer))' }}
+      className={`im-card im-card--group${selected ? ' is-selected' : ''}`}
+      style={{ width: 196, padding: 14, background: 'var(--im-group-soft)' }}
     >
       <Handles />
       <Rail>
@@ -160,7 +160,7 @@ export const GroupNode = memo(function GroupNode({ id, data, selected }: NodePro
         </RailButton>
       </Rail>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--im-brand)' }}>{data.imageCount} 张图</div>
+        <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--im-group)' }}>{data.imageCount} 张图</div>
         <div style={{ marginTop: 3, fontSize: 12 }} className="im-muted">
           {mb} MB
         </div>
@@ -208,9 +208,10 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
   const qualityEffective = config?.qualityEffective !== false
 
   return (
-    <div className={`im-card${selected ? ' is-selected' : ''}`} style={{ width: 340, padding: 10 }}>
+    <div className={`im-card im-card--prompt${selected ? ' is-selected' : ''}`} style={{ width: 340, padding: 10 }}>
       <Handles />
       <Rail>
+        {' '}
         <span className={`im-dot is-${data.status}`} title={STATUS_TEXT[data.status] ?? ''} />
         <RailButton label="删除提示词" danger onClick={() => actions.deleteNode(id)}>
           <Icon name="trash" />
@@ -221,7 +222,7 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
         <span className="im-node-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {data.title ?? '提示词生成'}
         </span>
-        <span className="im-chip">
+        <span className="im-chip is-brand">
           {data.status === 'running' ? <Elapsed from={data.startedAtMs} /> : (STATUS_TEXT[data.status] ?? '就绪')}
         </span>
       </div>
