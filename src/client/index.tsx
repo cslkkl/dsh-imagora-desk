@@ -30,9 +30,22 @@ globalThis.__dshImagoraCanvas = CanvasApp
  * 直接按同一个 size 渲染即可，不用额外留边距 —— 量过两边的墨迹占比：
  * 原版 logo 在 1024 视图框里墨迹是 785×764（占比 0.766），
  * 本项目其它图标是 24 视图框 + 1.7 描边（占比约 0.76），光学大小本来就一致。
+ *
+ * ## 颜色一律 `currentColor`（维护者 2026-11-07 定）
+ *
+ * 侧栏那一列是宿主与所有插件共用的一列，相邻图标（Plugins / 自动任务 / 用量统计…）
+ * 全是 `currentColor` 单色线条，颜色由宿主那套 class 决定：常态三级文字色、悬停提一档、
+ * 当前打开的那一行高亮、暗色主题整体翻转。这里若烘死品牌色，会出现
+ * 「别的图标都灰、只有我们这一枚是蓝的」，而且暗色主题下品牌色那点对比度也不够。
+ *
+ * 所以：**形状用自家的（与插件页 `icon.svg` 同一母题），上色交给宿主**。
+ * 参考实现见同级项目 `dsh-cpa-switch` 的 `src/client/PanelGlyph.tsx` —— 它同样把
+ * 「插件页一枚图标、侧栏一枚图标」画成同一个母题，颜色一律 `currentColor`。
+ * 区别只在那里侧栏用 16 格 outline、插件页用实心盘；本项目两处都是同一枚实心 logo，
+ * 因为 logo 在 16px 下实心比 outline 更认得出。
  */
 function PanelIcon({ size = 16 }: { size?: number }) {
-  return <BrandLogo size={size} />
+  return <BrandLogo size={size} fill="currentColor" />
 }
 
 export function apply(ctx: SlotsContext) {
