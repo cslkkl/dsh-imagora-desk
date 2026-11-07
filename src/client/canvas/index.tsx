@@ -68,6 +68,7 @@ export function CanvasApp() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [snapEnabled, setSnapEnabled] = useState(() => readSnapEnabled())
+  const [canvasLocked, setCanvasLocked] = useState(false)
   const [guides, setGuides] = useState<SnapGuide[]>([])
   const [restored, setRestored] = useState<string | null>(null)
 
@@ -335,6 +336,14 @@ export function CanvasApp() {
           busyIds={busyIds}
           minimapOpen={minimapOpen}
           snapEnabled={snapEnabled}
+          canvasLocked={canvasLocked}
+          onToggleLock={() =>
+            setCanvasLocked(value => {
+              const next = !value
+              flash(next ? '画布已锁：只可缩放，拖动/连线/选中/平移都停了' : '画布已解锁')
+              return next
+            })
+          }
           zoom={zoom}
           onAddPrompt={addPromptNode}
           onPickFiles={() => fileInputRef.current?.click()}
@@ -456,7 +465,12 @@ export function CanvasApp() {
             // 与 Imagora 同一套手势：左键拖空白 = 平移画布（panOnDrag），
             // Ctrl/Cmd+点击 = 加选。框选 Imagora 用右键拖，这里用 Shift+拖（原生），
             // 右键留给「平移」，免得和 Imagora 的右键框选抢同一个键。
-            panOnDrag
+            // 与 Imagora 的「锁定画布」同语义：一次性关掉拖动/连线/选中/平移，
+            // 只看不动（缩放仍留着，方便凑近看细节）
+            nodesDraggable={!canvasLocked}
+            nodesConnectable={!canvasLocked}
+            elementsSelectable={!canvasLocked}
+            panOnDrag={!canvasLocked}
             selectionOnDrag={false}
             selectionKeyCode="Shift"
             multiSelectionKeyCode={['Meta', 'Control']}
