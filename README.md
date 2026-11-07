@@ -101,12 +101,25 @@ dsh plugin --profile web add dsh-imagora-desk
 
 - 请求直连你自己填的接口，没有中转服务。
 - 密钥只写本机 `~/.dsh/imagora/settings.json`（权限 600），接口只回「是否已配置」。
-- 图片、工作流、恢复快照全部落在 `~/.dsh/imagora/` 下，可随时整个删掉。
+- 默认图片、工作流、恢复快照全部落在 `~/.dsh/imagora/` 下，可随时整个删掉。
+
+### 和原版 [Imagora](https://github.com/Cogniform/imagora) 共用一份数据
+
+设置里填上 Imagora 目录（含 `config.json` 的那个文件夹），插件就**直接读写它那一份**，
+不复制、不建快捷方式：
+
+- 接口地址、密钥、模型：读它的 `config.json` / `providers.local.json` / `.env`。
+- 工作流：读写它的 `output/workflows/`。
+- 生成历史：读它的 `output/.assets/registry.json`，插件新出的图也登记进同一张表
+  （按内容 sha1 去重，与原版同一个 id 算法）。
+
+目录留空就只用插件自己的 `~/.dsh/imagora/`，两者互不影响。填了之后随时可以在设置里
+点「不共享」切回去。
 
 ## 与 Imagora 的差距
 
-功能面已经对齐：58 项对照里没有「未实现」项了。剩下三处 🟡 是同一件事的两种做法
-（节点拖拽拉伸、加载同名工作流的二次确认、插件内配置时的价目显示），不是缺功能。
+功能面已经对齐：75 项对照里没有「未实现」项了。剩下两处 🟡 是同一件事的两种做法
+（节点拖拽拉伸、插件内配置时的价目显示），不是缺功能。
 逐项对照见 [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md)。
 
 ## 开发
@@ -116,7 +129,7 @@ dsh plugin --profile web add dsh-imagora-desk
 ```powershell
 pnpm install
 pnpm run build        # 打 dist/client.js；改完源码必须重跑
-pnpm run test         # 两套冒烟：host 接口 30 项 + bundle/包名/插槽 13 项
+pnpm run test         # 两套冒烟：host 接口 58 项 + bundle/包名/插槽 16 项
 pnpm run harness      # 渲染验收台 http://127.0.0.1:4319/（mock 数据，不花钱）
 ```
 

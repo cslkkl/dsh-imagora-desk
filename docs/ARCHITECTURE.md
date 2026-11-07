@@ -2,11 +2,11 @@
 
 ## 目标
 
-把 Imagora 的自由画布作为 DSH 插件提供，只做画布。
+把 [Imagora](https://github.com/Cogniform/imagora) 的自由画布作为 DSH 插件提供，只做画布。
 
 - 不做：Imagora 的表单页、批量页、配置页、成本看板。
 - 不做：要求本机跑 Python 服务。
-- 约束：装上即用，配置与密钥直接沿用本机 Imagora。
+- 约束：装上即用；配置、密钥、工作流与生成历史都可以直接沿用本机 Imagora 那一份（见「状态目录」）。
 
 ## 分层
 
@@ -85,20 +85,36 @@ client 半端通过 `window.__ModuleLoader__.load` 注册进宿主的模块表�
 
 ## 状态目录
 
+存储有两套落点，**由「有没有设置 imagora 目录」决定**（`src/host/store.js`）：
+
 ```
-~/.dsh/imagora/
+未设置 imagora 目录（插件独用）—— ~/.dsh/imagora/
   assets/      画布图片（上传、粘贴、生成结果）
   output/      生成结果默认落盘
   workflows/   命名工作流
   recovery/    自动恢复快照
   registry.json / settings.json
+
+设置了 imagora 目录（与原版共用一份）—— <imagoraRoot>/
+  output/.assets/registry.json      原版的资产注册表（v2，relPath 相对 output/）
+  output/.assets/canv_<sha1>.png
+  output/workflows/<名字>.json      原版的工作流
+  output/workflows/.recovery/       原版的恢复快照
 ```
 
-`DSH_IMAGORA_HOME` 可整体改道，测试用它指到临时目录。
+共用那条路是**指针，不是副本**：填上目录之后读的就是原版那份注册表与工作流目录，插件新出的图也注册进同一张表、落在同一个 `.assets`，两边都不需要同步脚本。`settings.json` 永远留在 `~/.dsh/imagora`（插件自己的偏好不写进别人的仓库）。
+
+三条必须守住的兼容规则：
+
+- **注册表两种格式都读**：v2（原版，`{schemaVersion, images:{id:entry}}`，绝对路径由 `relPath` 现算）与 v1（插件旧格式，条目带 `absPath`）。**写哪种由当前目录决定** —— 共用模式必须写 v2，否则原版读不到。
+- **共用模式下资产按内容 sha1 去重**，文件名 `canv_<sha1[:12]>`，与原版同一个 id 算法：插件新出的图与原版已有的同一张图不会存两遍。
+- **工作流落盘剥掉派生的 `url` / `absPath` / `missing`**（原版 `_strip_derived_node_paths` 的做法）。派生路径写进文件后目录一搬家就失效；加载时按 `registryId` 从注册表重建 —— 原版工作流只存 `registryId`，这条回退是读它的唯一通路。
+
+`DSH_IMAGORA_HOME` 可整体改道插件自己那套目录，测试用它指到临时目录（不影响共用模式的用例：那些自己造 `<imagoraRoot>/output`）。
 
 ## 样式
 
-设计层照搬 Imagora 的 `frontend/src/index.css`（`panel-card` / `field-control` / `btn-primary` / `btn-ghost` / `chip` 与尺寸阶梯），只换一处：**颜色从宿主 token 取**。
+设计层照搬 [Imagora](https://github.com/Cogniform/imagora) 的 `frontend/src/index.css`（`panel-card` / `field-control` / `btn-primary` / `btn-ghost` / `btn-draggable` / `chip` 与尺寸阶梯），只换一处：**颜色从宿主 token 取**。
 
 - 颜色一律用 `--dsw-*` alias token，配一个兜底值；暗色主题跟随宿主，不需要额外分支。
 - `--im-*` 是这层 token 的语义别名（`--im-brand` / `--im-surface` / `--im-field` 等），**定义在 `body` 上**，不放在 `.im-root`：宿主 Modal 把内容 portal 到 `body` 下，挂在 `.im-root` 上的自定义属性它继承不到。
@@ -137,6 +153,12 @@ client 半端通过 `window.__ModuleLoader__.load` 注册进宿主的模块表�
 
 输入控件有两档：弹窗/表单是 14px 字号 + `8px 20px` 内边距；节点内是 12px + `8px` 横向内边距——14px 在 7fr 列里会把「1024x1024 (1:1) (0…」截在数字中间。
 
+聚焦态只有**一圈 4px / 13% 的品牌色光环 + 品牌色描边**，没有 outline。原版那两条规则（`@layer` 里的 `ring-2 ring-brand/20` 与后面未分层的 `.field-control:focus`）叠出来的最终值就是 4px / 13%；而它的 `:focus-visible` 名单里只有 `button` / `a` / `[role=button]` / `[role=option]` / `input[type=range]`，**输入类控件不在内**。两边都补 outline 会变成「光环 + 实线框」双重影。
+
+节点卡比普通卡片重一档阴影（`--im-shadow-node`）：原版 `.node-pop` 是「12/26 大投影 + 顶部 1px 内高光」，节点要浮在点阵画布之上。内高光从表面色派生，不写死白色——暗色主题下写死白色会发光。
+
+图片组节点是**两层纸**：外层是节点卡片本身（白底 + 边框 + 18 圆角），内层才是 `brand 5%` 底 / `brand 15%` 描边的卡面，叠卡夹在中间错位露出。只留内层会变成一块淡蓝方块，与图片卡、提示词卡不是一个族。选中态的 outline 打在外层。
+
 ### 下拉框
 
 下拉是自绘 listbox（`src/client/select.tsx`），不是原生 `<select>`：原生展开后的列表由操作系统绘制，样式不受控。
@@ -148,6 +170,8 @@ client 半端通过 `window.__ModuleLoader__.load` 注册进宿主的模块表�
 - 分组只影响渲染，不参与键盘导航：`activeIndex` 始终是扁平可见列表的下标，上下键跨组连续。
 
 浮层打开时弹窗的 Esc 要让位（`lib/popupLayer.ts` 的 `hasOpenPopup()`）：先收下拉，再关弹窗。
+
+顶栏那两个下拉（来源 / 模型）**固定宽度**（200 / 230），不按内容自适应：否则换一个长短不同的来源名，后面整排按钮会跟着左右横跳。长名字在触发器里省略号截断，完整值走 `title` 与展开列表。
 
 ## 提示
 
@@ -188,6 +212,8 @@ client 半端通过 `window.__ModuleLoader__.load` 注册进宿主的模块表�
 - 改路由：同步 `src/client/api.ts`、host 冒烟用例、本文件的契约表。
 - 动 `src/client/lib/`：按上游语义判断，不要按本项目风格改；格式检查已排除该目录。
 - 装依赖后忘了重建：CI 的 `dist` 同步检查会红，本地钩子也跑构建相关的冒烟。
+- 改存储路径：`store.js` 的路径全是 **getter**（`assetsDir` / `workflowsDir` / `registryPath` …），因为它们要跟着 `setSharedRoot` 变。别把它们改回构造函数里赋值的字段——那样切目录不会生效，表现是「设置里填了 imagora 目录，工作流和生成历史还是空的」。
+- 量聚焦态要用 CDP 的 `Emulation.setFocusEmulationEnabled`：headless Chrome 默认没有窗口焦点，`:focus` 永远不匹配，直接量会得到「border 还是灰的、没有光环」，那是假象。
 
 ## 相关
 

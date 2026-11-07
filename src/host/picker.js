@@ -1,7 +1,7 @@
 // 原生目录选择：在宿主机上弹一个系统文件夹对话框，把绝对值返回给页面。
 //
 // 为什么只能这么做：浏览器侧的 <input webkitdirectory> 拿不到绝对路径（只给相对名），
-// 而这里要的正是 `D:\ProjectSomething\imagora` 这种绝对路径去当设置值。
+// 而这里要的正是 `C:\imagora` 这种绝对路径去当设置值。
 // 宿主是普通 Node 进程，跑在用户的桌面会话里，所以由它调系统对话框是最直接的路。
 //
 // Windows 用 Windows PowerShell 5.1（powershell.exe）+ .NET Framework 的

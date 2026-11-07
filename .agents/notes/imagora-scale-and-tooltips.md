@@ -6,7 +6,7 @@
 
 界面对齐原版时接连出现「间隙不一致」「边框粗细不一」「提示有时快有时慢」这类问题，需要一份可直接对照的实测数据，而不是凭印象调数字。
 
-调查对象：`D:\ProjectSomething\imagora\frontend\src\index.css` 与 `components/*.tsx`（原版），对照 `src/client/styles.ts` 与各 `*.tsx`（插件）。
+调查对象：上游 Imagora 的 `frontend/src/index.css` 与 `components/*.tsx`（路径相对[上游仓库](https://github.com/Cogniform/imagora)根），对照本仓库的 `src/client/styles.ts` 与各 `*.tsx`。
 
 ## 结论
 
