@@ -393,6 +393,22 @@ body {
   border: 1px solid var(--im-line);
   border-radius: var(--im-r-control);
 }
+/* 右上角选中操作栏：半透明浮层 + 一排按钮（Imagora 的 .studio-inspector） */
+.im-inspector {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--im-r-control);
+  background: var(--im-surface-float);
+  border: 1px solid var(--im-line);
+  box-shadow: var(--im-shadow-float);
+}
+
 /* 左下角控件坞：带文字的一列，与 Imagora 的 DockRow 同构 */
 .im-dock {
   position: absolute;
