@@ -409,6 +409,66 @@ body {
   box-shadow: var(--im-shadow-float);
 }
 
+/* ---------------- 弹窗（照搬 Imagora 的 modal-shell / modal-panel） ----------------
+   全屏 grid 居中 + 四档宽度 + 头/身/脚三段。内容是「挤」还是「装得下」全看这套：
+   宿主 Modal 的面板宽度按它自己的内容定，塞我们这种表单必然溢出被裁。 */
+.im-modal-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: clamp(12px, 2vw, 24px);
+  background: var(--dsw-alias-bg-mask-1, rgba(0, 0, 0, 0.32));
+  backdrop-filter: blur(3px);
+}
+.im-modal-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 42rem);
+  max-height: min(86dvh, 760px);
+  overflow: hidden;
+  padding: 20px;
+  border: 1px solid var(--im-line);
+  border-radius: var(--im-r-card);
+  outline: none;
+  background: var(--im-surface);
+  box-shadow: var(--dsw-elevation-prominent, 0 24px 70px rgba(15, 20, 25, 0.26));
+}
+.im-modal-panel--sm { width: min(100%, 26rem); }
+.im-modal-panel--md { width: min(100%, 35rem); }
+.im-modal-panel--lg { width: min(100%, 42rem); }
+.im-modal-panel--wide { width: min(1100px, 96vw); max-height: min(86dvh, 880px); }
+.im-modal-header { margin-bottom: 16px; }
+.im-modal-title {
+  margin: 0;
+  color: var(--im-ink);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.im-modal-subtitle {
+  margin: 4px 0 0;
+  max-width: 58ch;
+  color: var(--im-ink-3);
+  font-size: 12px;
+  line-height: 1.55;
+}
+/* flex:1 + min-height:0 是「能滚」的前提。只写 overflow-y:auto 而高度不受约束的话，
+   scrollHeight 永远等于 clientHeight，底部几行会被面板静默裁掉。 */
+.im-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.im-modal-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
 /* 左下角控件坞：带文字的一列，与 Imagora 的 DockRow 同构 */
 .im-dock {
   position: absolute;
