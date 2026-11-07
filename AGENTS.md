@@ -35,7 +35,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - 本地钩子（commit 前）：文本卫生、prettier、eslint、tsc、host 冒烟、bundle 冒烟，全绿。
 - CI：`.github/workflows/ci.yml`，只读；末段 `git diff --exit-code -- dist/client.js` 守住产物同步。
 - CI 状态以 Actions 徽章为准，不在这里抄结论；最近一次 main 的 push 为绿。
-- 冒烟数字：host 58 项、client 16 项（含设计层 CSS 括号平衡一条）。
+- 冒烟数字：host 59 项、client 16 项（含设计层 CSS 括号平衡一条）。
 - 验收台示例图是仓库里的 `harness/sample.png`（1600×1200）：内嵌兜底只有 64×64，会让所有尺寸相关验收失去意义。
 - 渲染验收台：`scripts/harness-server.mjs` + 真实浏览器，实测建卡→运行→回流、四个对话框、Del 删除、粘贴导入、生成历史、滚轮缩放、左键平移、拖拽吸附与对齐线、锁定画布、成本徽章与预算闸门、裁剪/切分/放大/蒙版四个对话框。
 - 真实出图链路验证过两次（火山 Seedream 5.0 pro，1024x1024，单张 0.20 元）：一次走 imagora 配置，一次走插件内配置。
@@ -60,6 +60,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - 索引里的 commit 不能写「刚提交的 HEAD」：索引文件本身是提交的一部分，写进去那次提交又产生新 HEAD，永远落后一格。现在指向 v<version> tag 指向的提交，`market:fresh` 兜住存在性。
 - 全局事件监听（点外部关闭、快捷键）如果目标区域可能是**画布**，必须用**捕获阶段**：React Flow 在 `mousedown` 上会 `stopPropagation`，冒泡阶段的 `document` 监听收不到。表现为「点画布空白关不掉下拉/浮层」。
 - 布局里写 `flex: 1` 的占位元素，选择器**不能带父级作用域**：`.im-toolbar .im-spacer` 管不到页头里的同名 span，表现为「按钮全挤左边、右侧空着」。`width` 与 `padding` 同时写时别忘了 `box-sizing: border-box`，否则宽度会多出两倍内边距。
+- **改了 `src/host/` 后「界面上没变化」不等于改漏了**：插件是软链装的，但宿主进程**只在启动时加载 host 模块**，软链只省掉重装、不省掉重载。判据是「这个产物在什么时候被读」——host 代码**启动时读一次**，client 代码按指纹在浏览器里换。所以改完 host 要 `dsh_hot_reload`（entryId 是 `include:imagora`；热重载失败会回滚）或重启宿主，改完 client 要重建 `dist/client.js` 再刷新页面。用户报过「你改了吗？为什么还是没有」——那次就是只改了文件、进程还拿着旧模块。**验证 host 侧的改动要用真实数据走一遍完整 HTTP 路径**（假 ctx 挂起 host 半端，像 `scripts/smoke-host.mjs` 那样），别只看源码。
 
 ## 文档地图
 
