@@ -131,7 +131,18 @@ client 半端通过 `window.__ModuleLoader__.load` 注册进宿主的模块表�
 
 顶栏只放全局动作。**依赖当前选区的动作进顶栏会被误读成「对整张画布生效」**——「全部运行」和「运行所选」就是最容易被混的一对。
 
+顶栏按原版分成两行：页头行（来源 / 模型 / 成本 / 设置）与工具栏行（左创建类、右工作流类）。控件坞行序固定为 缩放读数 → 放大 → 缩小 → 适应 → 聚焦 → 吸附 → 地图 → 锁定 → 帮助，**别调**：用户靠位置记。
+
 层叠：`.im-canvas` 自带 `isolation: isolate`；节点 `:hover` 抬到 `z-index: 1001`（否则右侧操作栏被相邻节点盖住）；连线层 `1200`；浮条与日志 `40`。
+
+## 拖拽与弹窗
+
+这两块各有一条「不照搬就一定错」的事实，与 `docs/ARCHITECTURE.md` 其余部分同样是硬约束：
+
+- **`dragover` 阶段读不到 `dataTransfer.getData`**，浏览器只在 `drop` 时才允许读自定义类型。所以落画布的意图必须同时接受 `dragstart` 时登记的 ref 作 fallback（见 `lib/canvasDrop.ts` 的 `resolveDropIntent`）。只靠 `getData` 判意图会永远返回 null，于是不 `preventDefault`，浏览器不认这个 drop——表现是「能拖、松手没反应」。
+- **弹窗要自带基座**（`canvas/modal-shell.tsx`）。宿主 `ui.Modal` 的面板宽度按它自己的内容定，弹窗里再写死 `minWidth` 必然溢出，被裁掉的是右边那一块。基座的 `.im-modal-body` 必须 `flex: 1 1 auto; min-height: 0; overflow-y: auto`——只写 `overflow` 不给高度约束的话 `scrollHeight` 永远等于 `clientHeight`，底部几行会被静默裁掉。
+
+`.im-root` 需要 `flex: 1 1 auto; width: 100%`：宿主插槽容器是 flex，没有 `flex` 的伸缩项会按内容收缩，画布右侧会留出一条空白，看着也像「被裁掉」。
 
 ## 防错清单
 
