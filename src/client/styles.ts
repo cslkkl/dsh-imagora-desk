@@ -955,6 +955,50 @@ body {
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* ---------------- 生成中占位卡（移植 GenerationPending） ----------------
+   渐近假进度 + 文案轮播。进度条只动 transform，不给 width 做动画。 */
+/* 只给读屏的文本：不能 display:none（会被移出无障碍树） */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.im-pending {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: var(--im-r-sm);
+  background: var(--im-surface-inset);
+  border: 1px solid var(--im-line);
+}
+.im-pending-label {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--im-ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.im-pending-track {
+  margin-top: 6px;
+  height: 3px;
+  border-radius: var(--im-r-pill);
+  background: var(--im-hover);
+  overflow: hidden;
+}
+.im-pending-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--im-brand);
+  transform-origin: left center;
+  transition: transform 0.9s linear;
+}
+
 .im-modal-mask {
   position: absolute;
   inset: 0;
