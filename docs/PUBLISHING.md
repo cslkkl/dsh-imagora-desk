@@ -52,21 +52,95 @@ CI 也会拦（它校验 commit 存在于仓库里）。
 
 ## 二、发 npm（需要维护者账号）
 
-发 npm 的唯一好处是「`dsh plugin add dsh-imagora-desk` 能直接装」和
-「市场默认索引能自动收录」。本机目前 `npm whoami` 是 `ENEEDAUTH`，这步要你自己跑：
+发 npm 的唯一好处是「`dsh plugin add dsh-imagora-desk` 能直接装」。
+市场搜索**不依赖它**（走的是第一节那份自托管索引）。
+
+### 先搞清楚本机的 registry 陷阱
+
+本机用户级 `.npmrc` 是：
+
+```text
+registry=https://registry.npmmirror.com
+```
+
+淘宝镜像**只能下载、不能发布**。直接 `npm publish` 会打到镜像上然后失败。
+仓库已经用 `publishConfig` 把发布源钉死在官方源，所以**不用加 `--registry`**：
+
+```jsonc
+"publishConfig": { "registry": "https://registry.npmjs.org/", "access": "public" }
+```
+
+`publishConfig` 只管发布，日常 `pnpm install` 仍然走镜像（不受影响）。
+
+### 登录（三种方式，选一种）
+
+**A. 自动化令牌（推荐：无交互，适合脚本/远程环境）**
+
+1. 打开 https://www.npmjs.com/settings/~/tokens → Generate New Token → **Granular Access Token**
+2. 权限选 **Read and write**，勾选 _Automation_（跳过 2FA 交互）
+3. 把令牌写进用户级 `.npmrc`：
+
+```powershell
+npm config set //registry.npmjs.org/:_authToken=<粘贴令牌>
+npm whoami --registry=https://registry.npmjs.org
+```
+
+期望输出你的 npm 用户名。
+
+**B. 浏览器登录（需要能开浏览器的真实终端）**
+
+```powershell
+npm login --registry=https://registry.npmjs.org --auth-type=web
+```
+
+会在本机开浏览器授权，回调后自动写入凭据。**注意**：这条必须在真实终端里跑，
+在捕获输出的非交互 shell 里会卡住。
+
+**C. 经典用户名密码（如果账号没开强制 2FA）**
 
 ```powershell
 npm login --registry=https://registry.npmjs.org
-cd C:\Users\11965\Desktop\dsh-imagora-desk
-npm publish --registry=https://registry.npmjs.org --access public
 ```
 
-发布前检查：
+### 发布
 
-- `package.json` 的 `name` / `version` / `files` / `repository` 与实际一致
-- `dist/client.js` 是最新构建（CI 有 `git diff --exit-code -- dist/client.js` 守着）
-- 版本按语义升：功能升 minor，修 bug 升 patch
-- 发完重跑 `pnpm run market:index`，把索引的 `source` 从 `git` 换成 `npm`（可选）
+```powershell
+cd C:\Users\11965\Desktop\dsh-imagora
+pnpm install --frozen-lockfile
+pnpm run test                 # 45 + 13 + 索引校验，全绿再往下
+npm publish                   # registry 与 access 已在 publishConfig 里
+```
+
+`prepublishOnly` 会自动跑 `build` + client 冒烟：**npm publish 不跑 CI**，
+仓库里的 `dist` 可能是旧的，这一步防止把过期产物发出去。
+
+### 发布后核验
+
+```powershell
+npm view dsh-imagora-desk version --registry=https://registry.npmjs.org
+npm view dsh-imagora-desk dist.tarball --registry=https://registry.npmjs.org
+```
+
+再装一遍确认：
+
+```powershell
+dsh plugin --profile pubcheck add dsh-imagora-desk
+```
+
+### 发布前检查清单
+
+- [ ] 包名未被占用：`https://registry.npmjs.org/<name>` 返回 404
+- [ ] `package.json` 的 `name` / `version` / `files` / `repository` 与实际一致
+- [ ] `npm publish --dry-run` 的文件清单里没有多余文件，体积合理
+- [ ] `dist/client.js` 是最新构建（CI 与 `prepublishOnly` 双重把关）
+- [ ] 版本按语义升：功能升 minor，修 bug 升 patch
+- [ ] `engines.dsh` 与实际兼容的 DSH 版本一致
+
+### 已发 npm 之后（可选）
+
+把索引的 `source` 从 `git` 换成 `npm`，让安装走 registry 而不是 git clone：
+改 `scripts/build-market-index.mjs` 里的 `source` 字段，然后 `pnpm run market:release`。
+当前保持 `git` 也能正常工作，且不依赖分发渠道。
 
 ### 关于 dsh-plugin-lab 的默认索引
 
