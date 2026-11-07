@@ -86,7 +86,24 @@ body {
   /* 阴影走宿主 elevation：写死 rgba 在深色主题下等于没有阴影 */
   --im-shadow-card: var(--dsw-elevation-soft, 0 1px 2px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(0, 0, 0, 0.04));
   --im-shadow-float: var(--dsw-elevation-panel, 0 6px 22px rgba(0, 0, 0, 0.12));
-  --im-shadow-modal: var(--dsw-elevation-prominent, 0 24px 70px rgba(15, 20, 25, 0.26));
+
+  /* —— 弹窗的两条「提亮」边：描边 + 顶部内高光 ——
+   *
+   * 原版弹窗的立体感来自**两处往白里提亮**，不是来自投影：
+   *   border:   1px solid rgba(255,255,255,.68)   （index.css:749）
+   *   box-shadow: …, inset 0 1px 0 rgba(255,255,255,.8) （index.css:754）
+   * 它们表达的是「光从左上来」，所以边框比底色**更白**。
+   *
+   * ⚠️ 这两条是**唯一无法用语义 token 表达**的取值：--im-line 是「分隔线」语义
+   * （暗色白 12%），拿它当描边会让弹窗失去「浮起来」的观感（亮色下尤其明显，白底上
+   * 一条灰线看着像分隔而不是边缘）。所以照 --im-scrim 的同一套处理：写死原版值，
+   * 再在暗色块里单独压淡（见下面 body[data-ds-dark-theme]）——
+   * 白 68% 压在白 12% 的界面上一道亮边会发光，必须两套。 */
+  --im-modal-edge: color-mix(in srgb, #fff 68%, transparent);
+  --im-modal-glow: inset 0 1px color-mix(in srgb, #fff 80%, transparent);
+
+  --im-shadow-modal: var(--dsw-elevation-prominent, 0 24px 70px rgba(15, 20, 25, 0.26)),
+    var(--im-modal-glow);
   /* 画布节点卡专用的一档：原版 .node-pop 是「12/26 的大投影 + 顶部 1px 内高光」，
      比普通卡片重一档（节点要浮在点阵画布之上）。
      ⚠️ 那道内高光必须**往亮里派生**：写成「surface 90%」在浅色下是白（对），
@@ -105,23 +122,32 @@ body {
    * 遮罩的语义是「把底下的界面推远」，两种主题下都该压暗，所以写死这档深色：
    * 暗色下它同样只是压暗（不会像从 ink 派生那样变成白纱）。 */
   --im-scrim: color-mix(in srgb, #141a1f 62%, transparent);
+  /* 嵌套弹窗（弹窗里再开一个弹窗）的遮罩：原版 --scrim-bg-nested 是 44%，
+     比外面那层淡 —— 两层都 62% 会把下层弹窗糊成一片、看不出还有东西在下面。 */
+  --im-scrim-nested: color-mix(in srgb, #141a1f 44%, transparent);
 }
 
-/* 暗色主题下**必须单独覆盖的两条**（其余 token 都会随宿主自动翻转）。
+/* 暗色主题下**必须单独覆盖的几条**（其余 token 都会随宿主自动翻转）。
  *
  * 1. 页面底：浅色里 bg-module-platform 是比卡片暗的灰（对），暗色里却比卡片**亮**
  *    （#353638 vs #232324），页面会比卡片还突出、层次整个翻过来。这里改指向
  *    bg-base（暗 #151517），于是"页面 < 画布 < 卡片 < 浮层"由深到浅，方向正确。
  * 2. 节点/画布卡的内高光：inset 那一层在浅色是"白色提亮"，暗色若还从表面色派生
  *    就会变成一道暗边。暗色下改成极淡的白色（8%），只是一条能看出边界的细线。
+ * 3. 弹窗的描边与内高光（--im-modal-edge / --im-modal-glow）：原版白 68% 与白 80%
+ *    是给白底准备的；暗色底上原样照搬就是一圈发光边框。压到 14% / 10% —— 参照宿主
+ *    自己的 border-l3（暗 #ffffff29 ≈ 16%）与节点内高光那条 8%，落在同一档。
+ *    判据：暗色下面板边缘应「能看出边界」，不是「在发光」。
  *
- * 只写这两条是有意的：能用「宿主 token 自动翻转」解决的，就不要写第二个主题块。 */
+ * 只写这几条是有意的：能用「宿主 token 自动翻转」解决的，就不要写第二个主题块。 */
 body[data-ds-dark-theme] {
   --im-surface-page: var(--dsw-alias-bg-base, #151517);
   --im-shadow-node: var(--dsw-elevation-panel, 0 12px 26px rgba(0, 0, 0, 0.4)),
     inset 0 1px color-mix(in srgb, #fff 8%, transparent);
   --im-shadow-canvas: var(--dsw-elevation-prominent, 0 18px 45px rgba(0, 0, 0, 0.4)),
     inset 0 1px color-mix(in srgb, #fff 8%, transparent);
+  --im-modal-edge: color-mix(in srgb, #fff 14%, transparent);
+  --im-modal-glow: inset 0 1px color-mix(in srgb, #fff 10%, transparent);
 }
 
 .im-root {
@@ -905,7 +931,21 @@ body[data-ds-dark-theme] {
   place-items: center;
   padding: clamp(12px, 2vw, 24px);
   background: var(--im-scrim);
-  backdrop-filter: blur(3px);
+  /* 原版 --scrim-blur 是 blur(10px) saturate(.9)（index.css:201）。
+     插件此前写 3px —— 背景里的卡片标题、节点文字全都清晰可读，和浮在上面的弹窗
+     抢注意力。遮罩的职责是「把底下的界面推到看不清」，10px 才是那一档。
+     saturate(.9) 一起抄：只压暗不降饱和会让底下的彩色缩略图仍然跳出来。 */
+  -webkit-backdrop-filter: blur(10px) saturate(0.9);
+  backdrop-filter: blur(10px) saturate(0.9);
+}
+/* 嵌套弹窗（弹窗里再开一个）：z 抬到 60，遮罩换淡一档。
+ * 原版 .modal-shell--nested（index.css:726）就是这么做的，但**当前生产代码没有调用点**
+ * （原版 grep 只命中 ModalShell.tsx 自身与它的单测）—— 保留是能力预留，
+ * 语义（Esc / Tab / 点遮罩关最上层）已经在 modal-shell.tsx 的 modalStack 里实现了，
+ * 缺的只是这一档视觉。真要用时不必再改基座。 */
+.im-modal-shell--nested {
+  z-index: 60;
+  background: var(--im-scrim-nested);
 }
 .im-modal-panel {
   display: flex;
@@ -918,21 +958,47 @@ body[data-ds-dark-theme] {
   max-height: min(86dvh, 760px);
   overflow: hidden;
   padding: 20px;
-  border: 1px solid var(--im-line);
+  /* 原版是**白色描边** rgba(255,255,255,.68)（index.css:749），不是灰色分隔线。
+     理由与暗色处理见 --im-modal-edge 的注释。 */
+  border: 1px solid var(--im-modal-edge);
   border-radius: var(--im-r-card);
   outline: none;
   /* 弹窗是**高卡片一档**的台面（原版用 --surface-panel）：浅色下两者都是白，
      暗色下卡片 #232324、弹窗 #2c2c2e，窗口才浮得出来。 */
   background: var(--im-surface-panel);
+  /* 投影 + 顶部 1px 内高光（inset 那层在 --im-shadow-modal 里，随主题两套值） */
   box-shadow: var(--im-shadow-modal);
 }
 .im-modal-panel--sm { width: min(100%, 26rem); }
 .im-modal-panel--md { width: min(100%, 35rem); }
 .im-modal-panel--lg { width: min(100%, 42rem); }
-.im-modal-panel--wide { width: min(1100px, 96vw); max-height: min(86dvh, 880px); }
+/* 历史弹窗档（原版 .modal-panel--history，index.css:759-766）：
+   **定高**而不是「最大高」。列表要占满剩余空间自己滚，头与成本看板钉在上下；
+   写成 max-height 时面板会被内容撑到内容高度，列表就没得滚、底部按钮位置也乱跳。
+   padding: 0 是因为这一档的内容自带分段（header / 看板 / 列表各占一条通栏），
+   面板再留 20px 内边距会让通栏背景离边缘悬空。 */
+.im-modal-panel--wide {
+  width: min(1100px, 96vw);
+  height: min(86dvh, 880px);
+  max-height: none;
+  padding: 0;
+}
+/* 过渡：面板变通栏之后，历史弹窗的「头 / 正文 / 脚」还没各自带内边距
+ * （原版那一档是每个分段自己 pad，见 index.css 的 .history-modal > header 等）。
+ * 等历史弹窗真正改成分段结构时，这层内边距会由各分段自己承担。
+ * 在那之前先把内边距补回到三段上，让这一档的观感和改动前一致，
+ * 避免只改了宽度档就把历史弹窗弄坏。
+ *
+ * ⚠️ 这三条**必须一起写**：只补其中一两条，漏掉的那段就会贴到面板边缘
+ * （实测漏了 header：标题和副标题直接顶在左边框上）。 */
+.im-modal-panel--wide > .im-modal-header { padding: 20px 26px 0; }
+.im-modal-panel--wide > .im-modal-body { padding: 20px 26px 0; }
+.im-modal-panel--wide > .im-modal-footer { padding: 0 20px 20px; }
 .im-modal-header { margin-bottom: 16px; }
 .im-modal-title {
   margin: 0;
+  /* 原版写死 #17202b（index.css:772），我们走 --im-ink：亮色=#0f1115（比原版深一点，
+     在同一档），暗色自动翻成近白。写死会在暗色下变成黑字压深底。 */
   color: var(--im-ink);
   font-size: 15px;
   font-weight: 650;
@@ -941,16 +1007,39 @@ body[data-ds-dark-theme] {
 .im-modal-subtitle {
   margin: 4px 0 0;
   max-width: 58ch;
-  color: var(--im-ink-3);
+  /* 原版 rgba(23,32,43,.6)（index.css:773）。从 ink 派生而不是取 --im-ink-3：
+     ink-3 是「三级文字」语义（暗色偏亮），原版这行是「主文字的 60%」，
+     两者在暗色下差一档。派生能自动得到亮色≈原值、暗色=白 60%。
+     为什么不用 --im-ink-2：亮色下它 (#61666b) 比原版那行更深，副标题会抢标题的份量。 */
+  color: color-mix(in srgb, var(--im-ink) 60%, transparent);
   font-size: 12px;
   line-height: 1.55;
 }
 /* flex:1 + min-height:0 是「能滚」的前提。只写 overflow-y:auto 而高度不受约束的话，
-   scrollHeight 永远等于 clientHeight，底部几行会被面板静默裁掉。 */
+   scrollHeight 永远等于 clientHeight，底部几行会被面板静默裁掉。
+ *
+ * padding-inline: 6px 与 scrollbar-gutter 照原版（index.css:813-826），**不是**随便留白：
+ * 滚动容器只裁到 padding box，而 button:focus-visible 是 outline 2px + offset 3px = 5px
+ * （见本文件末尾那段键盘可达性）。内边距为 0 时，文本框/下拉左侧的焦点环会被整条切掉，
+ * 右边却正常 —— 看着像「焦点环只画了一半」。两侧同值才不会左右不对称。 */
 .im-modal-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  padding-inline: 6px;
+  /* 滚动条出现时预留占位：否则一出现滚动条，内容整体左移几 px，弹窗像在抖 */
+  scrollbar-gutter: stable;
+}
+/* 弹窗里的空态（暂无工作流等）：原版 .modal-empty（index.css:775）。
+   原版色值是 rgba(23,32,43,.38)，这里取 --im-ink-3 而不是照 .38 派生：
+   .38 在暗色下是「38% 白」，对深底只有 2.6:1，低于可读线；ink-3 是宿主已经调过的
+   三级文字（亮 #81858c / 暗 #adb2b8），两种主题都在 4:1 上下。
+   这是「照搬语义、不照搬数字」的一处 —— 空态本来就没有「必须这么淡」的设计意图。 */
+.im-modal-empty {
+  padding: 24px 12px;
+  color: var(--im-ink-3);
+  font-size: 12px;
+  text-align: center;
 }
 /* 可选列表（保存弹窗里的已有工作流）：点一行就把名字填进去 */
 .im-pick-list {
