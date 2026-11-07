@@ -66,5 +66,6 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - host 半端手册 → [src/host/README.md](src/host/README.md)
 - client 半端手册 → [src/client/README.md](src/client/README.md)
 - 脚本与验收台 → [scripts/README.md](scripts/README.md)
+- 渲染验收台 → [harness/README.md](harness/README.md)
 - 第三方声明 → [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 - 对外门面 → [README.md](README.md)
