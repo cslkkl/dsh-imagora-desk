@@ -687,6 +687,7 @@ export function CanvasApp() {
         {dialog?.kind === 'save' ? (
           <SaveDialog
             workflows={dialog.workflows ?? []}
+            imagoraRoot={config?.imagoraRoot}
             onCancel={() => setDialog(null)}
             onSubmit={name => void doSave(name)}
           />
@@ -694,6 +695,7 @@ export function CanvasApp() {
         {dialog?.kind === 'load' ? (
           <LoadDialog
             workflows={dialog.workflows ?? []}
+            imagoraRoot={config?.imagoraRoot}
             onCancel={() => setDialog(null)}
             onPick={name => void doLoad(name)}
           />
@@ -766,6 +768,7 @@ export function CanvasApp() {
         {dialog?.kind === 'help' ? <HelpDialog config={config} onClose={() => setDialog(null)} /> : null}
         {dialog?.kind === 'history' ? (
           <HistoryDialog
+            imagoraRoot={config?.imagoraRoot}
             onClose={() => setDialog(null)}
             onImport={entries => {
               if (!entries.length) return

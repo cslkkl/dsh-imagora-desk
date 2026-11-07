@@ -16,6 +16,26 @@ function json(res, status, body) {
   res.end(JSON.stringify(body))
 }
 
+/**
+ * 落盘前归一化：图片节点只保留 `registryId` + 元数据，**剥掉派生的 url / absPath / missing**。
+ *
+ * 这是原版 workflow_save 的硬约束（core/graphstore.py 的 `_strip_derived_node_paths`）：
+ * 派生路径一旦写进文件，项目目录改名 / 换机器之后旧存档就指向不存在的绝对路径；
+ * 只存 registryId，加载时按注册表的 `relPath` 现算，才叫「搬走也不坏」。
+ * `missing` 同理 —— 它是加载那一刻的判定结果，存进文件只会让下次打开带着过期结论。
+ * 共用模式下我们写的是原版要读的文件，所以必须遵守同样的规则。
+ */
+function stripDerived(nodes) {
+  return (Array.isArray(nodes) ? nodes : []).map(node => {
+    if (node?.type !== 'image' || !node.data) return node
+    const { url, absPath, missing, ...rest } = node.data
+    void url
+    void absPath
+    void missing
+    return { ...node, data: rest }
+  })
+}
+
 async function readBuffer(req, limit) {
   const chunks = []
   let size = 0
@@ -76,14 +96,7 @@ function publicConfig(config) {
  */
 export function createRouter({ store, pool, getConfig, getSettings, applySettings }) {
   /** registryId → absPath：给 hydrate 补节点上没存的路径用。 */
-  const assetIndex = async () => {
-    const registry = await store.readRegistry()
-    const map = new Map()
-    for (const entry of registry.assets) {
-      if (entry?.id && entry.absPath) map.set(String(entry.id), String(entry.absPath))
-    }
-    return map
-  }
+  const assetIndex = () => store.assetIndex()
   return async function route(req, res) {
     const url = new URL(req.url || '/', 'http://local')
     const path = url.pathname.replace(/^\/imagora/, '') || '/'
@@ -269,7 +282,7 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
     if (path === '/workflow/save' && method === 'POST') {
       const body = await readJson(req)
       const nodes = store.hydrate(body.nodes, await assetIndex())
-      const saved = await store.saveWorkflow(body.name, { nodes, edges: body.edges || [] })
+      const saved = await store.saveWorkflow(body.name, { nodes: stripDerived(nodes), edges: body.edges || [] })
       return json(res, 200, saved)
     }
 
