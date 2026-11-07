@@ -47,3 +47,7 @@ jobs:
       # 构建产物必须与源码同步提交：改了源码却没重建 dist，装出来的插件还是旧画布
       - name: dist 与源码同步
         run: git diff --exit-code -- dist/client.js
+
+      # 索引里的 commit 必须指向真实提交：否则市场里点安装的是不存在的 sha
+      - name: 市场索引指向真实提交
+        run: pnpm run market:fresh

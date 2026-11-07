@@ -30,12 +30,25 @@
 
 ## 安装
 
-```powershell
-# 插件市场里点安装等价于这条（发布到 npm 后可用）
-dsh plugin --profile web add dsh-imagora-desk
+**最快的方式：加一个索引源，然后在插件市场里搜「imagora」。**
 
-# 或直接用本仓库的 Release 包
+`插件 → 打开「自定义插件索引」→ 插件 → 发现 → 添加索引源`，粘贴：
+
+```text
+https://cdn.jsdelivr.net/gh/cslkkl/dsh-imagora-desk@main/market/index.json
+```
+
+也可以直接用命令行装：
+
+```powershell
+# 从仓库源码（git，pinned 到提交无所谓，装最新）
+dsh plugin --profile web add git+https://github.com/cslkkl/dsh-imagora-desk.git
+
+# 或用 Release 包
 dsh plugin --profile web add https://github.com/cslkkl/dsh-imagora-desk/releases/download/v0.1.0/dsh-imagora-desk-0.1.0.tgz
+
+# npm 发布之后可用
+dsh plugin --profile web add dsh-imagora-desk
 ```
 
 装完刷新页面。左侧面板列表出现「自由画布」；若没有，重启一次 `dsh web`（页面的 client 清单在启动时计算）。

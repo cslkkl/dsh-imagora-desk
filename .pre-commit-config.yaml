@@ -53,3 +53,17 @@ repos:
         language: system
         pass_filenames: false
         files: ^(src/client/|dist/client\.js$|package\.json$|cordis\.patch\.yml$)
+
+      - id: market-index
+        name: 市场索引格式与新鲜度
+        entry: node scripts/check-market-index.mjs
+        language: system
+        pass_filenames: false
+        files: ^(market/|package\.json$)
+
+      - id: market-freshness
+        name: 市场索引指向真实提交
+        entry: node scripts/check-market-freshness.mjs
+        language: system
+        pass_filenames: false
+        files: ^(market/index\.json$|package\.json$|src/host/|src/client/|dist/client\.js$)
