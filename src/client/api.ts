@@ -93,6 +93,81 @@ export const uploadImage = async (file: File | Blob, name: string) => {
 
 export const deleteAsset = (id: string) => request<{ ok: boolean }>('asset/delete', jsonBody({ id }))
 
+/* ---------------- 生成历史（读账本 logs/generation.jsonl，不是资产注册表） ----------------
+ *
+ * 「先有账本还是先有图」决定了这条链路为什么要单独一套接口：注册表一条 = 一个存在的
+ * 图片文件（没有提示词/成本/耗时），账本一条 = 一次生成尝试（含失败，带提示词）。
+ * 历史列表要显示提示词与参考图，只能走账本。
+ *
+ * host 侧语义逐条照原版 core/history.py（聚合去重 + 空白折叠搜索 + 聚合后分页），
+ * 所以这里只管拼参数与翻页。 */
+
+export interface HistoryInputRef {
+  id: string
+  path: string
+  url: string
+}
+
+export interface GenerationHistoryItem {
+  time: string
+  mode: string
+  refs: number
+  prompt: string
+  size: string
+  quality: string
+  status: string
+  cost: number
+  seconds: number
+  /** 账本里记的原始输出路径（可能是别的机器/别的目录，仅作展示与「打开目录」用） */
+  output: string
+  /** 图还在不在（按注册表副本判定，回退路径） */
+  exists: boolean
+  /** 解析出的本机绝对路径；不存在时为空 */
+  path: string
+  /** 可直接 <img src> 的地址；不存在或路径不在放行范围时为空 */
+  url: string
+  /** 有资产副本时的注册表 id：画布节点只存 registryId，没有它就建不了档 */
+  assetId: string
+  inputRefs: HistoryInputRef[]
+  /** 声明了参考图却一张都找不回（只能提示，无法重跑） */
+  inputRefMissing: boolean
+}
+
+export interface HistoryPage {
+  /** `ledger` = 读到账本；`none` = 没设 imagora 目录或原版还没生成过图 */
+  source: 'ledger' | 'none'
+  ledgerPath: string
+  items: GenerationHistoryItem[]
+  total: number
+  hasMore: boolean
+}
+
+export interface HistoryStats {
+  total: number
+  ok: number
+  error: number
+  successRate: number
+  cost: number
+  seconds: number
+  avgSeconds: number
+  todayCost: number
+  byDay: { date: string; count: number; ok: number; error: number; cost: number }[]
+  bySize: { size: string; count: number; cost: number }[]
+  byMode: { mode: string; count: number; cost: number }[]
+  budget: { limit: number; spentToday: number; remaining: number }
+}
+
+export const generationHistory = (input: { limit?: number; offset?: number; query?: string; status?: string } = {}) => {
+  const params = new URLSearchParams()
+  params.set('limit', String(input.limit ?? 60))
+  params.set('offset', String(input.offset ?? 0))
+  if (input.query) params.set('query', input.query)
+  if (input.status) params.set('status', input.status)
+  return request<HistoryPage>(`history?${params.toString()}`)
+}
+
+export const generationStats = (days = 14) => request<HistoryStats>(`history/stats?days=${days}`)
+
 export interface SubmitInput {
   prompt: string
   size: string

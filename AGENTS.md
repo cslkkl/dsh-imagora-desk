@@ -44,6 +44,8 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 
 - [x] 市场可搜索：自托管索引 + GitHub Pages，实测搜到并安装成功。发 npm 只是可选增强（`dsh plugin add dsh-imagora-desk` 直接装）
 - [ ] 未做自动化 UI 测试，验收台靠手工脚本驱动
+- [ ] 生成历史「双源并存」：现在列表读原版账本 `logs/generation.jsonl`（有提示词/参考图），插件自己出的图只在资产注册表里，两边不合流。要合流得让 `src/host/tasks.js` 按原版 schema 追加账本 —— 属跨应用写别人的日志，还要解决 Python 与 Node 同时写的互斥，**故意没做**。判据见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 的「生成历史读的是账本，不是资产注册表」。
+- [ ] 生成历史成本条的「日预算 / 单次上限」输入框（原版 CostBoard）：指标行已搬，两个输入框要新增写接口，暂未做。
 
 功能对照全表 → [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md)
 

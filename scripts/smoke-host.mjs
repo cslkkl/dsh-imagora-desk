@@ -518,6 +518,118 @@ try {
     `${sharedUpload.image?.id} vs ${SHARED_ID}`,
   )
 
+  // ---------------- 生成历史：读的是**账本**，不是注册表 ----------------
+  //
+  // 这一段锁住 core/history.py 的三条语义，它们都是「看起来能简化、简化就错」的地方：
+  //   1. 坏行必须跳过（账本 append-only，断电会留半行，一条坏行不能毁掉整个历史）
+  //   2. 同参数的**失败**只留最新一条（否则同一张卡失败几次就把历史刷满）
+  //   3. 有 outputAssetIds 的行按注册表解析（原文件挪走也还看得见图）；
+  //      没有它的旧行回退 output 路径
+  const historyDir = join(SHARED_ROOT, 'logs')
+  mkdirSync(historyDir, { recursive: true })
+  const ledgerRows = [
+    // ① 有资产副本：按注册表解析 → 有 url，且带 assetId（导入画布要用）
+    {
+      time: '2026-11-01 12:00:00',
+      mode: 'img2img',
+      refs: 1,
+      prompt: '账本行 A：有资产副本',
+      size: '1024x1024',
+      quality: 'high',
+      status: 'ok',
+      cost: 0.2,
+      seconds: 60,
+      output: '不存在的导出目录/a.png',
+      outputAssetIds: [SHARED_ID],
+      inputAssetIds: [SHARED_ID],
+    },
+    // ② 只有 output 路径（相对 imagora 根），文件真在 output/ 下 → 走 /file?path=
+    {
+      time: '2026-11-01 11:00:00',
+      mode: 'txt2img',
+      refs: 0,
+      prompt: '账本行 B：只有路径',
+      size: '1536x1024',
+      quality: 'medium',
+      status: 'ok',
+      cost: 0,
+      seconds: 30,
+      output: 'output/plugin-shot.png',
+    },
+    // ③④ 同参数的两次失败：聚合后只留最新那条
+    {
+      time: '2026-11-01 10:00:00',
+      mode: 'txt2img',
+      refs: 0,
+      prompt: '账本行 C：同一张卡失败两次',
+      size: '1024x1024',
+      quality: 'low',
+      status: 'error',
+      cost: 0,
+      seconds: 2,
+      output: '',
+    },
+    {
+      time: '2026-11-01 10:05:00',
+      mode: 'txt2img',
+      refs: 0,
+      prompt: '账本行 C：同一张卡失败两次',
+      size: '1024x1024',
+      quality: 'low',
+      status: 'error',
+      cost: 0,
+      seconds: 3,
+      output: '',
+    },
+  ]
+  writeFileSync(
+    join(historyDir, 'generation.jsonl'),
+    `${ledgerRows.map(row => JSON.stringify(row)).join('\n')}\n{"坏行": 这不是合法 JSON\n`,
+  )
+  // ② 引用的文件真落一份在 output/ 下（/file?path= 才放行）
+  writeFileSync(join(SHARED_ROOT, 'output', 'plugin-shot.png'), PNG)
+
+  const historyPage = await fetch(`${base}/history?limit=60&offset=0`).then(res => res.json())
+  check('共用模式：/history 读的是账本', historyPage.source === 'ledger', historyPage.source)
+  check(
+    '共用模式：账本坏行被跳过（3 条有效记录）',
+    Array.isArray(historyPage.items) && historyPage.items.length === 3 && historyPage.total === 3,
+    `${historyPage.items?.length} 条 / total ${historyPage.total}`,
+  )
+  check(
+    '共用模式：同参数失败只留最新一条',
+    historyPage.items?.filter(row => row.prompt.startsWith('账本行 C')).length === 1,
+    String(historyPage.items?.filter(row => row.prompt.startsWith('账本行 C')).length),
+  )
+  const assetRow = historyPage.items?.find(row => row.prompt.startsWith('账本行 A'))
+  check(
+    '共用模式：有 outputAssetIds 的行解析出 assetId 与 url',
+    Boolean(assetRow?.assetId === SHARED_ID && assetRow?.url),
+    `${assetRow?.assetId} ${assetRow?.url}`,
+  )
+  check(
+    '共用模式：参考图按注册表解析成 inputRefs',
+    (assetRow?.inputRefs?.length ?? 0) === 1,
+    String(assetRow?.inputRefs?.length),
+  )
+  const pathRow = historyPage.items?.find(row => row.prompt.startsWith('账本行 B'))
+  check(
+    '共用模式：只有 output 路径的旧行也能出图（/file?path=）',
+    Boolean(pathRow?.path && pathRow?.url?.includes('path=')),
+    pathRow?.url ?? '(无 url)',
+  )
+
+  const historyStats = await fetch(`${base}/history/stats`).then(res => res.json())
+  check(
+    '共用模式：/history/stats 按原始行聚合（成功行算费用）',
+    historyStats.total === 4 && historyStats.cost >= 0.2,
+    `total ${historyStats.total} cost ${historyStats.cost}`,
+  )
+
+  // 路径式取图的边界：output/ 之外一律拒绝（账本里可能有别的机器路径）
+  const outsideFile = await fetch(`${base}/file?path=${encodeURIComponent(join(FIXTURE_ROOT, 'config.json'))}`)
+  check('GET /file?path= 越界路径被拒', outsideFile.status === 403, String(outsideFile.status))
+
   // 切回去：插件独用，不该再看见原版那份
   const sharedOff = await fetch(`${base}/settings`, {
     method: 'POST',

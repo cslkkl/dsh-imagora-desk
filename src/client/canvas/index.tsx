@@ -808,7 +808,8 @@ export function CanvasApp() {
                 buildImageNode(entry, { x: origin.x + index * 172, y: origin.y }),
               )
               setNodes(current => [...current, ...created])
-              setDialog(null)
+              // **不关窗**：原版导入后历史继续开着，方便接着挑下一张；
+              // 关掉会让「挑图-导入-再挑」变成反复重开弹窗、每次重拉一遍账本。
               flash(`已放入 ${created.length} 张图`)
             }}
           />

@@ -1,6 +1,103 @@
 // 验收台的 mock 数据：配置 + 一份带图的恢复快照，让画布一打开就有真实内容。
 const pollCounts = new Map()
 
+/** 生成历史的 mock 行：形状与 host 的 /imagora/history 完全一致。
+ *
+ * 里面全是**编的**提示词（不带任何真实用户内容），只为让「提示词 2 行截断 / 参考图缩略 /
+ * 三颗按钮 / 失败行 / 文件已移动」这几种状态都能在验收台上看到。
+ * `assetId` 非空的几条同时出现在 /imagora/assets 里 —— 历史行的「导入画布」按钮
+ * 要靠注册表条目才点得动，没有它按钮是禁用的（这条本身也要能看到）。
+ */
+const HISTORY_ROWS = [
+  {
+    time: '2026-11-07 21:40:12',
+    mode: 'img2img',
+    refs: 2,
+    prompt:
+      'linen tote bag on warm concrete, soft top light, shallow depth of field, muted sand palette, editorial product photography, 85mm',
+    size: '1024x1024',
+    quality: 'high',
+    status: 'ok',
+    cost: 0.05,
+    seconds: 61.2,
+    output: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output\\img2img_20261107_213955.png',
+    exists: true,
+    path: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output\\.assets\\canv_aaaa11112222.png',
+    url: '/imagora/file?id=aaaa11112222',
+    assetId: 'aaaa11112222',
+    inputRefs: [
+      {
+        id: 'ref000000001',
+        path: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output\\.assets\\ref1.png',
+        url: '/imagora/file?id=ref000000001',
+      },
+      {
+        id: 'ref000000002',
+        path: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output\\.assets\\ref2.png',
+        url: '/imagora/file?id=ref000000002',
+      },
+    ],
+    inputRefMissing: false,
+  },
+  {
+    time: '2026-11-07 20:12:03',
+    mode: 'txt2img',
+    refs: 0,
+    prompt: 'wool scarf on linen, morning window light, quiet still life, warm neutral tones',
+    size: '1536x1024',
+    quality: 'high',
+    status: 'ok',
+    cost: 0.1,
+    seconds: 58.4,
+    output: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output\\txt2img_20261107_201205.png',
+    exists: true,
+    path: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output\\.assets\\canv_bbbb33334444.png',
+    url: '/imagora/file?id=bbbb33334444',
+    assetId: 'bbbb33334444',
+    inputRefs: [],
+    inputRefMissing: false,
+  },
+  {
+    time: '2026-11-06 19:31:55',
+    mode: 'img2img',
+    refs: 1,
+    prompt: 'ceramic mug, hand-thrown, soft shadow, off-white backdrop',
+    size: '1024x1024',
+    quality: 'medium',
+    status: 'error',
+    cost: 0,
+    seconds: 3.1,
+    output: '',
+    exists: false,
+    path: '',
+    url: '',
+    assetId: '',
+    inputRefs: [],
+    // 图生图声明了参考图、却一张都找不回：列表要显示「参考图缺失」并计入顶部提示
+    inputRefMissing: true,
+  },
+  {
+    time: '2026-11-05 09:02:41',
+    mode: 'txt2img',
+    refs: 0,
+    prompt: 'paper texture study, warm grey, high frequency detail',
+    size: '1024x1024',
+    quality: 'low',
+    status: 'ok',
+    cost: 0.05,
+    seconds: 22.8,
+    output: 'C:\\Users\\demo\\Pictures\\txt2img_20261105_090241.png',
+    exists: true,
+    path: 'C:\\Users\\demo\\Pictures\\txt2img_20261105_090241.png',
+    // 文件在「图片」目录里：不在 assets/output 之下，所以 host 不给 url。
+    // 这行就是原版的「文件已移动」形态 —— 只能看文字、不能看图。
+    url: '',
+    assetId: '',
+    inputRefs: [],
+    inputRefMissing: false,
+  },
+]
+
 export function defineConfig(path, url) {
   if (path === '/imagora/config') {
     return {
@@ -35,7 +132,67 @@ export function defineConfig(path, url) {
   }
 
   if (path === '/imagora/assets') {
-    return { images: [] }
+    // 与历史 mock 里带 assetId 的几条对齐：历史行要能换成资产条目才「导入画布」得动
+    return {
+      images: HISTORY_ROWS.filter(row => row.assetId).map(row => ({
+        id: row.assetId,
+        name: `canv_${row.assetId}.png`,
+        size: 1024 * 1024,
+        ext: 'png',
+        relPath: `.assets/canv_${row.assetId}.png`,
+        url: `/imagora/file?id=${row.assetId}`,
+        absPath: `C:\\Users\\demo\\Desktop\\imagora\\imagora\\output\\.assets\\canv_${row.assetId}.png`,
+        createdAt: row.time,
+      })),
+    }
+  }
+
+  if (path === '/imagora/history') {
+    const query = (url.searchParams.get('query') || '').trim().toLowerCase()
+    const status = (url.searchParams.get('status') || '').trim().toLowerCase()
+    const limit = Math.min(500, Math.max(1, Number(url.searchParams.get('limit')) || 60))
+    const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0)
+    // 与 host 侧同序：搜索/状态在聚合**之前**过滤，分页作用在聚合后的数组上
+    const all = HISTORY_ROWS.filter(row => {
+      if (status && row.status !== status) return false
+      if (!query) return true
+      return [row.time, row.prompt, row.mode, row.quality, row.output]
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .toLowerCase()
+        .includes(query)
+    })
+    const page = all.slice(offset, offset + limit)
+    return {
+      source: 'ledger',
+      ledgerPath: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\logs\\generation.jsonl',
+      items: page,
+      total: all.length,
+      hasMore: offset + page.length < all.length,
+    }
+  }
+
+  if (path === '/imagora/history/stats') {
+    const ok = HISTORY_ROWS.filter(row => row.status === 'ok')
+    const cost = ok.reduce((sum, row) => sum + row.cost, 0)
+    const seconds = ok.reduce((sum, row) => sum + row.seconds, 0)
+    return {
+      total: HISTORY_ROWS.length,
+      ok: ok.length,
+      error: HISTORY_ROWS.length - ok.length,
+      successRate: Math.round((ok.length / HISTORY_ROWS.length) * 1000) / 10,
+      cost: Math.round(cost * 100) / 100,
+      seconds: Math.round(seconds * 10) / 10,
+      avgSeconds: Math.round((seconds / ok.length) * 10) / 10,
+      todayCost: Math.round(cost * 100) / 100,
+      byDay: [],
+      bySize: [
+        { size: '1024x1024', count: 4, cost: 0.2 },
+        { size: '1536x1024', count: 1, cost: 0.1 },
+      ],
+      byMode: [{ mode: 'img2img', count: 3, cost: 0.15 }],
+      budget: { limit: 0, spentToday: Math.round(cost * 100) / 100, remaining: 0 },
+    }
   }
 
   if (path === '/imagora/file') {

@@ -47,6 +47,13 @@ export interface ModalShellProps {
    *  Esc / Tab / 点遮罩关「最上层」的判定本来就按 modalStack 走，与这个标志无关 ——
    *  它只影响视觉的层叠。当前生产代码没有调用点，留着是为了下次真需要时不必改基座。 */
   nested?: boolean
+  /** 不渲染可见的标题区，标题只作屏幕阅读器的可访问名。
+   *
+   *  给「自己有一条通栏标题带」的弹窗用 —— 生成历史就是这样：原版的标题、搜索框、
+   *  状态筛选与关闭按钮在**同一条 header 带**里（`.history-modal > header`），由调用方
+   *  自己排；基座再插一个标题区就会变成「标题两层」。
+   *  这也正是原版 ModalShell 的默认行为：它只渲 sr-only 的 h2，可见标题归调用方。 */
+  headerless?: boolean
 }
 
 export function ModalShell({
@@ -59,6 +66,7 @@ export function ModalShell({
   initialFocusRef,
   closeOnBackdrop = true,
   nested = false,
+  headerless = false,
 }: ModalShellProps) {
   const instanceId = `im-modal-${useId()}`
   const titleId = `${instanceId}-title`
@@ -134,12 +142,19 @@ export function ModalShell({
         className={`im-modal-panel im-modal-panel--${size}`}
         onMouseDown={event => event.stopPropagation()}
       >
-        <header className="im-modal-header">
-          <h2 id={titleId} className="im-modal-title">
+        {headerless ? (
+          // 只留可访问名：可见标题由调用方自己排进它那条通栏标题带
+          <h2 id={titleId} className="visually-hidden">
             {title}
           </h2>
-          {subtitle ? <p className="im-modal-subtitle">{subtitle}</p> : null}
-        </header>
+        ) : (
+          <header className="im-modal-header">
+            <h2 id={titleId} className="im-modal-title">
+              {title}
+            </h2>
+            {subtitle ? <p className="im-modal-subtitle">{subtitle}</p> : null}
+          </header>
+        )}
         <div className="im-modal-body">{children}</div>
         {footer ? <footer className="im-modal-footer">{footer}</footer> : null}
       </section>

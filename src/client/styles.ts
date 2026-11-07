@@ -1059,17 +1059,15 @@ body[data-ds-dark-theme] {
   max-height: none;
   padding: 0;
 }
-/* 过渡：面板变通栏之后，历史弹窗的「头 / 正文 / 脚」还没各自带内边距
- * （原版那一档是每个分段自己 pad，见 index.css 的 .history-modal > header 等）。
- * 等历史弹窗真正改成分段结构时，这层内边距会由各分段自己承担。
- * 在那之前先把内边距补回到三段上，让这一档的观感和改动前一致，
- * 避免只改了宽度档就把历史弹窗弄坏。
- *
- * ⚠️ 这三条**必须一起写**：只补其中一两条，漏掉的那段就会贴到面板边缘
- * （实测漏了 header：标题和副标题直接顶在左边框上）。 */
-.im-modal-panel--wide > .im-modal-header { padding: 20px 26px 0; }
-.im-modal-panel--wide > .im-modal-body { padding: 20px 26px 0; }
-.im-modal-panel--wide > .im-modal-footer { padding: 0 20px 20px; }
+/* 历史弹窗档：内容**按通栏分段**排（标题带 / 成本条 / 列表各占一条），
+   所以面板自己不留内边距，滚动也交给列表 —— 标题带与成本条要钉在顶上不跟着滚。 */
+.im-modal-panel--wide > .im-modal-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
 .im-modal-header { margin-bottom: 16px; }
 .im-modal-title {
   margin: 0;
@@ -1117,7 +1115,220 @@ body[data-ds-dark-theme] {
   font-size: 12px;
   text-align: center;
 }
-/* 可选列表（保存弹窗里的已有工作流）：点一行就把名字填进去 */
+
+/* ---------------- 生成历史（照搬 Imagora 的 .history-modal，index.css:869-874 + 928-933） ----------------
+ * 三段通栏：标题带（搜索/筛选/关闭钉在顶上）→ 成本条 → 列表（只有它滚）。
+ * 原版这套的分段背景读 --surface-float，壳体读 --surface-panel ——
+ * 于是标题带看起来是「壳体上浮起来的一条」，不是纯白平铺。 */
+.im-history {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.im-history-bar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--im-line);
+  background: var(--im-surface-float);
+}
+/* 原版 .history-modal h2 是 16px / -.025em（比普通弹窗的 15px 大一档：
+   这条带子里标题要和搜索框、按钮并排竞争注意力） */
+.im-history-title {
+  margin: 0 8px 0 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--im-ink);
+  white-space: nowrap;
+}
+/* 搜索框：比表单里的 .im-field 紧凑一档（原版 !w-72 !py-1），圆角 9（原版 928-933 那条） */
+.im-history-search {
+  width: 18rem;
+  max-width: 100%;
+  padding: 4px 12px;
+  border-radius: 9px;
+  font-size: 13px;
+}
+.im-history-status { flex: none; width: 7rem; }
+.im-history-bar-end { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.im-history-warn {
+  font-size: 11px;
+  color: var(--im-warn);
+  white-space: nowrap;
+}
+/* 成本条：指标等宽成列（标签在上、数值在下），与原版 CostBoard 同构。
+   原版还带「日预算 / 单次上限」两个输入框 —— 那是写接口，本步没做（见 PR 说明）。 */
+.im-history-stats {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--im-line);
+  background: var(--im-surface-float);
+}
+.im-history-stat { min-width: 0; }
+.im-history-stat-label {
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--im-ink-3);
+  white-space: nowrap;
+}
+.im-history-stat-value {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--im-ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* 列表：整屏**只有这里滚** */
+.im-history-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+  scrollbar-gutter: stable;
+}
+/* 两列卡片（原版 ul.grid grid-cols-2 gap-3）。窄屏退一列 —— 原版 900px 那条。 */
+.im-history-rows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* 行：左 160px 结果图占满行高，右侧内容自己排（原版 li + w-40 min-h-36 self-stretch） */
+.im-history-row {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--im-line);
+  /* 原版历史行的圆角是 12（比通用卡片的 16 小一档：行更密） */
+  border-radius: 12px;
+  background: var(--im-surface-float);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+/* 悬停抬升：原版 li:hover / li:focus-within 同一条。
+   :focus-within 是必需的 —— 键盘用户 Tab 到行内按钮时要看到「我现在在这一行」。 */
+.im-history-row:hover,
+.im-history-row:focus-within {
+  transform: translateY(-2px);
+  box-shadow: var(--dsw-elevation-panel, 0 10px 22px rgba(31, 41, 55, 0.08));
+}
+.im-history-thumb {
+  display: flex;
+  flex: none;
+  align-self: stretch;
+  width: 160px;
+  min-height: 144px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--im-surface-inset);
+}
+.im-history-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.im-history-thumb-empty {
+  padding: 4px;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--im-ink-3);
+}
+.im-history-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+/* 提示词：2 行截断（原版 line-clamp-2）。完整内容走 title —— 插件统一用原生 title，
+   不引宿主气泡（见根 AGENTS 的「原生 title」那条坑）。 */
+.im-history-prompt {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--im-ink-2);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+/* 时间 / 质量 / 尺寸：原版 text-[10px] tabular-nums */
+.im-history-meta {
+  margin: 0;
+  font-size: 10px;
+  color: var(--im-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.im-history-refs { display: flex; flex-wrap: wrap; gap: 6px; }
+.im-history-ref {
+  width: 56px;
+  height: 56px;
+  overflow: hidden;
+  border: 1px solid var(--im-line);
+  border-radius: 6px;
+  background: var(--im-surface-inset);
+}
+.im-history-ref img { width: 100%; height: 100%; object-fit: cover; }
+.im-history-ref-missing { font-size: 10px; color: var(--im-warn); }
+/* 行内动作：三颗等宽（原版 min-w-0 flex-1） */
+.im-history-actions { display: flex; gap: 6px; margin-top: auto; }
+.im-history-actions > * { flex: 1 1 0; min-width: 0; }
+/* 原版历史里的按钮圆角 8、输入框 9（index.css:932-933），比通用档紧一档 */
+.im-history-actions .im-btn-ghost,
+.im-history-actions .im-btn-primary { border-radius: var(--im-r-sm); padding-inline: 8px; }
+.im-history-empty {
+  padding: 64px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--im-ink-3);
+}
+.im-history-note {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--im-ink-3);
+}
+.im-history-pager {
+  padding: 12px 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--im-ink-3);
+}
+.im-history-error {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--im-danger) 32%, transparent);
+  border-radius: var(--im-r-sm);
+  background: color-mix(in srgb, var(--im-danger) 8%, transparent);
+  font-size: 12px;
+  color: var(--im-danger);
+}
+@media (max-width: 900px) {
+  /* 原版同一条：窄屏两列挤成一条，行内 160px 的图会让提示词只剩一两字宽 */
+  .im-history-rows { grid-template-columns: 1fr; }
+}
+@media (hover: none), (pointer: coarse) {
+  /* 触摸设备没有悬停：抬升会变成"点一下跳一下" */
+  .im-history-row:hover { transform: none; box-shadow: none; }
+}
+/* 可选列表（保存弹窗里的已有工作流）：点一行就把名字填进去。
+   注意这是原版**保存**弹窗那套（内联 Tailwind：px-3 py-1.5 / 12px / meta 10px），
+   与下面加载弹窗用的 .im-workflow-list 是两个不同的档 —— 原版自己就没统一，
+   照各自原样来，别为了「统一」把它们合成一套。 */
 .im-pick-list {
   margin-top: 6px;
   max-height: 144px;
@@ -1144,6 +1355,50 @@ body[data-ds-dark-theme] {
 .im-pick-row:hover { background: color-mix(in srgb, var(--im-brand) 5%, transparent); color: var(--im-brand); }
 .im-pick-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .im-pick-meta { flex: none; font-size: 10px; color: var(--im-ink-3); }
+
+/* ---------------- 加载工作流的列表（照搬原版 .workflow-list，index.css:776-780） ----------------
+ * 逐值对照：容器 1px rgba(31,41,55,.12) + radius var(--r-control) + --surface-float；
+ * 行 9px 12px / 12px / #3f4953；meta 11px / rgba(23,32,43,.42) / 等宽数字。
+ * 它比保存弹窗那套（.im-pick-*，6px 12px / meta 10px）松一档 —— 这是原版自己的
+ * 两套值，不是我们漂移。 */
+.im-workflow-list {
+  border: 1px solid var(--im-line);
+  border-radius: var(--im-r-control);
+  background: var(--im-surface-float);
+  /* 原版 max-h-72（=288px）：工作流多到几十份时列表自己滚，别把弹窗撑长 */
+  max-height: 288px;
+  overflow-y: auto;
+}
+.im-workflow-list__item {
+  display: flex;
+  /* 行是 <button>：没有 Tailwind preflight 抹平，浏览器默认的灰底/边框/居中/字体
+     都得自己清掉，漏一条就是「系统默认按钮」混在列表里 */
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--im-ink-2);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.18s ease, background-color 0.18s ease;
+}
+.im-workflow-list__item:hover,
+.im-workflow-list__item:focus-visible {
+  color: var(--im-brand);
+  background: color-mix(in srgb, var(--im-brand) 7%, transparent);
+}
+.im-workflow-list__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.im-workflow-list__meta {
+  flex: none;
+  font-size: 11px;
+  color: var(--im-ink-3);
+  font-variant-numeric: tabular-nums;
+}
 
 /* 弹窗里的说明/计数小字：footer 左侧或内容顶部都用它 */
 .im-modal-note {
