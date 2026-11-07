@@ -549,17 +549,51 @@ body {
 @keyframes im-pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.35 } }
 
 /* ---------------- 浮层 ---------------- */
+/* 提示条：中性表面 + 只有图标着色。整块色底在暗色主题下很脏，也像报错页。 */
 .im-banner {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
-  padding: 7px 12px;
+  padding: 8px 12px;
   font-size: 12px;
-  background: color-mix(in srgb, var(--im-warn) 12%, transparent);
-  color: var(--im-ink);
+  line-height: 1.6;
+  background: var(--im-surface-inset);
+  color: var(--im-ink-2);
   border-bottom: 1px solid var(--im-line);
 }
-.im-banner.is-error { background: color-mix(in srgb, var(--im-danger) 12%, transparent); }
+.im-banner-icon { flex: none; display: inline-flex; margin-top: 1px; color: var(--im-warn); }
+.im-banner.is-error .im-banner-icon { color: var(--im-warn); }
+.im-banner-text { min-width: 0; }
+.im-banner-list { margin: 0; padding-left: 16px; display: grid; gap: 2px; }
+
+/* 可拖到画布上的工具栏按钮：光标提示「能拖」，悬停时轻微抬起 */
+.im-drag-source { cursor: grab; }
+.im-drag-source:active { cursor: grabbing; }
+
+/* 落点胶囊：fixed 跟随光标。pointer-events:none 保证它不会打断 dragover 的命中判定。 */
+.im-drop-chip {
+  position: fixed;
+  z-index: 9999;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--im-r-pill);
+  border: 1px solid color-mix(in srgb, var(--im-brand) 40%, transparent);
+  background: var(--im-surface-float);
+  color: var(--im-ink);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: var(--im-shadow-float);
+  pointer-events: none;
+  will-change: transform;
+}
+.im-drop-chip > * { display: inline-flex; }
+.im-drop-chip.is-cancel {
+  border-color: color-mix(in srgb, var(--im-danger) 45%, transparent);
+  color: var(--im-danger);
+}
 
 .im-log {
   /* 原版形态：右下角一列纯文字，不可交互 —— 面板会挡住画布的拖拽与框选 */

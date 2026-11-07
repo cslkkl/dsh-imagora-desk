@@ -2,10 +2,12 @@
 //
 // 用官方的 SettingsValueField / SettingsSecretField：密钥框只报「已配置 / 未配置」，
 // 明文只在提交那一次离开输入框，不上屏、不回显。
+// 外壳与底部行动走 ModalShell：宽度由 size 档决定，按钮在 footer 槽位。
 import { useState } from 'react'
 import { probeProvider, saveProvider, type ImagoraConfig } from '../api'
 import { errMessage } from '../lib/format'
 import { primitives } from '../ui'
+import { ModalShell } from './modal-shell'
 import { OutputDirRow } from './output-dir-row'
 
 export interface SettingsDialogProps {
@@ -79,10 +81,39 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
   }
 
   return (
-    <ui.Modal open onClose={onClose} title="画布设置">
-      <div style={{ display: 'grid', gap: 14, minWidth: 420 }}>
+    <ModalShell
+      title="画布设置"
+      subtitle="填一次接口地址和 API Key 就能用，不需要本机装 Imagora。"
+      size="lg"
+      onClose={onClose}
+      footer={
+        <>
+          {usingPlugin ? (
+            <button
+              type="button"
+              className="im-btn-ghost im-btn-sm"
+              disabled={busy}
+              onClick={() => void reset()}
+            >
+              清空并回到 Imagora 配置
+            </button>
+          ) : null}
+          <button type="button" className="im-btn-ghost im-btn-sm" disabled={busy} onClick={onClose}>
+            取消
+          </button>
+          <button
+            type="button"
+            className="im-btn-primary im-btn-sm"
+            disabled={busy || !baseUrl.trim()}
+            onClick={() => void save()}
+          >
+            保存
+          </button>
+        </>
+      }
+    >
+      <div style={{ display: 'grid', gap: 14 }}>
         <p style={{ margin: 0, fontSize: 12.5, color: 'var(--im-ink-3)', lineHeight: 1.7 }}>
-          填一次接口地址和 API Key 就能用，不需要本机装 Imagora。
           {usingPlugin ? '当前用的是插件内配置。' : '当前用的是本机 Imagora 的配置。'}
         </p>
 
@@ -118,21 +149,19 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
         />
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <ui.Button
+          <button
             type="button"
-            size="sm"
-            variant="toolbar"
-
+            className="im-btn-ghost im-btn-sm"
             disabled={busy}
             onClick={() => void probe()}
           >
             测试连通
-          </ui.Button>
+          </button>
           {probeResult ? <span style={{ fontSize: 12, color: 'var(--im-ink-2)' }}>{probeResult}</span> : null}
         </div>
 
         {probeModels.length ? (
-          <div style={{ fontSize: 12, color: 'var(--im-ink-2)', maxHeight: 96, overflow: 'auto' }}>
+          <div style={{ fontSize: 12, color: 'var(--im-ink-2)' }}>
             {probeModels.slice(0, 40).map(id => (
               <button
                 key={id}
@@ -156,41 +185,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
         ) : null}
 
         <OutputDirRow config={config} onSaved={onSaved} onFlash={onFlash} />
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-          {usingPlugin ? (
-            <ui.Button
-              type="button"
-              size="sm"
-              variant="toolbar"
-
-              disabled={busy}
-              onClick={() => void reset()}
-            >
-              清空并回到 Imagora 配置
-            </ui.Button>
-          ) : null}
-          <ui.Button
-            type="button"
-            size="sm"
-            variant="toolbar"
-
-            disabled={busy}
-            onClick={onClose}
-          >
-            取消
-          </ui.Button>
-          <ui.Button
-            type="button"
-            size="sm"
-
-            disabled={busy || !baseUrl.trim()}
-            onClick={() => void save()}
-          >
-            保存
-          </ui.Button>
-        </div>
       </div>
-    </ui.Modal>
+    </ModalShell>
   )
 }
