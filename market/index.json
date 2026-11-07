@@ -59,11 +59,11 @@
       "versions": [
         {
           "version": "0.1.0",
-          "publishTimestamp": 1794022240,
+          "publishTimestamp": 1794022287,
           "source": {
             "type": "git",
             "url": "https://github.com/cslkkl/dsh-imagora-desk",
-            "commit": "d7a6318071bc8a21f077f0cb45d4973f7d960889"
+            "commit": "d8ed5726af3777ae29bcbf9b8a5a6c17036f63df"
           },
           "engines": {
             "dsh": ">=0.2.1-rc.5 <0.3.0"
