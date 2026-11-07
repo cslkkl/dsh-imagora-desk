@@ -143,6 +143,15 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
       onClose={onClose}
       footer={
         <>
+          {/* 信息行跟确认按钮同处 footer：它描述的是「这次产出什么」，
+              留在 body 里会被滚走，滚到下面按钮时就看不到尺寸了（原版也是这么排） */}
+          <span className="im-modal-note">
+            裁剪后 {pxW} × {pxH}
+            {size ? ` · 原图 ${size.width} × ${size.height}` : ''}
+            {size ? ` · 原比例 ${gcdRatio(size.width, size.height)}` : ''}
+            <br />
+            拖框内平移 · 拖八个手柄改尺寸 · 最小 {Math.round(CROP_MIN_SIZE * 100)}%
+          </span>
           <button type="button" className="im-btn-ghost im-btn-sm" onClick={onClose}>
             取消
           </button>
@@ -227,17 +236,6 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
               />
             ))}
           </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 12, color: 'var(--im-ink-3)' }}>
-          <span>
-            裁剪后 {pxW} × {pxH}
-            {size ? ` · 原图 ${size.width} × ${size.height}` : ''}
-            {size ? ` · 原比例 ${gcdRatio(size.width, size.height)}` : ''}
-          </span>
-          <span style={{ marginLeft: 'auto' }}>
-            拖框内平移 · 拖八个手柄改尺寸 · 最小 {Math.round(CROP_MIN_SIZE * 100)}%
-          </span>
         </div>
 
         {error ? <p style={{ margin: 0, fontSize: 12, color: 'var(--im-danger)' }}>{error}</p> : null}
