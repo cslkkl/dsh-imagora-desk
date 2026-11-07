@@ -61,10 +61,6 @@ export function HistoryDialog({ onClose, onImport }: HistoryDialogProps) {
       onClose={onClose}
       footer={
         <>
-          <span style={{ marginRight: 'auto', fontSize: 11.5, color: 'var(--im-ink-3)' }}>
-            共 {shown.length} 张{filter.trim() ? `（已筛选）` : ''}
-            {picked.length ? ` · 选中 ${picked.length}` : ''}
-          </span>
           <button type="button" className="im-btn-ghost im-btn-sm" onClick={onClose}>
             关闭
           </button>
@@ -80,6 +76,12 @@ export function HistoryDialog({ onClose, onImport }: HistoryDialogProps) {
       }
     >
       <div style={{ display: 'grid', gap: 12 }}>
+        {/* 计数放内容顶部（原版在 header）：它说的是「这一屏有什么」，
+            跟着按钮跑到 footer 会让人以为它是操作结果 */}
+        <p className="im-modal-note">
+          共 {shown.length} 张{filter.trim() ? '（已筛选）' : ''}
+          {picked.length ? ` · 选中 ${picked.length}` : ''}
+        </p>
         <input
           type="search"
           value={filter}

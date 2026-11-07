@@ -4,7 +4,7 @@
 // 外壳用自家的 ModalShell（canvas/modal-shell.tsx）：四档宽度、头/身/脚三段、
 // 内容区自己滚。宿主 ui.Modal 的面板宽度按它自己的内容定，装不下我们这种表单
 // （表现是弹窗右边被裁），所以这里全部换成 ModalShell，尺寸交给 size 档。
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import type { ImagoraConfig } from '../api'
 import { ModalShell } from './modal-shell'
 
@@ -112,26 +112,17 @@ export function HelpDialog({ onClose, config }: { onClose: () => void; config: I
         </button>
       }
     >
+      {/* 两列 grid，不 用 table：表格的 key 列宽度随内容变，几行之间的冒号对不齐。
+          原版是 grid-cols-[3.25rem_1fr] gap-3，这里同理。 */}
       <div style={{ display: 'grid', gap: 12 }}>
-        <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
-          <tbody>
-            {HELP_ROWS.map(([key, value]) => (
-              <tr key={key}>
-                <td
-                  style={{
-                    padding: '5px 8px 5px 0',
-                    color: 'var(--im-ink-3)',
-                    whiteSpace: 'nowrap',
-                    verticalAlign: 'top',
-                  }}
-                >
-                  {key}
-                </td>
-                <td style={{ padding: '5px 0', lineHeight: 1.6 }}>{value}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div style={{ display: 'grid', gridTemplateColumns: '3.25rem 1fr', gap: 12, fontSize: 12 }}>
+          {HELP_ROWS.map(([key, value]) => (
+            <Fragment key={key}>
+              <span style={{ color: 'var(--im-ink-3)', fontWeight: 600 }}>{key}</span>
+              <span style={{ lineHeight: 1.6 }}>{value}</span>
+            </Fragment>
+          ))}
+        </div>
         {config ? (
           <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.7, color: 'var(--im-ink-3)' }}>
             配置来源：{config.source === 'plugin' ? '插件内配置' : config.root || '未找到'} · 模型 {config.modelLabel}

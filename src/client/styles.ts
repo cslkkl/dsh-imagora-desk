@@ -163,6 +163,11 @@ body {
   z-index: 5;
 }
 .im-toolbar .im-spacer { flex: 1; }
+/* 工具栏里的次要按钮是深灰文字，不是品牌色 —— 原版 .studio-toolbar .btn-ghost 就是
+   rgba(23,32,43,.72)。品牌色只在页头那一行与主行动上，否则整条工具栏都在发光。 */
+.im-toolbar .im-btn-ghost {
+  color: var(--im-ink-2);
+}
 /* 顶栏分左右两组（与 Imagora 同一分区）：左侧创建、右侧工作流，右侧组靠右对齐 */
 .im-toolbar-group {
   display: flex;
@@ -656,6 +661,16 @@ body {
   min-height: 0;
   overflow-y: auto;
 }
+/* 弹窗里的说明/计数小字：footer 左侧或内容顶部都用它 */
+.im-modal-note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--im-ink-3);
+}
+.im-modal-note:first-child:not(:only-child) { margin-right: auto; }
+.im-modal-footer .im-modal-note { margin-right: auto; }
+
 .im-modal-footer {
   display: flex;
   flex-wrap: wrap;
@@ -926,8 +941,8 @@ body {
   animation: im-log-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @keyframes im-log-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .im-modal-mask {
