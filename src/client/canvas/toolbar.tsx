@@ -14,6 +14,7 @@
 // 提示（延迟、黑框）。同一处界面必须只用一种，所以这里全部退回 title。
 import { BrandHeader } from '../brand'
 import { Icon } from '../icons'
+import { Select } from '../select'
 import { CostBadge, type CostSummary } from './cost'
 import type { ImagoraConfig } from '../api'
 
@@ -79,36 +80,27 @@ export function CanvasToolbar(props: ToolbarProps) {
         <BrandHeader onClick={props.onOpenHelp} />
 
         {config && (config.profiles?.length ?? 0) > 1 ? (
-          <select
-            className="im-select"
-            style={{ maxWidth: 150 }}
+          <Select
+            className="im-select-profile"
+            options={[
+              ...(config.profiles ?? []).map(row => ({ value: row.name, label: row.label })),
+              // 空值选项 = 不覆盖，跟随 imagora 的 .env。放在最后，与原生 select 里的位置一致。
+              { value: '', label: '跟随 imagora 的 .env' },
+            ]}
             value={config.profile}
             title="来源（profile）：决定接口地址与密钥"
-            onChange={event => props.onSwitchProfile(event.target.value)}
-          >
-            {(config.profiles ?? []).map(row => (
-              <option key={row.name} value={row.name}>
-                {row.label}
-              </option>
-            ))}
-            <option value="">跟随 imagora 的 .env</option>
-          </select>
+            onChange={value => props.onSwitchProfile(value)}
+          />
         ) : null}
 
         {config && (config.models?.length ?? 0) > 1 ? (
-          <select
-            className="im-select"
-            style={{ maxWidth: 190 }}
+          <Select
+            className="im-select-model"
+            options={config.models.map(row => ({ value: row.id, label: row.label }))}
             value={config.model}
             title={`${config.profileLabel || config.profile} · 当前模型`}
-            onChange={event => props.onSwitchModel(event.target.value)}
-          >
-            {config.models.map(row => (
-              <option key={row.id} value={row.id}>
-                {row.label}
-              </option>
-            ))}
-          </select>
+            onChange={value => props.onSwitchModel(value)}
+          />
         ) : null}
 
         <CostBadge summary={props.cost} budget={config?.budget ?? 0} />

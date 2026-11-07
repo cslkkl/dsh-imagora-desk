@@ -12,6 +12,7 @@
 // - Esc 关闭、点遮罩关闭、Tab 焦点圈闭、关闭后焦点归还
 import { useEffect, useId, useRef, type MouseEvent, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
+import { hasOpenPopup } from '../lib/popupLayer'
 
 const FOCUSABLE_SELECTOR = [
   'a[href]',
@@ -72,6 +73,11 @@ export function ModalShell({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!isTopModal(instanceId)) return
       if (event.key === 'Escape') {
+        // 下拉列表展开时把 Esc 让给它：这个监听挂在 capture 阶段，比触发器上的
+        // onKeyDown 先跑，不让位的话按一下 Esc 会**直接关掉整个弹窗**，
+        // 而不是先收起下拉 —— 手感是「按一下，连我正在填的窗口都没了」。
+        // 让位之后要按两次：先收下拉，再关弹窗。
+        if (hasOpenPopup()) return
         event.preventDefault()
         event.stopPropagation()
         onCloseRef.current()

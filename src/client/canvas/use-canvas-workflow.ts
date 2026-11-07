@@ -18,7 +18,6 @@ interface Options {
   log: (line: string) => void
   flash: (line: string) => void
   closeDialog: () => void
-  setRestored: (savedAt: string | null) => void
 }
 
 const RECOVERY_DEBOUNCE = 2500
@@ -34,7 +33,6 @@ export function useCanvasWorkflow({
   log,
   flash,
   closeDialog,
-  setRestored,
 }: Options) {
   const timerRef = useRef<number | null>(null)
 
@@ -60,7 +58,6 @@ export function useCanvasWorkflow({
         const canvas = workflowToCanvas(snapshot.nodes, (snapshot.edges ?? []) as WorkflowEdge[], [])
         setNodes(canvas.nodes)
         setEdges(canvas.edges as Edge[])
-        setRestored(snapshot.savedAt ?? null)
         log(`已恢复上次的画布（${snapshot.name ?? '自动恢复'}）`)
       } catch {
         // 没有快照或接口不可用，保持空画布
@@ -70,7 +67,7 @@ export function useCanvasWorkflow({
     return () => {
       cancelled = true
     }
-  }, [setNodes, setEdges, log, setRestored])
+  }, [setNodes, setEdges, log])
 
   const doSave = useCallback(
     async (name: string) => {
