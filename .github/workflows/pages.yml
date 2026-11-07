@@ -1,0 +1,47 @@
+# 把 market/ 发布到 GitHub Pages，作为插件的市场索引源。
+#
+# 为什么不用 jsDelivr：实测 `@v0.1.0` 的 JSON 请求 4 次挂 1 次（ECONNRESET），
+# 宿主读索引失败就直接报「Could not fetch …」。索引是「别人能不能找到插件」的
+# 唯一入口，必须稳，所以走 Pages——同一份静态文件，GitHub 自己托管。
+#
+# 发布内容：market/index.json 与 market/icon.svg，放在站点根目录，
+# 于是索引地址就是 https://<pages>/index.json。
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - market/**
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 校验索引格式
+        run: node scripts/check-market-index.mjs
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: market
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
