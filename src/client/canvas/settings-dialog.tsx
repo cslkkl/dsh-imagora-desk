@@ -8,6 +8,7 @@ import { probeProvider, saveProvider, type ImagoraConfig } from '../api'
 import { errMessage } from '../lib/format'
 import { ModalShell } from './modal-shell'
 import { OutputDirRow } from './output-dir-row'
+import { ImagoraRootRow } from './imagora-root-row'
 
 /** 一个字段：标签在上、输入框、说明小字在下（与原版配置弹窗同一排布）。 */
 function Field({
@@ -220,6 +221,8 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
             ))}
           </div>
         ) : null}
+
+        <ImagoraRootRow config={config} onSaved={onSaved} onFlash={onFlash} />
 
         <OutputDirRow config={config} onSaved={onSaved} onFlash={onFlash} />
       </div>

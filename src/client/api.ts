@@ -23,6 +23,10 @@ export interface ImagoraConfig {
   defaultOutputDir: string
   /** 预算上限（元）；0 = 不设上限 */
   budget?: number
+  /** Imagora 目录指针：读它的 config.json / .env / 工作流 / 图片注册表；空 = 不共享 */
+  imagoraRoot?: string
+  /** 显式设过的输出目录覆盖值；空 = 跟随 imagoraRoot 或插件数据目录 */
+  outputDirOverride?: string
   issues: string[]
 }
 
@@ -137,6 +141,16 @@ export const setOutputDir = (outputDir: string) => request<ImagoraConfig>('setti
 
 /** 预算上限（元）：0 = 不设上限。 */
 export const setBudget = (budget: number) => request<ImagoraConfig>('settings', jsonBody({ budget }))
+
+/** Imagora 目录：读它的 config.json / .env / 工作流 / 图片注册表；空串 = 不用共享。 */
+export const setImagoraRoot = (imagoraRoot: string) => request<ImagoraConfig>('settings', jsonBody({ imagoraRoot }))
+
+/**
+ * 弹宿主机的系统文件夹对话框，返回绝对路径。
+ * 浏览器侧 `<input webkitdirectory>` 只给相对名，拿不到绝对路径，所以只能由宿主来弹。
+ */
+export const pickFolder = (input: { title?: string; startAt?: string } = {}) =>
+  request<{ ok: boolean; path?: string; reason?: string }>('pick-folder', jsonBody(input))
 export const revealPath = (path: string) => request<{ ok: boolean }>('reveal', jsonBody({ path }))
 
 export interface ProviderPatch {

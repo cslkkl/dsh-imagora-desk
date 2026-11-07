@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 import { applyProviderPatch } from './config.js'
 import { humanizeError, listModels } from './generate.js'
+import { pickDirectory } from './picker.js'
 import { MIME, extOf } from './store.js'
 
 const MAX_JSON = 8_000_000
@@ -58,6 +59,9 @@ function publicConfig(config) {
     defaultOutputDir: config.defaultOutputDir,
     budget: config.budget,
     issues: config.issues,
+    // 两个指针：imagora 目录（读 config.json / .env / 工作流 / 图片注册表）与输出目录
+    imagoraRoot: config.imagoraRoot || '',
+    outputDirOverride: config.outputDirOverride || '',
     provider: config.providerView,
   }
 }
@@ -92,6 +96,17 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
 
     if (path === '/config' && method === 'GET') {
       return json(res, 200, publicConfig(getConfig()))
+    }
+
+    // 弹系统文件夹选择框，返回绝对路径。宿主是桌面会话里的普通进程，只能由它来弹；
+    // 浏览器侧的 <input webkitdirectory> 拿不到绝对路径，对这个用途没用。
+    if (path === '/pick-folder' && method === 'POST') {
+      const body = await readJson(req).catch(() => ({}))
+      const picked = await pickDirectory({
+        title: typeof body.title === 'string' && body.title.trim() ? body.title.trim() : '选择文件夹',
+        startAt: typeof body.startAt === 'string' ? body.startAt.trim() : '',
+      })
+      return json(res, 200, picked)
     }
 
     if (path === '/settings' && method === 'POST') {
