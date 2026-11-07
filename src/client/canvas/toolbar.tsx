@@ -21,6 +21,8 @@ export interface ToolbarProps {
   cost: CostSummary
   zoom: number
   onAddPrompt: () => void
+  /** 把「新建提示词卡片 / 新建图片组」拖到画布上，在落点建节点（与 Imagora 一致） */
+  onDragCreateNode: (event: import('react').DragEvent<HTMLButtonElement>, kind: 'prompt' | 'group') => void
   onPickFiles: () => void
   onAddGroup: () => void
   onPasteImport: () => void
@@ -67,8 +69,29 @@ export function CanvasToolbar(props: ToolbarProps) {
       <div className="im-toolbar-group">
         {tool('上传图片', props.onPickFiles)}
         {tool('粘贴导入', props.onPasteImport)}
-        {tool('新建提示词卡片', props.onAddPrompt)}
-        {tool('新建图片组', props.onAddGroup)}
+        {/* 这两个按钮可以拖进画布：松开的位置就是新节点的位置（原版置顶了一条说明） */}
+        <ui.Tooltip label="新建提示词卡片（也可拖到画布上，松开处即新卡位置）" side="bottom">
+          <button
+            type="button"
+            className="im-btn-ghost im-btn-sm nodrag im-drag-source"
+            draggable
+            onDragStart={event => props.onDragCreateNode(event, 'prompt')}
+            onClick={props.onAddPrompt}
+          >
+            新建提示词卡片
+          </button>
+        </ui.Tooltip>
+        <ui.Tooltip label="新建图片组（也可拖到画布上）" side="bottom">
+          <button
+            type="button"
+            className="im-btn-ghost im-btn-sm nodrag im-drag-source"
+            draggable
+            onDragStart={event => props.onDragCreateNode(event, 'group')}
+            onClick={props.onAddGroup}
+          >
+            新建图片组
+          </button>
+        </ui.Tooltip>
       </div>
 
       {/* 右：按「信息 → 设置 → 编辑 → 执行」排，主行动（全部运行）压最右。

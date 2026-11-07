@@ -2,10 +2,12 @@
 //
 // 用 canvas 按格切，逐块导出成 data URL。切割是纯像素操作，不改内容，
 // 所以预览直接用 CSS 的背景定位画网格，不必提前生成 N 张图。
+// 外壳与底部按钮走 ModalShell：宽度交给 size 档，预览高度按视口比例收，
+// 所以也不再套一层「内部滚动容器」。
 import { useEffect, useMemo, useState } from 'react'
 import { readImageSize, type ImageSize } from '../lib/imageOps'
 import { errMessage } from '../lib/format'
-import { primitives } from '../ui'
+import { ModalShell } from './modal-shell'
 
 export interface SplitDialogProps {
   src: string
@@ -38,8 +40,10 @@ async function splitImage(src: string, cols: number, rows: number, size: ImageSi
   return out
 }
 
+/** 预览最大高度（与 crop / mask 的 stage 同档，别让竖图把弹窗撑到两屏） */
+const PREVIEW_MAX_HEIGHT = '52vh'
+
 export function SplitDialog({ src, onClose, onConfirm }: SplitDialogProps) {
-  const ui = primitives()
   const [size, setSize] = useState<ImageSize | null>(null)
   const [cols, setCols] = useState(2)
   const [rows, setRows] = useState(2)
@@ -82,8 +86,28 @@ export function SplitDialog({ src, onClose, onConfirm }: SplitDialogProps) {
   const total = cols * rows
 
   return (
-    <ui.Modal open onClose={onClose} title="切分图片">
-      <div style={{ display: 'grid', gap: 12, width: 640, maxWidth: '84vw' }}>
+    <ModalShell
+      title="切分图片"
+      subtitle="按行 × 列把这张图切成多张，每块单独放进画布。"
+      size="lg"
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="im-btn-ghost im-btn-sm" onClick={onClose}>
+            取消
+          </button>
+          <button
+            type="button"
+            className="im-btn-primary im-btn-sm"
+            disabled={busy || !size || total < 2}
+            onClick={() => void confirm()}
+          >
+            {busy ? '处理中…' : `切成 ${total} 张`}
+          </button>
+        </>
+      }
+    >
+      <div style={{ display: 'grid', gap: 12 }}>
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
           <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
             列
@@ -115,21 +139,17 @@ export function SplitDialog({ src, onClose, onConfirm }: SplitDialogProps) {
           </span>
         </div>
 
-        <div
-          style={{
-            position: 'relative',
-            maxHeight: '52vh',
-            borderRadius: 10,
-            overflow: 'auto',
-            background: 'var(--im-surface-inset)',
-            padding: 8,
-          }}
-        >
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          {/* 预览按视口高度收窄宽度：宽固定 100% 时竖图会撑到两屏高，而内容区不该再套一层滚动。
+              高度为 0 的坏图不能进 calc()/aspect-ratio（非法值会让整条声明被丢掉、预览塌成 0 宽）。 */}
           <div
             style={{
               position: 'relative',
-              width: '100%',
-              aspectRatio: size ? `${size.width} / ${size.height}` : '1 / 1',
+              width:
+                size && size.height > 0
+                  ? `min(100%, calc(${PREVIEW_MAX_HEIGHT} * ${(size.width / size.height).toFixed(4)}))`
+                  : '100%',
+              aspectRatio: size && size.height > 0 ? `${size.width} / ${size.height}` : '1 / 1',
               backgroundImage: `url(${src})`,
               backgroundSize: '100% 100%',
               borderRadius: 6,
@@ -168,26 +188,12 @@ export function SplitDialog({ src, onClose, onConfirm }: SplitDialogProps) {
           </div>
         </div>
 
+        <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.6, color: 'var(--im-ink-3)' }}>
+          切出来的每一块都会作为独立图片节点放入画布。
+        </p>
+
         {error ? <p style={{ margin: 0, fontSize: 12, color: 'var(--im-danger)' }}>{error}</p> : null}
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
-          <span style={{ marginRight: 'auto', fontSize: 11.5, color: 'var(--im-ink-3)' }}>
-            切出来的每一块都会作为独立图片节点放入画布
-          </span>
-          <ui.Button type="button" size="sm" variant="toolbar" onClick={onClose}>
-            取消
-          </ui.Button>
-          <ui.Button
-            type="button"
-            size="sm"
-
-            disabled={busy || !size || total < 2}
-            onClick={() => void confirm()}
-          >
-            {busy ? '处理中…' : `切成 ${total} 张`}
-          </ui.Button>
-        </div>
       </div>
-    </ui.Modal>
+    </ModalShell>
   )
 }

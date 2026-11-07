@@ -6,20 +6,21 @@ import { errMessage } from '../lib/format'
 
 export function useCanvasConfig(flash: (line: string) => void) {
   const [config, setConfig] = useState<ImagoraConfig | null>(null)
-  const [configError, setConfigError] = useState<string | null>(null)
+  /** 配置缺失的原因，逐条列（不是拼成一句话）。顶栏按条目渲染，读起来才不像报错页。 */
+  const [configIssues, setConfigIssues] = useState<string[]>([])
   const configRef = useRef<ImagoraConfig | null>(null)
 
   const apply = useCallback((next: ImagoraConfig) => {
     setConfig(next)
     configRef.current = next
-    setConfigError(next.issues.length ? next.issues.join('　') : null)
+    setConfigIssues(next.issues)
   }, [])
 
   const reload = useCallback(async () => {
     try {
       apply(await getConfig())
     } catch (error) {
-      setConfigError(errMessage(error))
+      setConfigIssues([errMessage(error)])
     }
   }, [apply])
 
@@ -53,5 +54,5 @@ export function useCanvasConfig(flash: (line: string) => void) {
     [apply, flash],
   )
 
-  return { config, configError, configRef, switchProfile, switchModel, replaceConfig: apply }
+  return { config, configIssues, configRef, switchProfile, switchModel, replaceConfig: apply }
 }

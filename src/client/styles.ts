@@ -409,6 +409,66 @@ body {
   box-shadow: var(--im-shadow-float);
 }
 
+/* ---------------- 弹窗（照搬 Imagora 的 modal-shell / modal-panel） ----------------
+   全屏 grid 居中 + 四档宽度 + 头/身/脚三段。内容是「挤」还是「装得下」全看这套：
+   宿主 Modal 的面板宽度按它自己的内容定，塞我们这种表单必然溢出被裁。 */
+.im-modal-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: clamp(12px, 2vw, 24px);
+  background: var(--dsw-alias-bg-mask-1, rgba(0, 0, 0, 0.32));
+  backdrop-filter: blur(3px);
+}
+.im-modal-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 42rem);
+  max-height: min(86dvh, 760px);
+  overflow: hidden;
+  padding: 20px;
+  border: 1px solid var(--im-line);
+  border-radius: var(--im-r-card);
+  outline: none;
+  background: var(--im-surface);
+  box-shadow: var(--dsw-elevation-prominent, 0 24px 70px rgba(15, 20, 25, 0.26));
+}
+.im-modal-panel--sm { width: min(100%, 26rem); }
+.im-modal-panel--md { width: min(100%, 35rem); }
+.im-modal-panel--lg { width: min(100%, 42rem); }
+.im-modal-panel--wide { width: min(1100px, 96vw); max-height: min(86dvh, 880px); }
+.im-modal-header { margin-bottom: 16px; }
+.im-modal-title {
+  margin: 0;
+  color: var(--im-ink);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.im-modal-subtitle {
+  margin: 4px 0 0;
+  max-width: 58ch;
+  color: var(--im-ink-3);
+  font-size: 12px;
+  line-height: 1.55;
+}
+/* flex:1 + min-height:0 是「能滚」的前提。只写 overflow-y:auto 而高度不受约束的话，
+   scrollHeight 永远等于 clientHeight，底部几行会被面板静默裁掉。 */
+.im-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.im-modal-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
 /* 左下角控件坞：带文字的一列，与 Imagora 的 DockRow 同构 */
 .im-dock {
   position: absolute;
@@ -489,17 +549,51 @@ body {
 @keyframes im-pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.35 } }
 
 /* ---------------- 浮层 ---------------- */
+/* 提示条：中性表面 + 只有图标着色。整块色底在暗色主题下很脏，也像报错页。 */
 .im-banner {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
-  padding: 7px 12px;
+  padding: 8px 12px;
   font-size: 12px;
-  background: color-mix(in srgb, var(--im-warn) 12%, transparent);
-  color: var(--im-ink);
+  line-height: 1.6;
+  background: var(--im-surface-inset);
+  color: var(--im-ink-2);
   border-bottom: 1px solid var(--im-line);
 }
-.im-banner.is-error { background: color-mix(in srgb, var(--im-danger) 12%, transparent); }
+.im-banner-icon { flex: none; display: inline-flex; margin-top: 1px; color: var(--im-warn); }
+.im-banner.is-error .im-banner-icon { color: var(--im-warn); }
+.im-banner-text { min-width: 0; }
+.im-banner-list { margin: 0; padding-left: 16px; display: grid; gap: 2px; }
+
+/* 可拖到画布上的工具栏按钮：光标提示「能拖」，悬停时轻微抬起 */
+.im-drag-source { cursor: grab; }
+.im-drag-source:active { cursor: grabbing; }
+
+/* 落点胶囊：fixed 跟随光标。pointer-events:none 保证它不会打断 dragover 的命中判定。 */
+.im-drop-chip {
+  position: fixed;
+  z-index: 9999;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--im-r-pill);
+  border: 1px solid color-mix(in srgb, var(--im-brand) 40%, transparent);
+  background: var(--im-surface-float);
+  color: var(--im-ink);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: var(--im-shadow-float);
+  pointer-events: none;
+  will-change: transform;
+}
+.im-drop-chip > * { display: inline-flex; }
+.im-drop-chip.is-cancel {
+  border-color: color-mix(in srgb, var(--im-danger) 45%, transparent);
+  color: var(--im-danger);
+}
 
 .im-log {
   /* 原版形态：右下角一列纯文字，不可交互 —— 面板会挡住画布的拖拽与框选 */

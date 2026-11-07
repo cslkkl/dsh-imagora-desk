@@ -30,6 +30,35 @@
         color: #666;
         font-size: 13px;
       }
+      /* 宿主组件库桩的最小样式：只为让验收台的布局可读，不追求与宿主一致 */
+      .stub-label {
+        display: block;
+        font-size: 12px;
+        color: #555;
+        margin-bottom: 4px;
+      }
+      .stub-state {
+        margin-left: 8px;
+        font-size: 11px;
+        color: #999;
+      }
+      .stub-input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 6px 8px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        font: inherit;
+      }
+      .stub-hint {
+        margin: 4px 0 0;
+        font-size: 11px;
+        line-height: 1.6;
+        color: #999;
+      }
+      .stub-modal {
+        display: contents;
+      }
     </style>
   </head>
   <body>
@@ -75,11 +104,52 @@
         function Nothing() {
           return null
         }
+        // SettingsValueField / SettingsSecretField 在宿主里是「标签 + 输入框 + 说明」三段。
+        // 返回 null 会让验收台看不到这两个字段，弹窗看起来像缺了一块 —— 桩必须与宿主同形。
+        function SettingsValueField(props) {
+          return h(
+            'div',
+            null,
+            h('label', { className: 'stub-label' }, props.label),
+            h('input', {
+              id: props.id,
+              className: 'stub-input',
+              value: props.text ?? '',
+              placeholder: props.placeholder,
+              disabled: props.disabled,
+              onChange: event => props.onEdit?.(event.target.value),
+            }),
+            props.hint ? h('p', { className: 'stub-hint' }, props.hint) : null,
+          )
+        }
+        function SettingsSecretField(props) {
+          return h(
+            'div',
+            null,
+            h(
+              'label',
+              { className: 'stub-label' },
+              props.label,
+              props.stateLabel ? h('span', { className: 'stub-state' }, props.stateLabel) : null,
+            ),
+            h('input', {
+              id: props.id,
+              className: 'stub-input',
+              type: 'password',
+              value: props.text ?? '',
+              disabled: props.disabled,
+              onChange: event => props.onEdit?.(event.target.value),
+            }),
+            props.hint ? h('p', { className: 'stub-hint' }, props.hint) : null,
+          )
+        }
         window.__dshPrimitivesStub = {
           Button: Button,
           Input: Input,
           Tooltip: Tooltip,
           Modal: Modal,
+          SettingsValueField: SettingsValueField,
+          SettingsSecretField: SettingsSecretField,
           Toast: Nothing,
           Switch: Nothing,
           Checkbox: Nothing,
@@ -87,8 +157,6 @@
           Tag: Nothing,
           Pill: Nothing,
           StateDot: Nothing,
-          SettingsValueField: Nothing,
-          SettingsSecretField: Nothing,
           ShortcutKeys: Nothing,
         }
       })()

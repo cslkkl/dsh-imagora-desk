@@ -39,6 +39,7 @@ import { CANVAS_CSS } from '../styles'
 import { NODE_TYPES } from './node-types'
 import { CanvasToolbar } from './toolbar'
 import { CanvasDock } from './dock'
+import { useCanvasDrop } from './use-canvas-drop'
 import { SelectionInspector } from './inspector'
 import { Banner, EmptyState, LogPanel, PreviewOverlay, Toast } from './overlays'
 import { HelpDialog, LoadDialog, SaveDialog } from './dialogs'
@@ -103,7 +104,7 @@ export function CanvasApp() {
     window.setTimeout(() => setToast(current => (current === line ? null : current)), 2600)
   }, [])
 
-  const { config, configError, configRef, switchProfile, switchModel, replaceConfig } = useCanvasConfig(flash)
+  const { config, configIssues, configRef, switchProfile, switchModel, replaceConfig } = useCanvasConfig(flash)
 
   // 首次使用（既没插件内配置、也没有可用密钥）时直接把设置弹出来：
   // 「下载后填一次 key 就能用」靠这一步，不然用户只会看到一行错误提示。
@@ -230,19 +231,25 @@ export function CanvasApp() {
   const createPositionRef = useRef(createPosition)
   createPositionRef.current = createPosition
 
-  const addPromptNode = useCallback(() => {
-    const cfg = configRef.current
-    const node = buildPromptNode(createPosition(), {
-      size: cfg?.sizes[0]?.value ?? '1024x1024',
-      quality: cfg?.qualities[0] ?? 'high',
-      outputDir: '',
-    })
-    setNodes(current => [...current, node])
-  }, [createPosition, setNodes, configRef])
+  const addPromptNode = useCallback(
+    (at?: { x: number; y: number }) => {
+      const cfg = configRef.current
+      const node = buildPromptNode(at ?? createPosition(), {
+        size: cfg?.sizes[0]?.value ?? '1024x1024',
+        quality: cfg?.qualities[0] ?? 'high',
+        outputDir: '',
+      })
+      setNodes(current => [...current, node])
+    },
+    [createPosition, setNodes, configRef],
+  )
 
-  const addGroupNode = useCallback(() => {
-    setNodes(current => [...current, buildGroupNode(createPosition())])
-  }, [createPosition, setNodes])
+  const addGroupNode = useCallback(
+    (at?: { x: number; y: number }) => {
+      setNodes(current => [...current, buildGroupNode(at ?? createPosition())])
+    },
+    [createPosition, setNodes],
+  )
 
   /* ---------------- 组织 ---------------- */
   const autoConnectAll = useCallback(() => {
@@ -300,19 +307,25 @@ export function CanvasApp() {
   }, [selectedIds, setNodes, flash, history])
 
   /* ---------------- 拖放 / 粘贴 ---------------- */
-  const onDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault()
-      const files = Array.from(event.dataTransfer?.files ?? [])
-      if (!files.length) return
-      const instance = instanceRef.current
-      const position = instance
-        ? instance.screenToFlowPosition({ x: event.clientX, y: event.clientY })
-        : createPosition()
-      void addImages(files, position)
+  /* ---------------- 拖入：文件 / 工具栏按钮 ---------------- */
+  // 文件拖进来 -> 建图片节点；工具栏按钮拖进来 -> 在落点建提示词卡 / 图片组。
+  // 落点胶囊固定跟随光标，落在画布外即取消（与 Imagora 的 useCanvasDrop 同一套语义）。
+  const {
+    handlers: dropHandlers,
+    startToolbarDrag,
+    chip: dropChip,
+  } = useCanvasDrop({
+    canvasRef: flowRef,
+    isModalOpen: Boolean(dialog) || Boolean(preview),
+    toFlowPosition: screen =>
+      instanceRef.current ? instanceRef.current.screenToFlowPosition(screen) : createPosition(),
+    onDropFiles: (files, point) => void addImages(files, point),
+    onDropNode: (kind, point) => {
+      history.record()
+      if (kind === 'prompt') addPromptNode(point)
+      else addGroupNode(point)
     },
-    [addImages, createPosition],
-  )
+  })
 
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
@@ -421,10 +434,11 @@ export function CanvasApp() {
             })
           }
           zoom={zoom}
-          onAddPrompt={addPromptNode}
+          onAddPrompt={() => addPromptNode()}
           onPickFiles={() => fileInputRef.current?.click()}
-          onAddGroup={addGroupNode}
+          onAddGroup={() => addGroupNode()}
           onPasteImport={() => setDialog({ kind: 'import' })}
+          onDragCreateNode={startToolbarDrag}
           onRun={runMany}
           onCancelAll={() => busyIds.forEach(id => void cancelPrompt(id))}
           onAutoConnect={autoConnectAll}
@@ -455,7 +469,23 @@ export function CanvasApp() {
           onOpenHistory={() => setDialog({ kind: 'history' })}
           onOpenHelp={() => setDialog({ kind: 'help' })}
         />
-        {configError ? <Banner tone="error">{configError}</Banner> : null}
+        {/* 配置缺失：逐条列出来 + 一个直达设置的按钮，不做整块色底 */}
+        {configIssues.length ? (
+          <Banner
+            tone="error"
+            action={
+              <button type="button" className="im-btn-ghost im-btn-xs" onClick={() => setDialog({ kind: 'settings' })}>
+                去设置
+              </button>
+            }
+          >
+            <ul className="im-banner-list">
+              {configIssues.map(line => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </Banner>
+        ) : null}
 
         {/* 右上角选中操作栏：只在选中 ≥1 个节点时出现（与 Imagora 同一位置与条件） */}
         <SelectionInspector
@@ -475,7 +505,7 @@ export function CanvasApp() {
         {/* 不设常驻提示条：Imagora 把这一行删了（占画布高度、浮层还会被画布盖住），
             用法收进左下角控件坞的「帮助」弹窗里 */}
 
-        {restored && !configError ? (
+        {restored && !configIssues.length ? (
           <Banner
             tone="warn"
             action={
@@ -487,7 +517,7 @@ export function CanvasApp() {
             已恢复上次画布
           </Banner>
         ) : null}
-        <div className="im-canvas" ref={flowRef} onDragOver={event => event.preventDefault()} onDrop={onDrop}>
+        <div className="im-canvas" ref={flowRef} {...dropHandlers}>
           {' '}
           <ReactFlow
             nodes={renderNodes}
@@ -597,6 +627,7 @@ export function CanvasApp() {
           {nodes.length === 0 ? <EmptyState /> : null}
           <LogPanel logs={logs} />
           <Toast text={toast} />
+          {dropChip}
         </div>
         <input
           ref={fileInputRef}

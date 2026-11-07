@@ -1,41 +1,46 @@
 // 画布上的三个对话框：保存工作流 / 加载工作流 / 帮助。
 // 都是纯展示 + 回调，不碰画布状态。
 //
-// 外壳用官方 Modal（宿主提供）：焦点陷阱、Esc 关闭、遮罩层顺序都与 DSH 其它面板一致，
-// 不要再自己写一层 mask。
+// 外壳用自家的 ModalShell（canvas/modal-shell.tsx）：四档宽度、头/身/脚三段、
+// 内容区自己滚。宿主 ui.Modal 的面板宽度按它自己的内容定，装不下我们这种表单
+// （表现是弹窗右边被裁），所以这里全部换成 ModalShell，尺寸交给 size 档。
 import { useState } from 'react'
-import { primitives } from '../ui'
 import type { ImagoraConfig } from '../api'
+import { ModalShell } from './modal-shell'
 
 export function SaveDialog({ onCancel, onSubmit }: { onCancel: () => void; onSubmit: (name: string) => void }) {
-  const ui = primitives()
   const [name, setName] = useState(`画布 ${new Date().toISOString().slice(5, 16).replace('T', ' ')}`)
   return (
-    <ui.Modal open onClose={onCancel} title="保存工作流">
-      <div style={{ display: 'grid', gap: 12, minWidth: 360 }}>
-        <ui.Input
-          autoFocus
-          value={name}
-          aria-label="工作流名称"
-          placeholder="给这个画布起个名字"
-          onChange={(event: { target: { value: string } }) => setName(event.target.value)}
-        />
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <ui.Button type="button" size="sm" variant="toolbar" onClick={onCancel}>
+    <ModalShell
+      title="保存工作流"
+      subtitle="给这个画布起个名字，之后可以再加载回来。"
+      size="sm"
+      onClose={onCancel}
+      footer={
+        <>
+          <button type="button" className="im-btn-ghost im-btn-sm" onClick={onCancel}>
             取消
-          </ui.Button>
-          <ui.Button
+          </button>
+          <button
             type="button"
-            size="sm"
-
+            className="im-btn-primary im-btn-sm"
             disabled={!name.trim()}
             onClick={() => onSubmit(name.trim())}
           >
             保存
-          </ui.Button>
-        </div>
-      </div>
-    </ui.Modal>
+          </button>
+        </>
+      }
+    >
+      <input
+        autoFocus
+        value={name}
+        aria-label="工作流名称"
+        placeholder="给这个画布起个名字"
+        className="im-field"
+        onChange={event => setName(event.target.value)}
+      />
+    </ModalShell>
   )
 }
 
@@ -48,38 +53,39 @@ export function LoadDialog({
   onCancel: () => void
   onPick: (name: string) => void
 }) {
-  const ui = primitives()
   return (
-    <ui.Modal open onClose={onCancel} title="加载工作流">
-      <div style={{ display: 'grid', gap: 10, minWidth: 400 }}>
-        {workflows.length ? (
-          <div style={{ maxHeight: 300, overflow: 'auto', display: 'grid', gap: 2 }}>
-            {workflows.map(row => (
-              <ui.Button
-                key={row.name}
-                type="button"
-                size="sm"
-                variant="toolbar"
-                style={{ justifyContent: 'space-between', display: 'flex' }}
-                onClick={() => onPick(row.name)}
-              >
-                <span>{row.name}</span>
-                <span style={{ color: 'var(--im-ink-3)', fontSize: 11 }}>
-                  {new Date(row.modified).toLocaleString()}
-                </span>
-              </ui.Button>
-            ))}
-          </div>
-        ) : (
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--im-ink-3)' }}>还没有保存过的工作流。</p>
-        )}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <ui.Button type="button" size="sm" variant="toolbar" onClick={onCancel}>
-            关闭
-          </ui.Button>
+    <ModalShell
+      title="加载工作流"
+      subtitle="选一份已保存的画布继续工作。"
+      size="sm"
+      onClose={onCancel}
+      footer={
+        <button type="button" className="im-btn-ghost im-btn-sm" onClick={onCancel}>
+          关闭
+        </button>
+      }
+    >
+      {workflows.length ? (
+        <div style={{ display: 'grid', gap: 2 }}>
+          {workflows.map(row => (
+            <button
+              key={row.name}
+              type="button"
+              className="im-btn-ghost im-btn-sm"
+              style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}
+              onClick={() => onPick(row.name)}
+            >
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</span>
+              <span style={{ color: 'var(--im-ink-3)', fontSize: 11, flex: 'none' }}>
+                {new Date(row.modified).toLocaleString()}
+              </span>
+            </button>
+          ))}
         </div>
-      </div>
-    </ui.Modal>
+      ) : (
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--im-ink-3)' }}>还没有保存过的工作流。</p>
+      )}
+    </ModalShell>
   )
 }
 
@@ -94,10 +100,19 @@ const HELP_ROWS: [string, string][] = [
 ]
 
 export function HelpDialog({ onClose, config }: { onClose: () => void; config: ImagoraConfig | null }) {
-  const ui = primitives()
   return (
-    <ui.Modal open onClose={onClose} title="自由画布">
-      <div style={{ display: 'grid', gap: 12, minWidth: 480 }}>
+    <ModalShell
+      title="自由画布"
+      subtitle="画布、节点、连线与快捷键速查。"
+      size="lg"
+      onClose={onClose}
+      footer={
+        <button type="button" className="im-btn-ghost im-btn-sm" onClick={onClose}>
+          关闭
+        </button>
+      }
+    >
+      <div style={{ display: 'grid', gap: 12 }}>
         <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
           <tbody>
             {HELP_ROWS.map(([key, value]) => (
@@ -124,12 +139,7 @@ export function HelpDialog({ onClose, config }: { onClose: () => void; config: I
             结果默认落在 {config.defaultOutputDir}
           </p>
         ) : null}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <ui.Button type="button" size="sm" variant="toolbar" onClick={onClose}>
-            关闭
-          </ui.Button>
-        </div>
       </div>
-    </ui.Modal>
+    </ModalShell>
   )
 }

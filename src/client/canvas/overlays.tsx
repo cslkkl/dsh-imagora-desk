@@ -78,7 +78,12 @@ export function PreviewOverlay({
   )
 }
 
-/** 顶部提示条：配置问题 / 已恢复上次画布。 */
+/**
+ * 顶部提示条：配置问题 / 已恢复上次画布。
+ *
+ * 不做成整块色底——原版没有这种"红条/黄条"，它只在内容里用一行小字加一个引导按钮。
+ * 色底在暗色主题下尤其脏，而且一眼看去像报错页。这里只在图标上着色，其余走中性表面。
+ */
 export function Banner({
   tone,
   children,
@@ -90,9 +95,11 @@ export function Banner({
 }) {
   return (
     <div className={`im-banner${tone === 'error' ? ' is-error' : ''}`}>
-      <Icon name={tone === 'error' ? 'help' : 'clock'} />
-      {children}
-      {action ? <span style={{ marginLeft: 'auto' }}>{action}</span> : null}
+      <span className="im-banner-icon" aria-hidden>
+        <Icon name={tone === 'error' ? 'help' : 'clock'} />
+      </span>
+      <span className="im-banner-text">{children}</span>
+      {action ? <span style={{ marginLeft: 'auto', flex: 'none' }}>{action}</span> : null}
     </div>
   )
 }
