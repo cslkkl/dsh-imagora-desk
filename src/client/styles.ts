@@ -67,6 +67,9 @@ body {
   /* 阴影走宿主 elevation：写死 rgba 在深色主题下等于没有阴影 */
   --im-shadow-card: var(--dsw-elevation-soft, 0 1px 2px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(0, 0, 0, 0.04));
   --im-shadow-float: var(--dsw-elevation-panel, 0 6px 22px rgba(0, 0, 0, 0.12));
+  --im-shadow-modal: var(--dsw-elevation-prominent, 0 24px 70px rgba(15, 20, 25, 0.26));
+  /* 弹窗遮罩：半透明纯色，不与任何前景配对 */
+  --im-scrim: var(--dsw-alias-bg-mask-1, rgba(0, 0, 0, 0.32));
 }
 
 .im-root {
@@ -280,7 +283,10 @@ body {
 .im-icon-btn:hover { background: var(--im-hover); color: var(--im-ink); }
 .im-icon-btn.is-danger { color: var(--im-danger); }
 .im-icon-btn.is-danger:hover {
-  background: var(--dsw-alias-interactive-bg-hover-danger, rgba(220, 38, 38, 0.12));
+  /* 底色必须从同一个 --im-danger 派生：直接用宿主的 hover-danger token，
+     它会和这里的 --im-danger 文字色来自两套体系，暗色主题下容易撞成看不清
+     （同类事故见提示条「黑底黑字」）。 */
+  background: color-mix(in srgb, var(--im-danger) 12%, transparent);
 }
 
 .im-zoom {
@@ -786,7 +792,7 @@ body {
   display: grid;
   place-items: center;
   padding: clamp(12px, 2vw, 24px);
-  background: var(--dsw-alias-bg-mask-1, rgba(0, 0, 0, 0.32));
+  background: var(--im-scrim);
   backdrop-filter: blur(3px);
 }
 .im-modal-panel {
@@ -800,7 +806,7 @@ body {
   border-radius: var(--im-r-card);
   outline: none;
   background: var(--im-surface);
-  box-shadow: var(--dsw-elevation-prominent, 0 24px 70px rgba(15, 20, 25, 0.26));
+  box-shadow: var(--im-shadow-modal);
 }
 .im-modal-panel--sm { width: min(100%, 26rem); }
 .im-modal-panel--md { width: min(100%, 35rem); }

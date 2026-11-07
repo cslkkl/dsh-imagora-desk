@@ -65,6 +65,9 @@ body {
   /* \u9634\u5F71\u8D70\u5BBF\u4E3B elevation\uFF1A\u5199\u6B7B rgba \u5728\u6DF1\u8272\u4E3B\u9898\u4E0B\u7B49\u4E8E\u6CA1\u6709\u9634\u5F71 */
   --im-shadow-card: var(--dsw-elevation-soft, 0 1px 2px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(0, 0, 0, 0.04));
   --im-shadow-float: var(--dsw-elevation-panel, 0 6px 22px rgba(0, 0, 0, 0.12));
+  --im-shadow-modal: var(--dsw-elevation-prominent, 0 24px 70px rgba(15, 20, 25, 0.26));
+  /* \u5F39\u7A97\u906E\u7F69\uFF1A\u534A\u900F\u660E\u7EAF\u8272\uFF0C\u4E0D\u4E0E\u4EFB\u4F55\u524D\u666F\u914D\u5BF9 */
+  --im-scrim: var(--dsw-alias-bg-mask-1, rgba(0, 0, 0, 0.32));
 }
 
 .im-root {
@@ -278,7 +281,10 @@ body {
 .im-icon-btn:hover { background: var(--im-hover); color: var(--im-ink); }
 .im-icon-btn.is-danger { color: var(--im-danger); }
 .im-icon-btn.is-danger:hover {
-  background: var(--dsw-alias-interactive-bg-hover-danger, rgba(220, 38, 38, 0.12));
+  /* \u5E95\u8272\u5FC5\u987B\u4ECE\u540C\u4E00\u4E2A --im-danger \u6D3E\u751F\uFF1A\u76F4\u63A5\u7528\u5BBF\u4E3B\u7684 hover-danger token\uFF0C
+     \u5B83\u4F1A\u548C\u8FD9\u91CC\u7684 --im-danger \u6587\u5B57\u8272\u6765\u81EA\u4E24\u5957\u4F53\u7CFB\uFF0C\u6697\u8272\u4E3B\u9898\u4E0B\u5BB9\u6613\u649E\u6210\u770B\u4E0D\u6E05
+     \uFF08\u540C\u7C7B\u4E8B\u6545\u89C1\u63D0\u793A\u6761\u300C\u9ED1\u5E95\u9ED1\u5B57\u300D\uFF09\u3002 */
+  background: color-mix(in srgb, var(--im-danger) 12%, transparent);
 }
 
 .im-zoom {
@@ -784,7 +790,7 @@ body {
   display: grid;
   place-items: center;
   padding: clamp(12px, 2vw, 24px);
-  background: var(--dsw-alias-bg-mask-1, rgba(0, 0, 0, 0.32));
+  background: var(--im-scrim);
   backdrop-filter: blur(3px);
 }
 .im-modal-panel {
@@ -798,7 +804,7 @@ body {
   border-radius: var(--im-r-card);
   outline: none;
   background: var(--im-surface);
-  box-shadow: var(--dsw-elevation-prominent, 0 24px 70px rgba(15, 20, 25, 0.26));
+  box-shadow: var(--im-shadow-modal);
 }
 .im-modal-panel--sm { width: min(100%, 26rem); }
 .im-modal-panel--md { width: min(100%, 35rem); }
