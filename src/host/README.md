@@ -2,18 +2,19 @@
 
 ## 职责
 
-向 DSH 的 Web 服务注册 `/imagora` 前缀，提供配置、资产、任务、工作流四组接口，并真正去请求上游生图。
+向 DSH 的 Web 服务注册 `/imagora` 前缀，提供配置、资产、任务、工作流、生成历史五组接口，并真正去请求上游生图。
 
 ## 文件
 
-| 文件          | 职责                                                                                      | 关键导出                                                                     | 改后必测                  |
-| ------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------- |
-| `index.js`    | 插件入口：注册路由、鉴权、状态目录                                                        | `default.apply`、`name`、`requestRejection`                                  | `pnpm run test`           |
-| `routes.js`   | 全部 HTTP 路由与请求整形                                                                  | `createRouter`                                                               | host 冒烟                 |
-| `config.js`   | 读 Imagora 的 `config.json` / `providers.local.json` / `.env`，解析来源、模型、尺寸、密钥 | `loadImagoraConfig`、`foldId`、`costOfSize`、`readSettings`、`writeSettings` | host 冒烟（配置解析用例） |
-| `generate.js` | 上游请求：`generations` 文生图 / `edits` 图生图，兼容三种响应口径                         | `generateImage`、`extractImageItem`、`humanizeError`                         | 真机跑一张                |
-| `tasks.js`    | 任务池：排队、并发上限、取消语义                                                          | `TaskPool`                                                                   | host 冒烟（取消分支）     |
-| `store.js`    | 状态目录、资产登记、工作流与恢复快照、路径白名单                                          | `Store`、`MIME`、`extOf`                                                     | host 冒烟                 |
+| 文件          | 职责                                                                                         | 关键导出                                                                      | 改后必测                  |
+| ------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------- |
+| `index.js`    | 插件入口：注册路由、鉴权、状态目录                                                           | `default.apply`、`name`、`requestRejection`                                   | `pnpm run test`           |
+| `routes.js`   | 全部 HTTP 路由与请求整形                                                                     | `createRouter`                                                                | host 冒烟                 |
+| `history.js`  | 读 `<imagora>/logs/generation.jsonl`：容错、聚合去重、分页、成本聚合（照 `core/history.py`） | `readLedger`、`collectAll`、`dedupeGenerationHistory`、`readRaw`、`summarize` | host 冒烟（历史 8 条）    |
+| `config.js`   | 读 Imagora 的 `config.json` / `providers.local.json` / `.env`，解析来源、模型、尺寸、密钥    | `loadImagoraConfig`、`foldId`、`costOfSize`、`readSettings`、`writeSettings`  | host 冒烟（配置解析用例） |
+| `generate.js` | 上游请求：`generations` 文生图 / `edits` 图生图，兼容三种响应口径                            | `generateImage`、`extractImageItem`、`humanizeError`                          | 真机跑一张                |
+| `tasks.js`    | 任务池：排队、并发上限、取消语义                                                             | `TaskPool`                                                                    | host 冒烟（取消分支）     |
+| `store.js`    | 状态目录、资产登记、工作流与恢复快照、路径白名单                                             | `Store`、`MIME`、`extOf`                                                      | host 冒烟                 |
 
 ## 被谁依赖
 
