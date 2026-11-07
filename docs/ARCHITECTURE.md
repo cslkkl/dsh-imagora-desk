@@ -98,9 +98,15 @@ client 半端通过 `window.__ModuleLoader__.load` 注册进宿主的模块表�
 
 ## 样式
 
-- 只用 `--dsw-*` 主题 token，配一个兜底值；暗色主题跟随宿主，不需要额外分支。
+设计层照搬 Imagora 的 `frontend/src/index.css`（`panel-card` / `field-control` / `btn-primary` / `btn-ghost` / `chip` 与尺寸阶梯），只换一处：**颜色从宿主 token 取**。
+
+- 颜色一律用 `--dsw-*` alias token，配一个兜底值；暗色主题跟随宿主，不需要额外分支。
+- `--im-*` 是这层 token 的语义别名（`--im-brand` / `--im-surface` / `--im-field` 等），**定义在 `body` 上**，不放在 `.im-root`：宿主 Modal 把内容 portal 到 `body` 下，挂在 `.im-root` 上的自定义属性它继承不到。
 - 类名前缀 `im-`，避免与宿主样式冲突。
+- 主次层级用宿主组件库自己的 `variant` 表达，不覆写它的颜色（CSS Modules 类名要压就得 `!important`，那是最后手段）。
 - xyflow 自带样式在 `apply` 里以 `<style>` 注入，随 effect 清理。
+
+节点不靠色相区分类型（这与 Imagora 一致）：三类共用同一块面板，靠内容与图标分辨。图片组因为是一组东西的集合，给一层内嵌底。
 
 ## 防错清单
 

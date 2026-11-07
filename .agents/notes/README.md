@@ -13,6 +13,7 @@
 - [2026-11-06-reuse-imagora-logic.md](2026-11-06-reuse-imagora-logic.md)：`src/client/lib/` 为什么原样移植
 - [2026-11-06-self-owned-build-deps.md](2026-11-06-self-owned-build-deps.md)：为什么自装构建依赖
 - [2026-11-06-local-only-hooks.md](2026-11-06-local-only-hooks.md)：本地钩子为什么只用 `language: system`
+- [2026-11-07-imagora-visual-parity.md](2026-11-07-imagora-visual-parity.md)：观感为什么照搬 Imagora、配色为什么走宿主 token
 
 ## 回引
 
