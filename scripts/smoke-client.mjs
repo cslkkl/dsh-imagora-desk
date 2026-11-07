@@ -159,6 +159,31 @@ check(
   styleNodes.some(node => String(node.textContent).includes('react-flow')),
   `${styleNodes.length} 个 style`,
 )
+
+// 设计层 CSS 的大括号必须平衡。
+// 少一个 `}` 的后果是「它之后的所有规则静默失效」——CSS 不会报错，页面只是变丑，
+// 查起来极费劲（真的踩过：丢了一个花括号，提示条和落点胶囊一起变裸文本）。
+// 直接从源码的模板字面量里取，边界最准；bundle 里它是转义后的 JS 字符串，不好切。
+const stylesSource = readFileSync(join(ROOT, 'src', 'client', 'styles.ts'), 'utf8')
+const cssStart = stylesSource.indexOf('export const CANVAS_CSS = `')
+const cssBody = cssStart < 0 ? '' : stylesSource.slice(cssStart).replace('export const CANVAS_CSS = `', '')
+const cssText = cssBody.slice(0, cssBody.lastIndexOf('`'))
+check('styles.ts 里有 CANVAS_CSS 模板', cssStart >= 0 && cssText.length > 1000, `${cssText.length} 字符`)
+if (cssStart >= 0) {
+  let depth = 0
+  let broke = false
+  for (const ch of cssText) {
+    if (ch === '{') depth += 1
+    else if (ch === '}') {
+      depth -= 1
+      if (depth < 0) broke = true
+    }
+  }
+  check('设计层 CSS 括号平衡', depth === 0 && !broke, `净深度 ${depth}`)
+  // 末尾几条规则（浮层/胶囊/动效）最容易被前面的花括号事故连坐，抽查一条
+  check('设计层尾部规则还在（落点胶囊）', cssText.includes('.im-drop-chip-host'))
+}
+
 check('注册了 effect 清理', effects.length >= 2, effects.join(' | '))
 
 const failed = results.filter(row => !row.ok)
