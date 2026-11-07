@@ -478,21 +478,6 @@ export function CanvasApp() {
           </Banner>
         ) : null}
 
-        {/* 右上角选中操作栏：只在选中 ≥1 个节点时出现（与 Imagora 同一位置与条件） */}
-        <SelectionInspector
-          selectedCount={selectedIds.length}
-          selectedPromptCount={selectedIds.filter(id => nodes.some(n => n.id === id && n.type === 'prompt')).length}
-          selectedRunnableIds={runnableIds.filter(id => selectedIds.includes(id))}
-          pickingOutputDir={false}
-          onRunSelected={() => runMany(runnableIds.filter(id => selectedIds.includes(id)))}
-          onAutoLayout={arrangeSelected}
-          onAutoConnectSelected={autoConnectSelected}
-          onSetOutputDir={setSelectedOutputDir}
-          onDeleteSelected={() => {
-            removeNodes(selectedIds)
-            setSelectedIds([])
-          }}
-        />
         {/* 不设常驻提示条：Imagora 把这一行删了（占画布高度、浮层还会被画布盖住），
             用法收进左下角控件坞的「帮助」弹窗里 */}
 
@@ -509,7 +494,24 @@ export function CanvasApp() {
           </Banner>
         ) : null}
         <div className="im-canvas" ref={flowRef} {...dropHandlers}>
-          {' '}
+          {/* 选中操作栏：相对**画布**右上角定位（原版挂在 .studio-canvas 里）。
+              放到 .im-root 上会跑到整个面板的右上角，离画布边距、工具栏都错开。 */}
+          <SelectionInspector
+            selectedCount={selectedIds.length}
+            selectedPromptCount={
+              selectedIds.filter(id => nodes.some(node => node.id === id && node.type === 'prompt')).length
+            }
+            selectedRunnableIds={runnableIds.filter(id => selectedIds.includes(id))}
+            pickingOutputDir={false}
+            onRunSelected={() => runMany(runnableIds.filter(id => selectedIds.includes(id)))}
+            onAutoLayout={arrangeSelected}
+            onAutoConnectSelected={autoConnectSelected}
+            onSetOutputDir={setSelectedOutputDir}
+            onDeleteSelected={() => {
+              removeNodes(selectedIds)
+              setSelectedIds([])
+            }}
+          />
           <ReactFlow
             nodes={renderNodes}
             edges={edges}

@@ -338,9 +338,10 @@ body {
   z-index: 30;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 3px 3px 3px 8px;
-  border-radius: 10px;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 4px 8px;
+  border-radius: 8px;
   background: var(--im-surface-float);
   border: 1px solid var(--im-line);
   box-shadow: var(--im-shadow-float);
@@ -355,6 +356,10 @@ body {
    宽 224（原版 w-56）、错开步长 4px 由 nodes.tsx 的 STACK_STEP_PX 控制。 */
 .im-group-node {
   position: relative;
+  /* 原版 w-56 = 224px 且全局 border-box，所以 padding 算在 224 里；
+     不写 box-sizing 的话内容 224 + padding 12 会撑到 236，
+     外壳与卡面就"尺寸对不上"了。 */
+  box-sizing: border-box;
   width: 224px;
   padding: 12px 0 0 12px;
 }
@@ -603,16 +608,28 @@ body {
 }
 .im-canvas .react-flow__controls-button:hover { background: var(--im-hover); }
 
-/* 图片组节点外层由 xyflow 画了一圈深灰边框，改成宿主中性描边 */
-.react-flow__node-group {
-  border: 1px dashed var(--im-line-strong);
-  border-radius: var(--im-r-card);
-  background: transparent;
-  padding: 10px;
+/* React Flow 会给自定义节点类型套内置默认样式（固定 width:150px + 深色边框），
+   导致外壳比内部卡片小、黑框错位割裂。我们的节点自带尺寸与样式，覆盖掉库默认。
+   原版 index.css 也是这么做的，且是 width/min-width/border/background 四条一起覆盖。 */
+.react-flow__node-image,
+.react-flow__node-group,
+.react-flow__node-prompt {
+  width: auto !important;
+  min-width: 0 !important;
+  border: none !important;
+  background: transparent !important;
 }
-.react-flow__node-group.selected { outline: 2px solid color-mix(in srgb, var(--im-brand) 40%, transparent); }
 
 /* 状态灯：排队琥珀 / 生成中主体色呼吸 / 完成绿 / 失败红 —— 与 Imagora 的 StatusLight 同族 */
+/* 状态灯的居中容器（原版 flex justify-center py-0.5）：
+   有了它，圆点在操作栏里才不会被视为可拉伸的 flex 项。 */
+.im-rail-dot {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2px 0;
+  line-height: 0;
+}
 /* 状态指示灯：原版就是一个 10px 圆点，**没有**光晕环 —— 环会在密集画布上糊成一片。
    就绪灰 / 排队琥珀 / 生成中品牌色呼吸 / 完成绿 / 失败红。 */
 .im-dot {
