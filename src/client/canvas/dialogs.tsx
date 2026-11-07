@@ -8,8 +8,55 @@ import { Fragment, useState } from 'react'
 import type { ImagoraConfig } from '../api'
 import { ModalShell } from './modal-shell'
 
-export function SaveDialog({ onCancel, onSubmit }: { onCancel: () => void; onSubmit: (name: string) => void }) {
+export function SaveDialog({
+  workflows = [],
+  onCancel,
+  onSubmit,
+}: {
+  /** 已有工作流：原版保存弹窗会列出来，点一下就把名字填进去（同名 = 覆盖） */
+  workflows?: { name: string; modified: string }[]
+  onCancel: () => void
+  onSubmit: (name: string) => void
+}) {
   const [name, setName] = useState(`画布 ${new Date().toISOString().slice(5, 16).replace('T', ' ')}`)
+  /** 待确认覆盖的名字：原版是同名覆盖前先确认一次，避免手滑盖掉别人的画布 */
+  const [overwrite, setOverwrite] = useState<string | null>(null)
+
+  const trimmed = name.trim()
+  const collides = workflows.some(row => row.name === trimmed)
+
+  const submit = () => {
+    if (!trimmed) return
+    if (collides && overwrite !== trimmed) {
+      setOverwrite(trimmed)
+      return
+    }
+    onSubmit(trimmed)
+  }
+
+  if (overwrite) {
+    return (
+      <ModalShell
+        title="覆盖已存在的工作流？"
+        subtitle={`「${overwrite}」已经存在，保存会覆盖掉它。`}
+        size="sm"
+        onClose={() => setOverwrite(null)}
+        footer={
+          <>
+            <button type="button" className="im-btn-ghost im-btn-sm" onClick={() => setOverwrite(null)}>
+              返回改名
+            </button>
+            <button type="button" className="im-btn-danger im-btn-sm" onClick={() => onSubmit(overwrite)}>
+              覆盖保存
+            </button>
+          </>
+        }
+      >
+        <p className="im-modal-note">覆盖后旧的那份就找不回来了；想保留就先返回改个名字。</p>
+      </ModalShell>
+    )
+  }
+
   return (
     <ModalShell
       title="保存工作流"
@@ -21,12 +68,7 @@ export function SaveDialog({ onCancel, onSubmit }: { onCancel: () => void; onSub
           <button type="button" className="im-btn-ghost im-btn-sm" onClick={onCancel}>
             取消
           </button>
-          <button
-            type="button"
-            className="im-btn-primary im-btn-sm"
-            disabled={!name.trim()}
-            onClick={() => onSubmit(name.trim())}
-          >
+          <button type="button" className="im-btn-primary im-btn-sm" disabled={!trimmed} onClick={submit}>
             保存
           </button>
         </>
@@ -39,7 +81,26 @@ export function SaveDialog({ onCancel, onSubmit }: { onCancel: () => void; onSub
         placeholder="给这个画布起个名字"
         className="im-field"
         onChange={event => setName(event.target.value)}
+        onKeyDown={event => {
+          if (event.key === 'Enter') submit()
+        }}
       />
+      {/* 已有工作流：点一下填名字。原版保存弹窗就是这块列表（WorkflowModals.tsx:46-60） */}
+      {workflows.length ? (
+        <>
+          <p className="im-modal-note" style={{ marginTop: 12 }}>
+            或者覆盖一个已有的（点一下填名字）
+          </p>
+          <div className="im-pick-list">
+            {workflows.map(row => (
+              <button key={row.name} type="button" className="im-pick-row" onClick={() => setName(row.name)}>
+                <span className="im-pick-name">{row.name}</span>
+                <span className="im-pick-meta">{row.modified}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
     </ModalShell>
   )
 }

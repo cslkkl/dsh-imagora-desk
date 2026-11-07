@@ -828,6 +828,34 @@ body {
   min-height: 0;
   overflow-y: auto;
 }
+/* 可选列表（保存弹窗里的已有工作流）：点一行就把名字填进去 */
+.im-pick-list {
+  margin-top: 6px;
+  max-height: 144px;
+  overflow-y: auto;
+  border: 1px solid var(--im-line);
+  border-radius: var(--im-r-sm);
+}
+.im-pick-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--im-ink-2);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.im-pick-row:hover { background: color-mix(in srgb, var(--im-brand) 5%, transparent); color: var(--im-brand); }
+.im-pick-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.im-pick-meta { flex: none; font-size: 10px; color: var(--im-ink-3); }
+
 /* 弹窗里的说明/计数小字：footer 左侧或内容顶部都用它 */
 .im-modal-note {
   margin: 0;
