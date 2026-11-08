@@ -34,7 +34,7 @@
 | `modal-shell.tsx`        | 弹窗基座：四档宽度、头/身/脚三段、内容区自己滚 |
 | `generation-pending.tsx` | 生成中占位卡（渐近假进度 + 文案轮播）          |
 | `imagora-root-row.tsx`   | 设置里的 Imagora 目录与输出目录指针            |
-| `output-dir-row.tsx`     | 设置里的输出路径与预算上限                     |
+| `budget-row.tsx`         | 设置里的「本画布预算上限」（硬拦那一层）       |
 | `use-canvas-drop.tsx`    | 拖入建节点：落点胶囊、工具栏拖出、文件拖放     |
 | `node-types.ts`          | React Flow 的节点类型表                        |
 | `use-canvas-config.ts`   | 配置读取与来源、模型切换                       |

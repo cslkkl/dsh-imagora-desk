@@ -88,8 +88,9 @@ export function PromptImportDialog({ sizes, onCancel, onConfirm }: PromptImportD
                 )
               })}
               {issues.map((issue, index) => (
+                // 不在这里补「标题」前缀：lib/promptImportFormat 的 message 已经把标题写进去了
+                // （例如「坏卡」提示词正文为空）。再包一层会变成「坏卡」：「坏卡」…
                 <div key={`issue-${index}`} className="im-import-issue">
-                  {issue.title ? `「${issue.title}」：` : '当前内容：'}
                   {issue.message}
                 </div>
               ))}

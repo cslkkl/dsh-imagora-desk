@@ -98,6 +98,9 @@ const HISTORY_ROWS = [
   },
 ]
 
+/** 验收台的本机预算设置（.budget.json）：非零值，好让成本条那两个输入框一打开就有内容 */
+const MOCK_BUDGET = { dailyLimit: 5, singleRunLimit: 0.5 }
+
 export function defineConfig(path, url) {
   if (path === '/imagora/config') {
     return {
@@ -192,6 +195,23 @@ export function defineConfig(path, url) {
       ],
       byMode: [{ mode: 'img2img', count: 3, cost: 0.15 }],
       budget: { limit: 0, spentToday: Math.round(cost * 100) / 100, remaining: 0 },
+      // 本机预算设置（.budget.json）：验收台给一组非零值，让成本条那两个输入框
+      // 一开始就有内容 —— 全 0 时看不出「读回来的值」与「新建草稿」的区别。
+      localBudget: {
+        ...MOCK_BUDGET,
+        remainingToday: MOCK_BUDGET.dailyLimit ? Math.max(0, MOCK_BUDGET.dailyLimit - cost) : 0,
+        path: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output\\.budget.json',
+      },
+    }
+  }
+
+  // 本机预算设置：**固定夹具，不落盘也不记住 POST**。
+  // 验收台只负责「渲染对不对」，读写语义由 host 冒烟那 13 条预算用例守（真实文件 + 真实判定）。
+  // 这里给非零值是有意的：全 0 时看不出「读回来的值」与「新建草稿」的区别。
+  if (path === '/imagora/budget') {
+    return {
+      ...MOCK_BUDGET,
+      path: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output\\.budget.json',
     }
   }
 
