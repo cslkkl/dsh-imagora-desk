@@ -54,14 +54,28 @@ client 半端通过 `window.__ModuleLoader__.load` 注册进宿主的模块表�
 | POST | `/upload`                                                      | 请求体是原始字节，`?name=` 给文件名                                 |
 | POST | `/asset/delete`                                                | 删登记与文件                                                        |
 | GET  | `/file?id=`                                                    | 按登记 id 出图，路径限定在 `assets/` 与 `output/`                   |
-| POST | `/generate`                                                    | 建任务，返回 `taskId`                                               |
+| POST | `/generate`                                                    | 建任务，返回 `taskId`；两道预算闸门见下                             |
 | GET  | `/task?id=`                                                    | 任务快照                                                            |
 | POST | `/task/cancel`                                                 | 排队中就地取消；运行中等当前这张结束                                |
 | POST | `/workflow/save` / GET `/workflow/list` / GET `/workflow/load` | 命名工作流                                                          |
 | POST | `/recovery/save` / GET `/recovery/latest`                      | 自动恢复快照，只留最近 5 份                                         |
+| GET  | `/history` / `/history/stats`                                  | 读账本分页 / 成本看板（附本机预算）                                 |
+| GET  | `/budget` / POST `/budget`                                     | 本机预算设置（`<输出目录>/.budget.json`，0 = 不限）                 |
 | POST | `/reveal`                                                      | 在资源管理器打开路径                                                |
+| POST | `/pick-folder`                                                 | 弹宿主的系统文件夹对话框，拿绝对路径                                |
 
 响应约定：成功返回对象本体，失败返回 `{ error: string }` 且带状态码。
+
+### 两道预算闸门
+
+`/generate` 上并排两道，**语义不同，不能合并**（详见 [决策](../.agents/notes/2026-11-08-budget-two-layers.md)）：
+
+| 闸门           | 存哪                             | 超限后                                                                 | 怎么区分            |
+| -------------- | -------------------------------- | ---------------------------------------------------------------------- | ------------------- |
+| 本画布累计上限 | 插件 `settings.json` 的 `budget` | 409，**硬拦**，不放过                                                  | 响应无 `overBudget` |
+| 本机日 / 单次  | `<输出目录>/.budget.json`        | 409，带 `overBudget.reason`，前端确认后带 `allowOverBudget` 重发即放行 | 响应有 `overBudget` |
+
+前端只看状态码会分不清这两种，必须读响应体。
 
 ## 数据流
 
@@ -272,9 +286,7 @@ Python 与 Node 同时写的互斥），**当前明确不做**，已在待办里
 
 **所以「照搬原版」的目标是现在的那个单表单选择器，不是把三页签装回来。** 三页签的 `.api-settings-modal` 样式在上游 `index.css` 里还留着，但那是**死代码**（没有组件再用它），不要照它写。
 
-对应到插件：插件没有 `config.json` / `.env` 可编（配置在 `~/.dsh/imagora/settings.json`），所以「写」的那半不得不留在弹窗里——这是**数据模型不同导致的必要偏差**，不是抄漏了。真正该补的是「使用中」那页的只读事实（生效来源/地址/模型/密钥是否配置）。
-
-> > > > > > > origin/main
+对应到插件：插件没有 `config.json` / `.env` 可编（配置在 `~/.dsh/imagora/settings.json`），所以「写」的那半不得不留在弹窗里——这是**数据模型不同导致的必要偏差**，不是抄漏了。只读事实那一段（生效来源 / 模型 / 密钥是否配置 / 接口地址）已经补上，见 `canvas/settings-dialog.tsx` 的「生效中」规格表。
 
 ## 存档与本层的边界
 

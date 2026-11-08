@@ -1285,17 +1285,29 @@ body[data-ds-dark-theme] {
   color: var(--im-warn);
   white-space: nowrap;
 }
-/* 成本条：指标等宽成列（标签在上、数值在下），与原版 CostBoard 同构。
-   原版还带「日预算 / 单次上限」两个输入框 —— 那是写接口，本步没做（见 PR 说明）。 */
+/* 成本条：指标等宽成列（标签在上、数值在下），右边接预算设置，与原版 CostBoard 同构。
+ * 原版的排法是「指标 flex-1 | 竖线 | 预算设置 shrink-0」：指标随宽度摊开，
+ * 设置固定靠右；窄屏时设置换行到下一排（gap-y 负责间距）。 */
 .im-history-stats {
   display: flex;
   flex: none;
   flex-wrap: wrap;
-  gap: 16px 24px;
+  align-items: stretch;
+  gap: 8px 16px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--im-line);
   background: var(--im-surface-float);
 }
+/* 指标网格：2 列 / 窄屏，3 列 / 中屏，5 列 / 宽屏（原版 sm:3 lg:5） */
+.im-history-stat-grid {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+}
+@media (min-width: 720px) { .im-history-stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1040px) { .im-history-stat-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 .im-history-stat { min-width: 0; }
 .im-history-stat-label {
   font-size: 10px;
@@ -1310,6 +1322,33 @@ body[data-ds-dark-theme] {
   color: var(--im-ink);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+/* 预算设置区：与指标之间一条竖线分区（原版 sm:border-l sm:pl-4） */
+.im-history-budget {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-left: 16px;
+  border-left: 1px solid var(--im-line);
+}
+.im-history-budget-field { display: flex; align-items: center; gap: 4px; }
+.im-history-budget-label { font-size: 11px; color: var(--im-ink-3); white-space: nowrap; }
+/* 输入框收窄并右对齐数字：金额列不用宽，右对齐才好横向比较 */
+.im-history-budget-input {
+  width: 80px;
+  height: 26px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  font-size: 12px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.im-history-budget-tip { font-size: 11px; color: var(--im-ink-3); }
+@media (max-width: 719px) {
+  /* 窄屏：设置区换行后不再拉一条竖线（左边没有内容可分隔了） */
+  .im-history-budget { padding-left: 0; border-left: 0; }
 }
 /* 列表：整屏**只有这里滚** */
 .im-history-list {

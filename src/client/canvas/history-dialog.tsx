@@ -24,9 +24,11 @@ import {
   generationStats,
   listAssets,
   revealPath,
+  saveBudget,
   type AssetEntry,
   type GenerationHistoryItem,
   type HistoryStats,
+  type LocalBudget,
 } from '../api'
 import { errMessage } from '../lib/format'
 import { ModalShell } from './modal-shell'
@@ -82,6 +84,10 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
   /** 注册表：账本行只有 registryId，导入画布要拿它换完整的资产条目 */
   const [registry, setRegistry] = useState<Map<string, AssetEntry>>(new Map())
   const [zoomed, setZoomed] = useState<{ url: string; path?: string } | null>(null)
+  /** 本机预算设置的草稿（成本条那两个输入框，0 = 不限） */
+  const [draftBudget, setDraftBudget] = useState<LocalBudget>({ dailyLimit: 0, singleRunLimit: 0 })
+  const [savingBudget, setSavingBudget] = useState(false)
+  const [budgetTip, setBudgetTip] = useState('')
 
   const listRef = useRef<HTMLDivElement>(null)
   /** 请求代次：搜索/状态变化自增，旧响应（竞态）丢弃 */
@@ -156,6 +162,28 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
       .catch(() => setRegistry(new Map()))
   }, [load])
 
+  // 预算草稿：成本条那两个输入框。stats 回来时同步一次（原版 CostBoard 同一套做法）——
+  // 用户没编辑时显示后端已保存的值，编辑过就以草稿为准，直到点保存。
+  useEffect(() => {
+    if (!stats?.localBudget) return
+    setDraftBudget({ dailyLimit: stats.localBudget.dailyLimit, singleRunLimit: stats.localBudget.singleRunLimit })
+  }, [stats])
+
+  const saveLocalBudget = async () => {
+    setSavingBudget(true)
+    setBudgetTip('')
+    try {
+      await saveBudget(draftBudget)
+      const next = await generationStats()
+      setStats(next)
+      setBudgetTip('预算已保存')
+    } catch (err) {
+      setBudgetTip(`保存失败：${errMessage(err)}`)
+    } finally {
+      setSavingBudget(false)
+    }
+  }
+
   /** 滚动接近底部自动翻页（原版同样行为；按钮只作手动兜底） */
   const NEAR_BOTTOM_PX = 600
   const handleScroll = useCallback(() => {
@@ -220,23 +248,79 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
             </div>
           </div>
 
-          {/* 成本条：原版 CostBoard 的指标行（预算输入框属写接口，本步未做） */}
+          {/* 成本条：原版 CostBoard —— 左边指标，右边本机预算设置（日预算 / 单次上限 + 保存） */}
           {rows.length ? (
             <div className="im-history-stats">
-              {rows.map(row => (
-                <div key={row.label} className="im-history-stat">
-                  <div className="im-history-stat-label">{row.label}</div>
-                  <div className="im-history-stat-value">{row.value}</div>
-                </div>
-              ))}
-              {topSizes.length ? (
-                <div className="im-history-stat">
-                  <div className="im-history-stat-label">按尺寸</div>
-                  <div className="im-history-stat-value">
-                    {topSizes.map(row => `${row.size} ×${row.count}`).join(' · ')}
+              <div className="im-history-stat-grid">
+                {rows.map(row => (
+                  <div key={row.label} className="im-history-stat">
+                    <div className="im-history-stat-label">{row.label}</div>
+                    <div className="im-history-stat-value">{row.value}</div>
                   </div>
-                </div>
-              ) : null}
+                ))}
+                {topSizes.length ? (
+                  <div className="im-history-stat">
+                    <div className="im-history-stat-label">按尺寸</div>
+                    <div className="im-history-stat-value">
+                      {topSizes.map(row => `${row.size} ×${row.count}`).join(' · ')}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* 本机预算设置：写 <输出目录>/.budget.json，与原版同一份文件。
+                  语义是「超限需确认」不是硬拦（见 src/host/budget.js 文件头）。 */}
+              <div className="im-history-budget">
+                <label className="im-history-budget-field">
+                  <span className="im-history-budget-label">日预算</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    className="im-field im-history-budget-input"
+                    value={draftBudget.dailyLimit}
+                    title="当日累计费用上限（元），0 = 不限；超限提交前会要求确认"
+                    onChange={event =>
+                      setDraftBudget(prev => ({ ...prev, dailyLimit: Number(event.target.value) || 0 }))
+                    }
+                  />
+                </label>
+                <label className="im-history-budget-field">
+                  <span className="im-history-budget-label">单次上限</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    className="im-field im-history-budget-input"
+                    value={draftBudget.singleRunLimit}
+                    title="单次提交的预估上限（元），0 = 不限"
+                    onChange={event =>
+                      setDraftBudget(prev => ({ ...prev, singleRunLimit: Number(event.target.value) || 0 }))
+                    }
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="im-btn-ghost im-btn-sm"
+                  disabled={savingBudget || loading}
+                  onClick={() => void saveLocalBudget()}
+                >
+                  {savingBudget ? '保存中…' : '保存预算'}
+                </button>
+                <button
+                  type="button"
+                  className="im-btn-ghost im-btn-sm"
+                  disabled={loading}
+                  onClick={() =>
+                    void generationStats()
+                      .then(setStats)
+                      .catch(() => undefined)
+                  }
+                >
+                  刷新
+                </button>
+                {budgetTip ? <span className="im-history-budget-tip">{budgetTip}</span> : null}
+              </div>
             </div>
           ) : null}
 

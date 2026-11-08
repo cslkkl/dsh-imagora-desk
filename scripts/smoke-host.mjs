@@ -321,6 +321,96 @@ try {
   }).then(res => res.json())
   check('POST /settings 0 表示不设上限', clearBudget.budget === 0, String(clearBudget.budget))
 
+  // 本机预算设置（.budget.json，原版 core/cost.py 的口径）：超限需确认，不是硬拦
+  const budgetEmpty = await fetch(`${base}/budget`).then(res => res.json())
+  check(
+    'GET /budget 未设时两项皆 0',
+    budgetEmpty.dailyLimit === 0 && budgetEmpty.singleRunLimit === 0,
+    JSON.stringify(budgetEmpty),
+  )
+
+  const budgetSaved = await fetch(`${base}/budget`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ dailyLimit: 5, singleRunLimit: 0.05 }),
+  }).then(res => res.json())
+  check(
+    'POST /budget 回读规范化后的值',
+    budgetSaved.dailyLimit === 5 && budgetSaved.singleRunLimit === 0.05,
+    JSON.stringify(budgetSaved),
+  )
+
+  const budgetFile = join(FIXTURE_ROOT, 'output', '.budget.json')
+  check('POST /budget 落到输出目录的 .budget.json', existsSync(budgetFile), budgetFile)
+
+  const budgetRead = await fetch(`${base}/budget`).then(res => res.json())
+  check(
+    'GET /budget 读回刚写的值',
+    budgetRead.dailyLimit === 5 && budgetRead.singleRunLimit === 0.05,
+    JSON.stringify(budgetRead),
+  )
+
+  // 单次上限 0.05、该尺寸单价 0.1 → 预估超限，未确认时必须 409 且带 overBudget
+  const overSingle = await fetch(`${base}/generate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'smoke', size: '1024x1024', spent: 0 }),
+  })
+  check('POST /generate 超单次上限返回 409', overSingle.status === 409, String(overSingle.status))
+  const overSingleBody = await overSingle.json()
+  check(
+    '超限 409 带 overBudget.reason（供前端确认）',
+    typeof overSingleBody.overBudget?.reason === 'string' && overSingleBody.overBudget.reason.length > 0,
+    JSON.stringify(overSingleBody.overBudget ?? null),
+  )
+
+  // allowOverBudget = 原版的 confirmed=True：确认后必须放行
+  const overConfirmed = await fetch(`${base}/generate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'smoke', size: '1024x1024', spent: 0, allowOverBudget: true }),
+  })
+  check('POST /generate 带 allowOverBudget 放行', overConfirmed.status === 200, String(overConfirmed.status))
+
+  // 硬拦那条（本画布累计上限）不带 overBudget，两者不能串
+  await fetch(`${base}/settings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ budget: 1 }),
+  })
+  const hardBlocked = await fetch(`${base}/generate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'smoke', size: '1024x1024', spent: 1, allowOverBudget: true }),
+  })
+  const hardBody = await hardBlocked.json()
+  check(
+    '本画布上限是硬拦：confirmed 也不放行、且不带 overBudget',
+    hardBlocked.status === 409 && hardBody.overBudget === undefined,
+    String(hardBlocked.status),
+  )
+  await fetch(`${base}/settings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ budget: 0 }),
+  })
+
+  // 清空本机预算：0 表示不限，之后提交不再被拦
+  await fetch(`${base}/budget`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ dailyLimit: 0, singleRunLimit: 0 }),
+  })
+  const budgetCleared = await fetch(`${base}/budget`).then(res => res.json())
+  check('POST /budget 0 表示不限', budgetCleared.dailyLimit === 0 && budgetCleared.singleRunLimit === 0)
+
+  const afterClear = await fetch(`${base}/generate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'smoke', size: '1024x1024', spent: 0 }),
+  })
+  check('清空预算后提交不再被拦', afterClear.status === 200, String(afterClear.status))
+
   // 节点上没存 absPath 时，hydrate 要能从 registry 补回来：否则好文件被误判「缺失」，
   // url 被抹掉，图片节点的裁剪/切分/放大/预览全部哑掉。
   // 一张 1×1 的透明 PNG：冒烟只需要「是张能读的图」

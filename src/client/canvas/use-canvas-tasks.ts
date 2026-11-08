@@ -29,6 +29,32 @@ export function useGeneratedTasks({
   taskIdsRef,
   timersRef,
 }: Options) {
+  /**
+   * 提交一次生成，并把「超预算需确认」这一道走完。
+   *
+   * 两层预算的语义不同（见 host/budget.js 文件头）：
+   *   - 本画布累计上限：**硬拦**，409 直接当失败报出来，不给绕过；
+   *   - 本机日预算 / 单次上限：**超限需确认**，409 带 `overBudget` 时问一句，
+   *     用户点确认就带 `allowOverBudget` 重发一次。
+   * 硬拦那条不带 `overBudget` 字段，所以两者不会串。
+   */
+  const submitWithBudgetConfirm = useCallback(
+    async (input: Parameters<typeof submitGenerate>[0]) => {
+      try {
+        return await submitGenerate(input)
+      } catch (error) {
+        const over = (error as { body?: { overBudget?: { reason?: string } } }).body?.overBudget
+        if (!over) throw error
+        const reason = over.reason || errMessage(error)
+        const ok = window.confirm(`${reason}\n\n仍然要提交这一次吗？`)
+        if (!ok) throw new Error(`已按预算取消：${reason}`)
+        log(`超预算已确认，继续提交：${reason}`)
+        return await submitGenerate({ ...input, allowOverBudget: true })
+      }
+    },
+    [log],
+  )
+
   /** 结果回流：成功的结果在提示词卡正下方排成一行，并自动连一条「产出边」。 */
   const finishTask = useCallback(
     (nodeId: string, snapshot: TaskSnapshot) => {
@@ -155,7 +181,7 @@ export function useGeneratedTasks({
         return
       }
       try {
-        const submitted = await submitGenerate({
+        const submitted = await submitWithBudgetConfirm({
           prompt: node.data.prompt,
           size: node.data.size,
           quality: node.data.quality,
