@@ -19,6 +19,7 @@ pnpm run format           # prettier --write
 pnpm run format:check     # prettier --check（CI 用）
 pnpm run typecheck        # tsc --noEmit
 pnpm run test             # 两套冒烟：host 接口 + bundle/包名/插槽
+pnpm run test:ui          # 自动化 UI 冒烟（真实浏览器跑验收台，找不到浏览器打 SKIP）
 pnpm run harness          # 渲染验收台 http://127.0.0.1:4319/（mock 数据，不花钱）
 uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 ```
@@ -35,7 +36,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - 本地钩子（commit 前）：文本卫生、prettier、eslint、tsc、host 冒烟、bundle 冒烟，全绿。
 - CI：`.github/workflows/ci.yml`，只读；末段 `git diff --exit-code -- dist/client.js` 守住产物同步。
 - CI 状态以 Actions 徽章为准，不在这里抄结论；最近一次 main 的 push 为绿。
-- 冒烟数字：host 77 项、client 22 项（含设计层 CSS 括号平衡、旧连线 token 别名、animated 不许自写 dasharray、LOD 样式在位；host 侧含预算两层的 13 项）。
+- 冒烟数字：host 98 项、client 22 项、UI 24 项（host 侧含预算两层 13 项与账本读写 14 项；UI 侧用真实浏览器跑验收台，`pnpm run test:ui`）。
 - 验收台示例图是仓库里的 `harness/sample.png`（1600×1200）：内嵌兜底只有 64×64，会让所有尺寸相关验收失去意义。
 - 渲染验收台：`scripts/harness-server.mjs` + 真实浏览器，实测建卡→运行→回流、四个对话框、Del 删除、粘贴导入、生成历史、滚轮缩放、左键平移、拖拽吸附与对齐线、锁定画布、成本徽章与预算闸门、裁剪/切分/放大/蒙版四个对话框。
 - 真实出图链路验证过两次（火山 Seedream 5.0 pro，1024x1024，单张 0.20 元）：一次走 imagora 配置，一次走插件内配置。
@@ -43,8 +44,8 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 ## 待办
 
 - [x] 市场可搜索：自托管索引 + GitHub Pages，实测搜到并安装成功。发 npm 只是可选增强（`dsh plugin add dsh-imagora-desk` 直接装）
-- [ ] 未做自动化 UI 测试，验收台靠手工脚本驱动
-- [ ] 生成历史「双源并存」：列表读原版账本，插件自己出的图只在资产注册表里，两边不合流（合流要改 `tasks.js` 追加账本 + 跨进程写互斥，故意没做）。见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [x] 自动化 UI 测试：`pnpm run test:ui` 用真实浏览器跑 24 条断言（弹窗结构 / 提示词浮层 / 蒙版底图 / 预算输入 / 无页面异常）。浏览器找不到时打 SKIP 退 0，CI 仍只跑 `pnpm run test`
+- [x] 生成历史「双源并存」：插件出的图现在按 `core/logging.py` 的格式追加进同一份账本（`src/host/ledger.js`），历史里能看见；写入闸门见下
 - [x] 生成历史成本条的「日预算 / 单次上限」输入框（原版 CostBoard）：落在 `<输出目录>/.budget.json`，与原版共读一份；语义是「超限需确认」，见 [决策](.agents/notes/2026-11-08-budget-two-layers.md)
 - [x] 生成历史里提示词的鼠标悬浮：改用原版 `PromptCell`（2 行截断，真被截断才出跟随鼠标的深色浮层）
 - [x] 设置弹窗改原版结构：两个下拉 +「生效中」只读表（照 `ConfigEditorModal`，未恢复三页签）
