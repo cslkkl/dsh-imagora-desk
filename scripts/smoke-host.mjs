@@ -733,6 +733,50 @@ try {
     !ownList.workflows.some(row => row.name === '原版工作流'),
     ownList.workflows.map(row => row.name).join(', ') || '(空)',
   )
+
+  // ---------------- 账本根目录：没显式设指针也要读得到 ----------------
+  //
+  // 这条锁的是一个**静默失效**的 bug：`imagoraRoot`（用户显式选的共享目录）为空时，
+  // 历史/统计/预算判定都拿空串去拼路径，结果一条记录都读不到 ——
+  // 生成历史空着（用户以为图没了），日预算的 todayCost 恒为 0（预算形同不存在）。
+  // 而同一个 loadImagoraConfig 里 defaultOutputDir 是拿 root 兜底的，两边取法不一致。
+  //
+  // 夹具：把账本写进自动探测到的那个目录（fixture 的 logs/），**不设 imagoraRoot**。
+  const fixtureLedgerDir = join(FIXTURE_ROOT, 'logs')
+  mkdirSync(fixtureLedgerDir, { recursive: true })
+  writeFileSync(
+    join(fixtureLedgerDir, 'generation.jsonl'),
+    `${JSON.stringify({
+      time: '2026-11-02 09:00:00',
+      mode: 'txt2img',
+      refs: 0,
+      prompt: '没设指针也要读到的账本行',
+      size: '1024x1024',
+      quality: 'high',
+      status: 'ok',
+      cost: 0.3,
+      seconds: 20,
+      output: '',
+    })}\n`,
+  )
+  const noPointerHistory = await fetch(`${base}/history?limit=60&offset=0`).then(res => res.json())
+  check(
+    '没设 imagoraRoot 时 /history 仍读到自动探测目录的账本',
+    noPointerHistory.source === 'ledger' && noPointerHistory.items?.some(row => row.prompt.includes('没设指针')),
+    `${noPointerHistory.source} / ${noPointerHistory.items?.length} 条`,
+  )
+  check(
+    '没设 imagoraRoot 时 /history 给出账本真实路径',
+    typeof noPointerHistory.ledgerPath === 'string' && noPointerHistory.ledgerPath.includes('generation.jsonl'),
+    noPointerHistory.ledgerPath || '(空)',
+  )
+  const noPointerStats = await fetch(`${base}/history/stats`).then(res => res.json())
+  check(
+    '没设 imagoraRoot 时 /history/stats 也读得到（todayCost 不再恒为 0）',
+    noPointerStats.total >= 1,
+    `total ${noPointerStats.total}`,
+  )
+  rmSync(fixtureLedgerDir, { recursive: true, force: true })
   rmSync(SHARED_ROOT, { recursive: true, force: true })
 } finally {
   server.close()

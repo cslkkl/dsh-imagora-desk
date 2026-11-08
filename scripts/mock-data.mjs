@@ -265,22 +265,23 @@ export function defineConfig(path, url, rawBody) {
       ],
       byMode: [{ mode: 'img2img', count: 3, cost: 0.15 }],
       budget: { limit: 0, spentToday: Math.round(cost * 100) / 100, remaining: 0 },
-      // 本机预算设置（.budget.json）：验收台给一组非零值，让成本条那两个输入框
-      // 一开始就有内容 —— 全 0 时看不出「读回来的值」与「新建草稿」的区别。
+      // 本机预算设置（.budget.json）：读 live —— 必须跟 /imagora/budget 的 POST 共用同一份，
+      // 否则「保存预算 → 重新拉 stats」会回读到旧夹具，看起来像保存没生效。
       localBudget: {
-        ...MOCK_BUDGET,
-        remainingToday: MOCK_BUDGET.dailyLimit ? Math.max(0, MOCK_BUDGET.dailyLimit - cost) : 0,
+        ...live.localBudget,
+        remainingToday: live.localBudget.dailyLimit
+          ? Math.round(Math.max(0, live.localBudget.dailyLimit - cost) * 100) / 100
+          : 0,
         path: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output\\.budget.json',
       },
     }
   }
 
-  // 本机预算设置：**固定夹具，不落盘也不记住 POST**。
-  // 验收台只负责「渲染对不对」，读写语义由 host 冒烟那 13 条预算用例守（真实文件 + 真实判定）。
-  // 这里给非零值是有意的：全 0 时看不出「读回来的值」与「新建草稿」的区别。
+  // 本机预算设置：GET 读回当前值，POST 覆盖（存进 live，与 history/stats 共用）。
+  // 不落盘：验收台不该有副作用；真实读写语义由 host 冒烟的预算用例守。
   if (path === '/imagora/budget') {
     return {
-      ...MOCK_BUDGET,
+      ...live.localBudget,
       path: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output\\.budget.json',
     }
   }

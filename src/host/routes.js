@@ -67,6 +67,22 @@ async function readJson(req) {
   }
 }
 
+/**
+ * 账本（logs/generation.jsonl）所在目录。
+ *
+ * **必须两个一起看**：`imagoraRoot` 是用户显式选的共享目录，`root` 是自动探测到的
+ * Imagora 安装位置。只认前者的话，没点过「选择目录」的用户读不到账本 ——
+ * 生成历史空着、日预算用的 `todayCost` 恒为 0（**预算静默失效**，比报错更糟）。
+ * 同一个 `loadImagoraConfig` 里 `defaultOutputDir` 早就用 root 兜底了，
+ * 账本却只认 imagoraRoot，是内部的取法不一致。
+ *
+ * 只用于**读**（历史、统计、预算判定）。写（工作流、资产、.budget.json）仍只认
+ * 显式指针，不该往用户没确认过的目录里落东西。
+ */
+function ledgerRoot(config) {
+  return String(config?.imagoraRoot || '').trim() || String(config?.root || '').trim()
+}
+
 function publicConfig(config) {
   return {
     source: config.source,
@@ -298,7 +314,7 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
       // 两者不是一回事：账本一条 = 一次生成尝试（含失败、带提示词/成本/耗时），
       // 注册表一条 = 一个存在的图片文件（无提示词）。原版历史列表读的是账本。
       const config = getConfig()
-      const imagoraRoot = String(config.imagoraRoot || '').trim()
+      const imagoraRoot = ledgerRoot(config)
       const limit = Math.min(MAX_HISTORY_LIMIT, Math.max(1, Number(url.searchParams.get('limit')) || 60))
       const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0)
       const query = url.searchParams.get('query') || ''
@@ -334,7 +350,7 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
     if (path === '/history/stats' && method === 'GET') {
       // 成本看板：账本**原始行**聚合（不聚合、不截断）—— 每个成功行都真花过钱
       const config = getConfig()
-      const imagoraRoot = String(config.imagoraRoot || '').trim()
+      const imagoraRoot = ledgerRoot(config)
       const days = Number(url.searchParams.get('days')) || 14
       const { records } = await readLedger(imagoraRoot)
       const stats = summarize(readRaw(records), days)
@@ -454,7 +470,7 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
       //    判据要现读账本（今天的钱是别的进程/原版花掉的也算），不能只信前端报的数。
       const localBudget = loadBudget(config.defaultOutputDir)
       if (localBudget.dailyLimit > 0 || localBudget.singleRunLimit > 0) {
-        const { records } = await readLedger(String(config.imagoraRoot || '').trim())
+        const { records } = await readLedger(ledgerRoot(config))
         const today = summarize(readRaw(records), 1).todayCost
         const estimate = costOfSize(config, size) * Math.max(1, Number(body.count) || 1)
         const verdict = checkBudget(estimate, localBudget, today, body.allowOverBudget === true)

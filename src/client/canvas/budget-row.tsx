@@ -18,7 +18,12 @@ export interface BudgetRowProps {
 }
 
 export function BudgetRow({ config, onSaved, onFlash }: BudgetRowProps) {
-  const [draft, setDraft] = useState('')
+  /** null = 用户还没动过（显示当前生效值）；字符串 = 编辑中的原样内容。
+   *
+   * 不能写成 `draft === '' ? current : draft`：那样把框删空会立刻回弹成当前值，
+   * 用户永远清不掉，只能全选覆盖。也不能在 onChange 里 Number()：打「1.」会被
+   * 归一成 1，小数点当场消失，0.5 这类金额根本输不进去。 */
+  const [draft, setDraft] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const current = Number(config?.budget ?? 0)
 
@@ -27,7 +32,7 @@ export function BudgetRow({ config, onSaved, onFlash }: BudgetRowProps) {
     try {
       const next = await setBudget(value)
       onSaved(next)
-      setDraft('')
+      setDraft(null)
       onFlash(value > 0 ? `本画布预算上限已设为 ¥${value.toFixed(2)}` : '已取消预算上限')
     } catch (error) {
       onFlash(`设置失败：${errMessage(error)}`)
@@ -46,7 +51,7 @@ export function BudgetRow({ config, onSaved, onFlash }: BudgetRowProps) {
           id="imagora-budget"
           className="im-field"
           inputMode="decimal"
-          value={draft === '' ? (current ? String(current) : '') : draft}
+          value={draft ?? (current ? String(current) : '')}
           placeholder="留空 = 不设上限"
           disabled={busy}
           onChange={event => setDraft(event.target.value)}
@@ -60,8 +65,8 @@ export function BudgetRow({ config, onSaved, onFlash }: BudgetRowProps) {
           <button
             type="button"
             className="im-btn-primary im-btn-sm"
-            disabled={busy || !draft.trim()}
-            onClick={() => void apply(Number(draft))}
+            disabled={busy || !draft?.trim()}
+            onClick={() => void apply(Math.max(0, Number(draft) || 0))}
           >
             保存上限
           </button>

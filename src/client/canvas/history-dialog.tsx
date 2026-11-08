@@ -84,8 +84,17 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
   /** 注册表：账本行只有 registryId，导入画布要拿它换完整的资产条目 */
   const [registry, setRegistry] = useState<Map<string, AssetEntry>>(new Map())
   const [zoomed, setZoomed] = useState<{ url: string; path?: string } | null>(null)
-  /** 本机预算设置的草稿（成本条那两个输入框，0 = 不限） */
-  const [draftBudget, setDraftBudget] = useState<LocalBudget>({ dailyLimit: 0, singleRunLimit: 0 })
+  /** 本机预算设置的草稿（成本条那两个输入框，0 = 不限）。
+   *
+   * 存**字符串**而不是 number：这两个框是受控的金额输入，用户打「0.」或清空时
+   * 中间态必须能留在框里。之前直接 `Number(e.target.value) || 0`，于是
+   *   - 打小数点：`Number('1.')` = 1 → 回写 "1"，小数点被吞，永远打不出 0.5
+   *   - 清空：回写 0，框里立刻弹回 "0"，只能全选覆盖不能先删再打
+   * 保存时才 Number() 归一。 */
+  const [draftBudget, setDraftBudget] = useState<{ dailyLimit: string; singleRunLimit: string }>({
+    dailyLimit: '',
+    singleRunLimit: '',
+  })
   const [savingBudget, setSavingBudget] = useState(false)
   const [budgetTip, setBudgetTip] = useState('')
 
@@ -166,14 +175,21 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
   // 用户没编辑时显示后端已保存的值，编辑过就以草稿为准，直到点保存。
   useEffect(() => {
     if (!stats?.localBudget) return
-    setDraftBudget({ dailyLimit: stats.localBudget.dailyLimit, singleRunLimit: stats.localBudget.singleRunLimit })
+    setDraftBudget({
+      dailyLimit: stats.localBudget.dailyLimit ? String(stats.localBudget.dailyLimit) : '0',
+      singleRunLimit: stats.localBudget.singleRunLimit ? String(stats.localBudget.singleRunLimit) : '0',
+    })
   }, [stats])
 
   const saveLocalBudget = async () => {
     setSavingBudget(true)
     setBudgetTip('')
+    const payload: LocalBudget = {
+      dailyLimit: Math.max(0, Number(draftBudget.dailyLimit) || 0),
+      singleRunLimit: Math.max(0, Number(draftBudget.singleRunLimit) || 0),
+    }
     try {
-      await saveBudget(draftBudget)
+      await saveBudget(payload)
       const next = await generationStats()
       setStats(next)
       setBudgetTip('预算已保存')
@@ -273,30 +289,28 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
               <div className="im-history-budget">
                 <label className="im-history-budget-field">
                   <span className="im-history-budget-label">日预算</span>
+                  {/* type="text" + inputMode="decimal"，**不是** type="number"：
+                      后者在用户打「0.」这种中间态时 `.value` 直接返回空串（Chromium 判 badInput），
+                      受控组件拿不到用户真正敲的字，小数点永远打不进去、也清不空。
+                      金额框只需要「弹数字键盘 + 原样回显」，校验留到保存那一刻。 */}
                   <input
-                    type="number"
-                    min={0}
-                    step={0.01}
+                    type="text"
+                    inputMode="decimal"
                     className="im-field im-history-budget-input"
                     value={draftBudget.dailyLimit}
                     title="当日累计费用上限（元），0 = 不限；超限提交前会要求确认"
-                    onChange={event =>
-                      setDraftBudget(prev => ({ ...prev, dailyLimit: Number(event.target.value) || 0 }))
-                    }
+                    onChange={event => setDraftBudget(prev => ({ ...prev, dailyLimit: event.target.value }))}
                   />
                 </label>
                 <label className="im-history-budget-field">
                   <span className="im-history-budget-label">单次上限</span>
                   <input
-                    type="number"
-                    min={0}
-                    step={0.01}
+                    type="text"
+                    inputMode="decimal"
                     className="im-field im-history-budget-input"
                     value={draftBudget.singleRunLimit}
                     title="单次提交的预估上限（元），0 = 不限"
-                    onChange={event =>
-                      setDraftBudget(prev => ({ ...prev, singleRunLimit: Number(event.target.value) || 0 }))
-                    }
+                    onChange={event => setDraftBudget(prev => ({ ...prev, singleRunLimit: event.target.value }))}
                   />
                 </label>
                 <button
