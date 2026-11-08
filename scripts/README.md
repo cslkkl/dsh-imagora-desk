@@ -6,14 +6,32 @@
 
 ## 文件
 
-| 脚本                       | 作用                                                                          | 何时跑                       | 副作用                       |
-| -------------------------- | ----------------------------------------------------------------------------- | ---------------------------- | ---------------------------- |
-| `smoke-host.mjs`           | 用假 Cordis 上下文起 host 半端，真实 HTTP 打 22 项接口                        | `pnpm run test`              | 只写临时目录，用完删除       |
-| `smoke-client.mjs`         | 模拟 `__ModuleLoader__` 执行 bundle，断言导出、插槽注册、bundle id 与包名一致 | `pnpm run test`              | 无                           |
-| `check-text-hygiene.mjs`   | 行尾统一 LF、去行尾空白、补末尾换行；不加 `--fix` 只报不改                    | 本地钩子、手动               | 加 `--fix` 才写盘            |
-| `build-harness-vendor.mjs` | 把 React 打成浏览器全局，供验收台加载真实 bundle                              | `pnpm run harness`           | 写 `harness/dist/`（已忽略） |
-| `harness-server.mjs`       | 静态服务 + `/imagora/*` mock，供浏览器渲染验收                                | `pnpm run harness`           | 端口 4319，不发真实请求      |
-| `mock-data.mjs`            | 验收台的配置与恢复快照夹具，含一次完整的生成回流模拟                          | 由 `harness-server.mjs` 引入 | 无                           |
+| 脚本                       | 作用                                                                                         | 何时跑                       | 副作用                       |
+| -------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------- | ---------------------------- |
+| `smoke-host.mjs`           | 用假 Cordis 上下文起 host 半端，真实 HTTP 打 22 项接口                                       | `pnpm run test`              | 只写临时目录，用完删除       |
+| `smoke-client.mjs`         | 模拟 `__ModuleLoader__` 执行 bundle，断言导出、插槽注册、bundle id 与包名一致                | `pnpm run test`              | 无                           |
+| `check-text-hygiene.mjs`   | 行尾统一 LF、去行尾空白、补末尾换行；不加 `--fix` 只报不改                                   | 本地钩子、手动               | 加 `--fix` 才写盘            |
+| `build-harness-vendor.mjs` | 把 React 打成浏览器全局，供验收台加载真实 bundle                                             | `pnpm run harness`           | 写 `harness/dist/`（已忽略） |
+| `harness-server.mjs`       | 静态服务 + `/imagora/*` mock，供浏览器渲染验收                                               | `pnpm run harness`           | 端口 4319，不发真实请求      |
+| `ui-smoke.mjs`             | **自动化** UI 冒烟：真实浏览器跑 24 条断言（弹窗结构 / 浮层 / 蒙版底图 / 预算输入 / 无异常） | `pnpm run test:ui`           | 自动起停验收台，不花钱       |
+| `mock-data.mjs`            | 验收台的配置与恢复快照夹具，含一次完整的生成回流模拟                                         | 由 `harness-server.mjs` 引入 | 无                           |
+
+## 自动化 UI 冒烟（test:ui）
+
+```powershell
+pnpm run test:ui     # 起验收台 → 无头浏览器点一遍 → 断言 → 自动关掉
+UI_KEEP_OPEN=1 pnpm run test:ui   # 保留窗口，便于旁观
+```
+
+过去验收台只能靠人点，而人会漏：本轮就漏过「蒙版预览画布全白」「预算框吞小数点」
+两个 bug —— 都是一点就能发现的。现在把它们固化成断言。
+
+**依赖边界**：只用本项目的 devDependency（`playwright-core`），不解析别处的
+`node_modules`（那会「本机绿、CI 红」）。
+
+**浏览器来源**：`PW_CHROMIUM_PATH` → 系统 Chrome / Edge → Playwright 缓存里的
+`chromium-*`。都找不到就打 `SKIP` 并 exit 0 —— 这是加分项，不该让没装浏览器的
+环境整体变红。所以 CI 只跑 `pnpm run test`，`test:ui` 留给本地与需要时手动跑。
 
 ## 验收台怎么用
 
