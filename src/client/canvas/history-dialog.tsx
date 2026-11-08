@@ -30,6 +30,7 @@ import {
 } from '../api'
 import { errMessage } from '../lib/format'
 import { ModalShell } from './modal-shell'
+import { PromptCell } from './prompt-cell'
 import { ZoomModal } from './zoom-modal'
 
 export interface HistoryDialogProps {
@@ -270,9 +271,7 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
                           )}
                         </div>
                         <div className="im-history-main">
-                          <p className="im-history-prompt" title={item.prompt || '（无提示词）'}>
-                            {item.prompt || '无提示词'}
-                          </p>
+                          <PromptCell text={item.prompt || '无提示词'} />
                           <p className="im-history-meta">
                             {item.time || '-'} · {item.quality || '-'} · {item.size || '-'}
                           </p>
