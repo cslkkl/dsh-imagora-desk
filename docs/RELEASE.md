@@ -4,18 +4,32 @@
 
 ## 索引怎么更新
 
-索引里的 `commit` 必须指向「你希望别人装到的那次提交」。提交时 HEAD 还是父提交，
-所以不能靠钩子自动写。发版流程：
+索引里的 `commit` 必须指向「你希望别人装到的那次提交」。`scripts/build-market-index.mjs`
+取值顺序是 **`v<version>` tag → 最近的 `v*` tag → HEAD**，也就是说：
+**没打 tag 就生成索引，它会指向上一版**（实测发 0.2.0 时没有 `v0.2.0`，索引落到
+`v0.1.0` 的提交 8aa0c14 —— 别人装到的还是旧代码）。
+
+所以 **tag 必须先打，索引后生成**。顺序：
 
 ```powershell
-git commit -m "..."          # 正常提交代码
-pnpm run market:index        # 按新 HEAD 重新生成索引
-git commit --amend --no-edit # 把索引并进同一次提交
-git push
+git commit -m "..."              # 1. 正常提交代码
+git tag -a v<version> -m "..."   # 2. 先打 tag（索引要读它）
+pnpm run market:index            # 3. 按 tag 指向的提交生成索引
+git add market/index.json
+git commit -m "chore(market): 索引指向 v<version>"   # 4. 索引单独一次提交
+git push --follow-tags           # 5. 代码与 tag 一起推
 ```
 
-忘了这一步会怎样：`pnpm run market:fresh` 会提示「改了运行时文件但没更新索引」，
-CI 也会拦（它校验 commit 存在于仓库里）。
+**为什么第 4 步是 `commit` 而不是 `git commit --amend`**：索引读取的是 tag 指向的提交，
+amend 只会产生一个新的 HEAD，`v<version>` 仍然指着打 tag 那一刻的提交 ——
+**amend 对索引指向毫无影响**，纯粹是空转。旧文档写的就是 amend，已作废。
+
+由此得到一个**已知且可接受**的性质：tag 里那份 `market/index.json` 可能落后一格
+（它写的是打 tag 之前的索引）。这不影响安装正确性 —— 判断标准是「索引里的 commit
+真实存在、且含完整代码」，`check-market-index` / `market:fresh` 校验的正是这一条。
+
+忘了打 tag 会怎样：索引指向上一版，别人 `dsh plugin add` 装到的是旧功能，
+而本地测试一切正常（因为本地跑的是工作区）。这是最容易漏、也最难发现的一步。
 
 ## 本机的 registry 陷阱
 
@@ -69,7 +83,7 @@ npm login --registry=https://registry.npmjs.org
 ```powershell
 cd <本仓库根目录>
 pnpm install --frozen-lockfile
-pnpm run test                 # host 58 + client 16 + 索引校验，全绿再往下
+pnpm run test                 # host 82 + client 22 + 索引校验，全绿再往下
 npm publish                   # registry 与 access 已在 publishConfig 里
 ```
 
@@ -96,9 +110,12 @@ dsh plugin --profile pubcheck add dsh-imagora-desk
 - [ ] `npm publish --dry-run` 的文件清单里没有多余文件，体积合理
 - [ ] `dist/client.js` 是最新构建（CI 与 `prepublishOnly` 双重把关）
 - [ ] 版本按语义升：功能升 minor，修 bug 升 patch
+- [ ] **先 `git tag -a v<version>`，再 `pnpm run market:index`**（顺序反了索引会指向上一版，
+      见「索引怎么更新」）
 - [ ] `engines.dsh` 与实际兼容的 DSH 版本一致
 - [ ] `pnpm run market:index` 重新生成，`pnpm run market:check` 官方校验通过
-- [ ] `git push` 后 CI 绿（含 dist 同步与索引新鲜度检查）
+- [ ] 最终索引里的 commit 等于 `git rev-parse v<version>^{commit}`（不是父提交、不是上个 tag）
+- [ ] `git push --follow-tags` 后 CI 绿（含 dist 同步与索引新鲜度检查）
 - [ ] `pnpm pack` 产物含 `dist/client.js`、`src/host/index.js`、`cordis.patch.yml`
 - [ ] GitHub Release 附带同一份 tgz
 - [ ] 装进干净 profile 冒烟：`dsh plugin --profile <name> add dsh-imagora-desk@<version>`
@@ -113,7 +130,8 @@ dsh plugin --profile pubcheck add dsh-imagora-desk
 
 发布出问题时按「谁先受影响」倒序处理：
 
-- **索引指错了提交**：`pnpm run market:index` 重新生成 → `git commit --amend` → 推送，Pages 会自动重新部署。
+- **索引指错了提交**：确认 `v<version>` tag 打在正确提交上，再 `pnpm run market:index` →
+  提交索引（**不是 amend**）→ 推送，Pages 会自动重新部署。
 - **npm 版本有问题**：`npm deprecate dsh-imagora-desk@<version> "<原因>"` 标记废弃，再发一个 patch 修。npm 不允许重发同版本号。
 - **Release 附件错了**：删掉附件重传，或用 `gh release upload --clobber`。
 - **tag 指向错了**：`git tag -d v<version>` → 重新 `git tag -a` → `git push --force origin v<version>`。索引随后要重新生成。
