@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { resolveApiPaths } from '../src/host/config.js'
+import { publicErrorBody } from '../src/host/errors.js'
 
 // 用临时目录跑：不往真实画布目录里塞测试资产与恢复快照
 const SANDBOX = mkdtempSync(join(tmpdir(), 'dsh-imagora-smoke-'))
@@ -342,6 +343,48 @@ try {
 
   const budgetFile = join(FIXTURE_ROOT, 'output', '.budget.json')
   check('POST /budget 落到输出目录的 .budget.json', existsSync(budgetFile), budgetFile)
+
+  // ---------------- 5xx 不许把本机绝对路径回显给前端 ----------------
+  //
+  // Node 的 fs 错误 message 自带路径（实测）：
+  //   ENOENT: no such file or directory, open 'C:\Users\<用户名>\...\config.json'
+  // 原来的 catch 直接 `{ error: error.message }`，于是浏览器网络面板、用户截图、
+  // 工单里都能看到本机用户名与目录结构。对照同包的 /file：失败只回「图片不存在」。
+  //
+  // 造一个真实的 500：把输出目录指到一个**文件**下面，mkdir/写入必然 ENOTDIR。
+  const blocker = join(FIXTURE_ROOT, 'not-a-dir')
+  mkdirSync(FIXTURE_ROOT, { recursive: true })
+  writeFileSync(blocker, 'x')
+  await fetch(`${base}/settings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ outputDir: join(blocker, 'sub') }),
+  })
+  const brokeRes = await fetch(`${base}/budget`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ dailyLimit: 1 }),
+  })
+  const brokeBody = await brokeRes.text()
+  const brokeStatus = brokeRes.status
+  const leaksPath = /[A-Za-z]:\\\\|[A-Za-z]:\\/.test(brokeBody) || brokeBody.includes(FIXTURE_ROOT)
+  if (brokeStatus >= 500) {
+    check('5xx 响应体不含本机绝对路径', !leaksPath, brokeBody.slice(0, 120))
+    check('5xx 响应体仍带错误码（可诊断）', /E[A-Z]{2,}/.test(brokeBody), brokeBody.slice(0, 120))
+  } else {
+    // 环境不允许造这个错误（权限/平台差异）：退一步直接验脱敏函数
+    check(
+      '5xx 脱敏（夹具造不出错误，改验函数）',
+      publicErrorBody({ code: 'ENOENT' }).error === '服务端内部错误（ENOENT）',
+    )
+  }
+  // 还原设置，后面的用例继续用正常目录
+  await fetch(`${base}/settings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ outputDir: '' }),
+  })
+  rmSync(blocker, { force: true })
 
   const budgetRead = await fetch(`${base}/budget`).then(res => res.json())
   check(

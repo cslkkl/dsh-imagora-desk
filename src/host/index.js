@@ -2,6 +2,7 @@
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { loadImagoraConfig, readSettings, writeSettings } from './config.js'
+import { clientErrorBody, publicErrorBody } from './errors.js'
 import { createRouter } from './routes.js'
 import { Store } from './store.js'
 import { TaskPool } from './tasks.js'
@@ -69,9 +70,20 @@ export default {
                 res.end()
                 return
               }
-              res.statusCode = error.status || 500
+              const status = Number(error?.status) || 500
+              // 4xx 是我们自己 throw 的、文案写给用户看，原样返回；
+              // 5xx 一律脱敏 —— Node 的 fs 错误 message 里带着绝对路径，
+              // 回给前端等于把本机用户名与目录结构交出去（见 errors.js）。
+              const body = status >= 500 ? publicErrorBody(error) : clientErrorBody(error)
+              if (status >= 500) {
+                // 完整信息只进宿主日志：排查靠它，浏览器不该看到
+                ctx.logger?.error?.(
+                  `dsh-imagora-desk: ${req.method} ${req.url} → ${status} ${error?.stack || error?.message || error}`,
+                )
+              }
+              res.statusCode = status
               res.setHeader('content-type', 'application/json; charset=utf-8')
-              res.end(JSON.stringify({ error: error.message }))
+              res.end(JSON.stringify(body))
             }
           },
         }),
