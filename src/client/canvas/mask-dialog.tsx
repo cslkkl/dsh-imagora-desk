@@ -248,22 +248,22 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
     >
       <div style={{ display: 'grid', gap: 12 }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button
-            type="button"
-            aria-pressed={mode === 'paint'}
-            className={`im-btn-sm ${mode === 'paint' ? 'im-btn-primary' : 'im-btn-ghost'}`}
-            onClick={() => setMode('paint')}
-          >
-            涂（要重绘）
-          </button>
-          <button
-            type="button"
-            aria-pressed={mode === 'erase'}
-            className={`im-btn-sm ${mode === 'erase' ? 'im-btn-primary' : 'im-btn-ghost'}`}
-            onClick={() => setMode('erase')}
-          >
-            擦
-          </button>
+          {/* 涂 / 擦 是**模式**不是行动：原版这一类互斥开关用 chip chip--sm，
+              点中那枚走 chip--brand。用 btn-primary 会把模式渲染成「主操作」。 */}
+          {[
+            { mode: 'paint' as BrushMode, label: '涂（要重绘）' },
+            { mode: 'erase' as BrushMode, label: '擦' },
+          ].map(row => (
+            <button
+              key={row.mode}
+              type="button"
+              aria-pressed={mode === row.mode}
+              className={`im-chip im-chip--sm im-chip--action${mode === row.mode ? ' is-brand' : ''}`}
+              onClick={() => setMode(row.mode)}
+            >
+              {row.label}
+            </button>
+          ))}
           <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
             笔刷
             <input

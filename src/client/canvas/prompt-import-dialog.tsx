@@ -3,9 +3,11 @@
 // 解析规则来自移植过来的 lib/promptImportFormat.ts（与 Imagora 同一套格式）：
 // 按空行/标题切分，`--ar 16:9` 之类的比例标记绑定到同一张卡。
 // 这里只做界面：先预览「识别出几张、每张什么比例」，确认后才建卡。
-// 外壳与底部行动走 ModalShell（原版是 modal-panel--lg）。
-import { useMemo, useState } from 'react'
-import { parsePromptImportFormat, type PromptCardSpec } from '../lib/promptImportFormat'
+//
+// 版面照搬原版 PromptImportModal：正文 textarea 在上，下面一条**可滚的预览区**
+// （识别汇总 → 逐张卡片 → 问题），预览卡与画布上的提示词卡同源。
+import { useMemo, useRef, useState } from 'react'
+import { parsePromptImportFormat, resolveCardSize, type PromptCardSpec } from '../lib/promptImportFormat'
 import type { SizeOption } from '../lib/types'
 import { ModalShell } from './modal-shell'
 
@@ -17,6 +19,7 @@ export interface PromptImportDialogProps {
 
 export function PromptImportDialog({ sizes, onCancel, onConfirm }: PromptImportDialogProps) {
   const [text, setText] = useState('')
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const parsed = useMemo(() => parsePromptImportFormat(text), [text])
   const hasInput = text.trim().length > 0
   const cards = parsed.cards
@@ -24,10 +27,11 @@ export function PromptImportDialog({ sizes, onCancel, onConfirm }: PromptImportD
 
   return (
     <ModalShell
-      title="粘贴导入提示词"
-      subtitle="粘贴模型回复，实时解析成多张提示词卡。"
+      title="粘贴导入提示词卡片"
+      subtitle="粘贴模型回复。每张卡片由标题、文本围栏与首行比例组成。"
       size="lg"
       onClose={onCancel}
+      initialFocusRef={inputRef}
       footer={
         <>
           <button type="button" className="im-btn-ghost im-btn-sm" onClick={onCancel}>
@@ -39,55 +43,66 @@ export function PromptImportDialog({ sizes, onCancel, onConfirm }: PromptImportD
             disabled={!cards.length || issues.length > 0}
             onClick={() => onConfirm(cards)}
           >
-            建 {cards.length} 张卡
+            确认建卡（{cards.length}）
           </button>
         </>
       }
     >
-      <div style={{ display: 'grid', gap: 12 }}>
-        <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.7, color: 'var(--im-ink-3)' }}>
-          一张卡一块：标题行 <code>=== 名字 ===</code>，围栏里第一行写 <code>ratio: 3:2</code>，空行之后是提示词正文。
-          格式不对的块不会建卡，会在下面标出来。
-        </p>
-
+      <div style={{ display: 'grid', gap: 10 }}>
         <textarea
+          ref={inputRef}
           value={text}
           onChange={event => setText(event.target.value)}
           rows={10}
           spellCheck={false}
           aria-label="待导入的提示词文本"
-          className="im-field"
-          style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+          className="im-field nodrag nowheel"
+          style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12 }}
           placeholder={
             '=== 秋日通勤包 ===\n```text\nratio: 3:2\n\nlinen tote bag on warm concrete, soft top light\n```\n\n=== 冬日围巾 ===\n```text\nratio: 2:3\n\nwool scarf on linen, morning window light\n```'
           }
         />
 
-        {hasInput ? (
-          <div style={{ fontSize: 12, display: 'grid', gap: 4 }}>
-            <strong style={{ fontWeight: 600 }}>
-              识别到 {cards.length} 张卡{issues.length ? `，${issues.length} 处需要修正` : ''}
-            </strong>
-            {cards.slice(0, 8).map((card, index) => (
-              <div key={`${index}-${card.title ?? ''}`} style={{ color: 'var(--im-ink-2)' }}>
-                {index + 1}. {card.title ? `${card.title} · ` : ''}
-                {card.ratio ? `比例 ${card.ratio}` : '比例按默认'}
-                {card.prompt ? ` · ${card.prompt.slice(0, 46)}${card.prompt.length > 46 ? '…' : ''}` : ' · 提示词为空'}
+        <div className="im-import-preview" role="status" aria-live="polite">
+          {hasInput ? (
+            <>
+              <div className="im-import-summary">
+                <span>识别 {cards.length} 张卡片</span>
+                {issues.length ? <span className="im-import-summary-error">发现 {issues.length} 个问题</span> : null}
               </div>
-            ))}
-            {cards.length > 8 ? <div style={{ color: 'var(--im-ink-3)' }}>…还有 {cards.length - 8} 张</div> : null}
-            {issues.slice(0, 5).map((issue, index) => (
-              <div key={`issue-${index}`} style={{ color: 'var(--im-danger)' }}>
-                {issue.title ? `「${issue.title}」：` : ''}
-                {issue.message}
-              </div>
-            ))}
-          </div>
-        ) : null}
+              {cards.map((card, index) => {
+                // 与建卡时同一套解析：预览里显示的就是这张卡最终会拿到的尺寸
+                const size = resolveCardSize(card.ratio ?? '1:1', sizes)
+                return (
+                  <article key={`${index}-${card.title ?? ''}`} className="im-import-card">
+                    <div className="im-import-card-meta">
+                      <strong>{card.title || `第 ${index + 1} 张`}</strong>
+                      <span>{card.ratio ? card.ratio : '默认比例'}</span>
+                      <span>{size.value}</span>
+                      {size.fallback ? <span className="im-import-card-fallback">尺寸回退</span> : null}
+                    </div>
+                    <p className="im-import-card-text" title={card.prompt || ''}>
+                      {card.prompt || '（提示词为空）'}
+                    </p>
+                  </article>
+                )
+              })}
+              {issues.map((issue, index) => (
+                <div key={`issue-${index}`} className="im-import-issue">
+                  {issue.title ? `「${issue.title}」：` : '当前内容：'}
+                  {issue.message}
+                </div>
+              ))}
+            </>
+          ) : (
+            <div className="im-import-summary">粘贴内容后将在这里实时预览</div>
+          )}
+        </div>
 
-        <span style={{ fontSize: 11, color: 'var(--im-ink-3)' }}>
+        <p className="im-field-hint">
+          一张卡一块：标题行 <code>=== 名字 ===</code>，围栏里第一行写 <code>ratio: 3:2</code>，空行之后是提示词正文。
           尺寸表来自当前配置（{sizes.length} 档）；解析不出比例时用第一档。
-        </span>
+        </p>
       </div>
     </ModalShell>
   )
