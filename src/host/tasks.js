@@ -3,6 +3,7 @@
 import { join } from 'node:path'
 import { costOfSize } from './config.js'
 import { generateImage, humanizeError } from './generate.js'
+import { appendGeneration, buildRecord } from './ledger.js'
 
 const MAX_KEEP = 200
 
@@ -83,6 +84,10 @@ export class TaskPool {
     const cost = costOfSize(config, task.size)
     const refs = task.refs
     task.messages.push(refs.length ? `图生图 · 参考图 ${refs.length} 张` : '文生图')
+    // 账本记录在**两条出口**都要写（成功 / 失败），原版同样记失败行：
+    // 成本看板的成功率与失败数都靠它，只记成功会让「失败」永远是 0。
+    let ledgerAssetId = ''
+    let ledgerOutput = ''
     try {
       const { buffer, ext, meta } = await generateImage(config, {
         prompt: task.prompt,
@@ -102,10 +107,14 @@ export class TaskPool {
           const { writeFile } = await import('node:fs/promises')
           await writeFile(target, buffer)
           task.messages.push(`已另存到 ${target}`)
+          ledgerOutput = target
         } catch (error) {
           task.messages.push(`另存失败（结果仍在画布上）：${error.message}`)
         }
       }
+      // 没另存时，账本记资产副本的绝对路径：历史里「打开目录」要靠它
+      ledgerAssetId = entry.id
+      if (!ledgerOutput) ledgerOutput = entry.absPath
       if (task.cancelRequested) {
         task.status = 'cancelled'
         task.messages.push('已取消，本次结果不派回画布（图仍保存在 assets 里）')
@@ -134,6 +143,25 @@ export class TaskPool {
       task.messages.push(`失败 · ${human}`)
     } finally {
       task.finishedAt = Date.now()
+      // 账本只在**真正花过钱**的出口写：成功、或失败（失败也会被上游计费）。
+      // 取消分两种：排队中被就地取消（根本没提交，不写）、运行中被取消
+      // （上游已经跑了，图也落盘计费了 —— 写，与原版一致）。
+      const submitted = task.startedAt !== null
+      if (submitted) {
+        const record = buildRecord({
+          prompt: task.prompt,
+          size: task.size,
+          quality: task.quality,
+          refs: task.refs.length,
+          ok: task.status === 'done' || (task.status === 'cancelled' && Boolean(ledgerAssetId)),
+          cost: task.status === 'failed' ? 0 : cost,
+          seconds: (task.finishedAt - task.startedAt) / 1000,
+          output: ledgerOutput,
+          assetId: ledgerAssetId || undefined,
+          root: config?.root || '',
+        })
+        void appendGeneration(config, record)
+      }
     }
   }
 

@@ -272,10 +272,27 @@ client 半端通过 `window.__ModuleLoader__.load` 注册进宿主的模块表�
 - **相对 `output` 路径的基准是个已知近似**：原版用 `WORK_ROOT = Path.cwd()`，插件不知道
   原版进程当时的 cwd，只能用 imagora 目录近似。影响面被上一条压得很小。
 
-**插件自己的产出不进账本**，所以共用模式下历史里看到的是「原版出的图」；
-插件出的图在资产注册表里（画布上、以及 `GET /imagora/assets`）。要两边合流，
-得先让 `tasks.js` 按原版 schema 追加账本 —— 那是跨应用写别人的日志（还要处理
-Python 与 Node 同时写的互斥），**当前明确不做**，已在待办里记着。
+**插件自己的产出也写进同一份账本**（`src/host/ledger.js`），格式逐字段照
+`core/logging.py` 的 `log_generation`：`time / mode / refs / prompt / size / quality /
+status / cost / seconds / output`（+ 有资产副本时的 `outputAssetIds`）。
+于是共用模式下，历史里既能看到原版出的图，也能看到插件出的图 —— 这正是「双源并存」
+那条待办要解决的事。
+
+三条硬约束（改之前先读）：
+
+1. **字段名与取值口径必须一模一样**：`mode` 由 `refs > 0` 推导（img2img / txt2img），
+   `cost` 两位小数、`seconds` 一位，`time` 是本地时区 `YYYY-MM-DD HH:mm:ss`。
+   任一侧写偏，另一侧的成本看板就会读出 NaN 或空行。
+2. **`output` 要相对化成相对 imagora 目录、正斜杠**（原版 `_display_path`）：
+   绝对路径换台机器就失效，而账本是要跨机器读的历史。落在目录外的（用户另存到别处）
+   保留绝对路径 —— 原版也是这个行为。
+3. **写入闸门**：显式设了 `imagoraRoot` 就写；只有自动探测到的 `root` 时，
+   必须该目录里真有 `config.json` 才写。否则就是往用户没确认过的路径里 append 日志。
+
+并发：同进程内用一条串行队列（`appendGeneration` 的 `tail`），跨进程（原版 Python
+同时也在写）靠**整行一次 write** 的 `O_APPEND` 原子性兜住 —— 一次系统调用写整行，
+不拆包，就不会和 Python 那边交错成半行。写失败不影响生成主流程（原版同样是
+try/except 静默），所以 `appendGeneration` 只回 `boolean`，不抛错。
 
 ### 弹窗为什么不是「三页签设置」
 

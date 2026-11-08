@@ -6,6 +6,7 @@ import { checkBudget, loadBudget, saveBudget } from './budget.js'
 import { applyProviderPatch, costOfSize } from './config.js'
 import { humanizeError, listModels } from './generate.js'
 import { collectAll, readLedger, readRaw, summarize } from './history.js'
+import { ledgerRoot as sharedLedgerRoot } from './ledger.js'
 import { pickDirectory } from './picker.js'
 import { MIME, extOf } from './store.js'
 
@@ -70,17 +71,12 @@ async function readJson(req) {
 /**
  * 账本（logs/generation.jsonl）所在目录。
  *
- * **必须两个一起看**：`imagoraRoot` 是用户显式选的共享目录，`root` 是自动探测到的
- * Imagora 安装位置。只认前者的话，没点过「选择目录」的用户读不到账本 ——
- * 生成历史空着、日预算用的 `todayCost` 恒为 0（**预算静默失效**，比报错更糟）。
- * 同一个 `loadImagoraConfig` 里 `defaultOutputDir` 早就用 root 兜底了，
- * 账本却只认 imagoraRoot，是内部的取法不一致。
- *
- * 只用于**读**（历史、统计、预算判定）。写（工作流、资产、.budget.json）仍只认
- * 显式指针，不该往用户没确认过的目录里落东西。
+ * 判定逻辑收口在 `ledger.js`（读写共用同一个 root，否则「读得到但写不到」或反过来）。
+ * 曾经这里各自写了一遍「只认 imagoraRoot」，于是没点过「选择目录」的用户
+ * 读不到自己机器上明明存在的账本 —— 历史空着、日预算的 todayCost 恒为 0。
  */
 function ledgerRoot(config) {
-  return String(config?.imagoraRoot || '').trim() || String(config?.root || '').trim()
+  return sharedLedgerRoot(config)
 }
 
 function publicConfig(config) {

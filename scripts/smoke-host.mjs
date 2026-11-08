@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { resolveApiPaths } from '../src/host/config.js'
 import { publicErrorBody } from '../src/host/errors.js'
+import { readLedger, summarize } from '../src/host/history.js'
+import { LEDGER_NAME, appendGeneration, buildRecord, displayPath, ledgerRoot } from '../src/host/ledger.js'
 
 // 用临时目录跑：不往真实画布目录里塞测试资产与恢复快照
 const SANDBOX = mkdtempSync(join(tmpdir(), 'dsh-imagora-smoke-'))
@@ -820,6 +822,97 @@ try {
     `total ${noPointerStats.total}`,
   )
   rmSync(fixtureLedgerDir, { recursive: true, force: true })
+
+  // ---------------- 账本写入：插件自己出的图也要进同一个账本 ----------------
+  //
+  // 「双源并存」那个待办：插件出的图过去只在资产注册表里，账本只有原版写的行，
+  // 于是生成历史（读账本）看不到插件出的图。现在按 core/logging.py 的格式追加。
+  //
+  // 这一段直接测模块，不起真实生成任务 —— 冒烟不许发上游请求（会花钱）。
+  const ledgerWriteRoot = mkdtempSync(join(tmpdir(), 'imagora-ledger-'))
+  const writeConfig = { imagoraRoot: ledgerWriteRoot, root: ledgerWriteRoot }
+
+  const rec = buildRecord({
+    prompt: '插件写的账本行',
+    size: '1024x1024',
+    quality: 'high',
+    refs: 2,
+    ok: true,
+    cost: 0.1234,
+    seconds: 12.34,
+    output: join(ledgerWriteRoot, 'output', 'a.png'),
+    assetId: 'asset-1',
+    root: ledgerWriteRoot,
+  })
+  check('账本记录：mode 由 refs 推导（有参考图 = img2img）', rec.mode === 'img2img', rec.mode)
+  check('账本记录：费用两位小数', rec.cost === 0.12, String(rec.cost))
+  check('账本记录：耗时一位小数', rec.seconds === 12.3, String(rec.seconds))
+  check('账本记录：time 是本地 YYYY-MM-DD HH:mm:ss', /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(rec.time), rec.time)
+  check('账本记录：output 相对化成正斜杠', rec.output === 'output/a.png', rec.output)
+  check('账本记录：带 outputAssetIds', rec.outputAssetIds?.[0] === 'asset-1')
+  check(
+    '账本记录：字段顺序与 core/logging.py 一致',
+    Object.keys(rec).join(',') === 'time,mode,refs,prompt,size,quality,status,cost,seconds,output,outputAssetIds',
+    Object.keys(rec).join(','),
+  )
+
+  const wrote = await appendGeneration(writeConfig, rec)
+  check('账本写入：返回 true', wrote === true, String(wrote))
+  const ledgerBack = await readLedger(ledgerWriteRoot)
+  check(
+    '账本写入：落到 <root>/logs/generation.jsonl 且能被读回',
+    ledgerBack.records.length === 1 && ledgerBack.records[0].prompt === '插件写的账本行',
+    `${ledgerBack.file} / ${ledgerBack.records.length} 条`,
+  )
+  check(
+    '账本写入：读回后算得进成本看板',
+    summarize(ledgerBack.records, 1).cost === 0.12,
+    String(summarize(ledgerBack.records, 1).cost),
+  )
+
+  // 写入闸门：只自动探测到 root（没有显式指针）且目录里没有 config.json → 不写。
+  // 这条防的是「往一个用户没确认过的目录里 append 日志」。
+  const implicitRoot = mkdtempSync(join(tmpdir(), 'imagora-implicit-'))
+  const implicitWrote = await appendGeneration({ root: implicitRoot }, rec)
+  check('账本写入：只有自动探测 root、且不是 imagora 目录时不写', implicitWrote === false, String(implicitWrote))
+  check(
+    '账本写入：不写时不产生 logs/generation.jsonl',
+    !existsSync(join(implicitRoot, 'logs', LEDGER_NAME)),
+    join(implicitRoot, 'logs', LEDGER_NAME),
+  )
+  rmSync(implicitRoot, { recursive: true, force: true })
+
+  // 反过来：目录里真有 config.json（= 确实是 imagora 安装目录）就允许写
+  writeFileSync(join(ledgerWriteRoot, 'config.json'), '{"profiles":{}}')
+  const afterDetect = await appendGeneration(
+    { root: ledgerWriteRoot },
+    {
+      ...rec,
+      prompt: '自动探测目录里也写',
+    },
+  )
+  check('账本写入：自动探测到真 imagora 目录（含 config.json）时允许写', afterDetect === true, String(afterDetect))
+
+  // 并发：同一进程里 3 条同时写，不许出现半行/交错
+  await Promise.all([1, 2, 3].map(i => appendGeneration(writeConfig, { ...rec, prompt: `并发 ${i}` })))
+  const concurrent = await readLedger(ledgerWriteRoot)
+  check(
+    '账本写入：并发 3 条全部完好（无半行、无交错）',
+    concurrent.records.length === 5 && concurrent.records.every(row => row.prompt.length > 0),
+    `${concurrent.records.length} 条`,
+  )
+  check(
+    '账本写入：ledgerRoot 读写同源（显式指针优先）',
+    ledgerRoot({ imagoraRoot: 'A', root: 'B' }) === 'A' && ledgerRoot({ root: 'B' }) === 'B',
+    `${ledgerRoot({ imagoraRoot: 'A', root: 'B' })} / ${ledgerRoot({ root: 'B' })}`,
+  )
+  check(
+    '账本写入：displayPath 目录外保留绝对路径（换正斜杠）',
+    displayPath('C:\\x', 'D:\\y\\z.png') === 'D:/y/z.png',
+    displayPath('C:\\x', 'D:\\y\\z.png'),
+  )
+  rmSync(ledgerWriteRoot, { recursive: true, force: true })
+
   rmSync(SHARED_ROOT, { recursive: true, force: true })
 } finally {
   server.close()
