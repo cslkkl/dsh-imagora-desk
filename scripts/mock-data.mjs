@@ -101,14 +101,73 @@ const HISTORY_ROWS = [
 /** 验收台的本机预算设置（.budget.json）：非零值，好让成本条那两个输入框一打开就有内容 */
 const MOCK_BUDGET = { dailyLimit: 5, singleRunLimit: 0.5 }
 
-export function defineConfig(path, url) {
-  if (path === '/imagora/config') {
+/** 验收台内可变的那部分配置：POST /settings、/provider、/budget 写进来就记在这儿。
+ *  进程级变量，重启验收台即复位 —— 不落盘是故意的（验收台不该有副作用）。 */
+const live = {
+  budget: 0,
+  outputDir: '',
+  imagoraRoot: '',
+  profile: 'wanwu',
+  model: 'gpt-image-2.5-flare',
+  localBudget: { ...MOCK_BUDGET },
+}
+
+export function defineConfig(path, url, rawBody) {
+  let patch = {}
+  if (rawBody) {
+    try {
+      patch = JSON.parse(rawBody)
+    } catch {
+      patch = {} // 非 JSON（上传图片）走这条路，忽略
+    }
+  }
+
+  // 写设置：先把值记下来并回读**完整 config**（形状与 host 的 publicConfig 一致）。
+  // 回 { ok: true } 会让前端把它当配置用，config.issues.length 当场抛 TypeError。
+  if (path === '/imagora/settings') {
+    if (typeof patch.profile === 'string' && patch.profile.trim()) live.profile = patch.profile.trim()
+    if (typeof patch.model === 'string' && patch.model.trim()) live.model = patch.model.trim()
+    if (typeof patch.imagoraRoot === 'string') live.imagoraRoot = patch.imagoraRoot.trim()
+    // 输出目录：空串 = 回到默认（与 host 同语义）
+    if (typeof patch.outputDir === 'string') live.outputDir = patch.outputDir.trim()
+    if (patch.budget !== undefined) {
+      const value = Number(patch.budget)
+      live.budget = Number.isFinite(value) && value > 0 ? value : 0
+    }
+    return config()
+  }
+
+  if (path === '/imagora/provider') {
+    return config()
+  }
+
+  if (path === '/imagora/budget') {
+    // GET 读回当前值；POST 覆盖后回读（与 host 的 saveBudget 同语义）
+    if (patch.dailyLimit !== undefined || patch.singleRunLimit !== undefined) {
+      live.localBudget = {
+        dailyLimit: Math.max(0, Number(patch.dailyLimit) || 0),
+        singleRunLimit: Math.max(0, Number(patch.singleRunLimit) || 0),
+      }
+    }
     return {
+      ...live.localBudget,
+      path: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output\\.budget.json',
+    }
+  }
+
+  if (path === '/imagora/config') {
+    return config()
+  }
+
+  /** 当前生效的配置：形状照 host 的 publicConfig()，一个字段都不少 */
+  function config() {
+    const base = {
+      source: 'imagora',
       root: 'C:\\Users\\demo\\Desktop\\imagora\\imagora',
-      profile: 'wanwu',
-      profileLabel: 'aiwanwu 中转站',
-      model: 'gpt-image-2.5-flare',
-      modelLabel: 'GPT Image 2.5 Flare',
+      profile: live.profile,
+      profileLabel: live.profile === 'wanwu' ? 'aiwanwu 中转站' : live.profile,
+      model: live.model,
+      modelLabel: live.model === 'gpt-image-2.5-flare' ? 'GPT Image 2.5 Flare' : live.model,
       profiles: [
         { name: 'wanwu', label: 'aiwanwu 中转站' },
         { name: 'volc', label: '火山方舟官方' },
@@ -125,9 +184,20 @@ export function defineConfig(path, url) {
       ],
       qualities: ['low', 'medium', 'high'],
       qualityEffective: true,
-      defaultOutputDir: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output',
+      defaultOutputDir: live.outputDir || 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output',
+      budget: live.budget,
       issues: [],
+      imagoraRoot: live.imagoraRoot,
+      outputDirOverride: live.outputDir,
+      provider: {
+        baseUrl: '',
+        model: '',
+        qualities: [],
+        sizes: [],
+        apiKeyConfigured: false,
+      },
     }
+    return base
   }
 
   if (path === '/imagora/health') {
@@ -375,6 +445,23 @@ export function defineConfig(path, url) {
       error: null,
       cancelRequested: false,
     }
+  }
+
+  // 写设置类接口：**必须回完整的 config**，不能回 { ok: true }。
+  // 前端把返回值直接当成 ImagoraConfig 用（onSaved(next) → setConfig），回一个窄对象
+  // 会让 config.issues / profiles / models 变成 undefined，下一次渲染当场崩
+  // （实测：保存预算后 `config.issues.length` 抛 TypeError，整个画布白屏）。
+  // 真实 host 的 /settings、/provider 回的就是 publicConfig()，这里照同一形状给。
+  if (path === '/imagora/settings' || path === '/imagora/provider') {
+    const config = defineConfig('/imagora/config', url)
+    const patch = {}
+    // 验收台不解析请求体（服务端把它读干净了才进来），所以只做「形状对齐」：
+    // 回当前夹具，让设置弹窗的「生效中」照常渲染。
+    return { ...config, ...patch }
+  }
+
+  if (path === '/imagora/reveal' || path === '/imagora/pick-folder') {
+    return { ok: true }
   }
 
   if (path.startsWith('/imagora/')) {

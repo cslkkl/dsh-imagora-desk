@@ -33,11 +33,15 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url || '/', 'http://local')
   const path = url.pathname
 
-  // 先把请求体读干净：否则 keep-alive 连接上会出现 RST（浏览器报 ERR_CONNECTION_RESET）
-  for await (const chunk of req) void chunk
+  // 先把请求体读干净：否则 keep-alive 连接上会出现 RST（浏览器报 ERR_CONNECTION_RESET）。
+  // 读到的内容顺手交给 mock：写设置类接口要能「记住刚写的值」，否则保存完回读还是旧夹具，
+  // 「保存预算 → 输入框变空」会被误判成 bug（实际是 mock 没回那一个字段）。
+  const chunks = []
+  for await (const chunk of req) chunks.push(chunk)
+  const rawBody = Buffer.concat(chunks).toString('utf8')
 
   if (path.startsWith('/imagora/')) {
-    const body = defineConfig(path, url)
+    const body = defineConfig(path, url, rawBody)
     if (body === 'png') {
       const samplePath = SAMPLE_CANDIDATES.find(candidate => existsSync(candidate))
       const bytes = samplePath ? readFileSync(samplePath) : FALLBACK_PNG
