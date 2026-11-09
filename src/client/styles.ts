@@ -1050,7 +1050,14 @@ body[data-ds-dark-theme] {
 }
 .im-canvas .react-flow__attribution { display: none; }
 .im-canvas .react-flow__background pattern circle { fill: color-mix(in srgb, var(--im-ink) 20%, transparent); }
-.react-flow__node .im-panel-card { will-change: transform; }
+/* ⚠️ 这里**不许**给节点卡加 will-change（维护者报过「缩小再放大后文字一直是糊的、
+   点一下才清晰」）。原因不是"性能调优"，而是合成层的栅格倍率：
+   will-change: transform 把每张卡提升成独立合成层，浏览器按**提升那一刻**的倍率
+   栅格化它；画布缩放是改 .react-flow__viewport 的 scale，合成层不会跟着重栅格，
+   于是放大后看到的是被拉大的旧位图 → 文字发虚，直到某次重绘（点击/悬停失效）才刷新。
+   卡片一多还等于几百个层，内存与合成开销一起上来（「加载很慢」）。
+   原版 Imagora 全文件 0 处 will-change（grep 过），我们这条是自造的，删掉即与上游一致。
+   真正需要拖动流畅时应只让 React Flow 自己管 —— 它在拖动期间本来就走合成。 */
 /* 悬停的节点整体抬高，否则右侧那条操作栏会被相邻节点盖住（原版同一条规则） */
 .react-flow__node:hover { z-index: 1001 !important; }
 .react-flow__edges { z-index: 1200 !important; }
@@ -2190,8 +2197,31 @@ input[type='range']:focus-visible {
 
 /* ---------------- 动效层 ----------------
    与 Imagora 的 index.css 同一套：节点入场只动内层卡片，不动外层
-   .react-flow__node —— 那层是 React Flow 的定位 transform，动它节点会甩飞。 */
-.react-flow__node .im-panel-card { animation: im-enter-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+   .react-flow__node —— 那层是 React Flow 的定位 transform，动它节点会甩飞。
+
+   ⚠️⚠️ 入场动画**必须挂在 node-enter 类上**，绝不能无条件下在 .im-panel-card 上。
+   这条是本次「文字永久模糊 + 加载很慢」的直接根因（维护者报的），成因写清楚免得
+   又被"简化"回去：
+
+   1) 无条件写 animation + both 等于**每张卡永远带着一个动画**。浏览器对带
+      动画的元素按动画图层处理并按当时倍率栅格化 —— 而画布缩放改的是
+      .react-flow__viewport 的 scale，动画图层不跟着重栅格 → 放大后就是拉大的旧
+      位图，文字一直发虚，要等某次重绘（点击/悬停）才刷新。
+   2) both 还会把最终帧锁住，和 hover 的 transform/transition 抢同一组属性。
+   3) 叠加 onlyRenderVisibleElements：平移/缩放时节点反复挂载，动画反复从头播，
+      每帧都在重启合成 → 「加载很慢」的体感就来自这里。
+
+   原版的写法就是**按类门控**：.enter-up 只在带该类的元素上生效，
+   节点的 node-enter 类由 CanvasPage 在动画结束后摘掉（见其"入场动画收尾"注释）。
+   我们照同一结构，但**默认不给节点加这个类** —— 也就是默认不动画。
+   要恢复入场动效，就在节点刚创建时加 node-enter（配 enter-delay-1..3 交错），
+   并在 animationend 里摘掉；lib/workflow.ts 的 withEnterAnim / stripAnimClasses
+   就是为此准备的现成工具。加之前先想清楚：这是 0.5s 的观感，
+   代价是每张卡多一个合成层。 */
+.react-flow__node.node-enter .im-panel-card { animation: im-enter-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.react-flow__node.node-enter.enter-delay-1 .im-panel-card { animation-delay: 70ms; }
+.react-flow__node.node-enter.enter-delay-2 .im-panel-card { animation-delay: 140ms; }
+.react-flow__node.node-enter.enter-delay-3 .im-panel-card { animation-delay: 210ms; }
 @keyframes im-enter-up {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }

@@ -346,6 +346,41 @@ React Flow 会把所有节点重挂载 —— 入场动画重播、输入框失�
 内联对象每次新建都会让 React Flow 的 StoreUpdater 写一次 store，`edge = {...default, ...edge}`
 全量新建，每条边的 memo 全部失效。
 
+## 画布节点不许提升成合成层
+
+**这条是硬的：节点卡上不许写 `will-change`，入场动画必须按类门控。**
+
+维护者报过「缩小再放大后文字一直是糊的，点一下才清晰」「加载很慢」。在真实宿主页面里
+逐张量了 22 个节点卡，现场是：
+
+| 指标                    | 改前                     | 改后       |
+| ----------------------- | ------------------------ | ---------- |
+| `willChange: transform` | 22 / 22                  | **0 / 22** |
+| `animationName` 非 none | 22 / 22（`im-enter-up`） | **0 / 22** |
+
+成因有两层，都会把卡变成独立合成层：
+
+1. `will-change: transform` 直接把元素提升成合成层。合成层按**提升那一刻**的倍率
+   栅格化，而画布缩放改的是 `.react-flow__viewport` 的 `scale` —— 合成层不会跟着重栅格，
+   于是放大后看到的是被拉大的旧位图，文字发虚，要等某次重绘（点击/悬停失效）才刷新。
+2. 入场动画被写成了 `.react-flow__node .im-panel-card { animation: … both }`——
+   **无条件作用在每一张卡上**，等于每张卡永久带着一个动画，永远走动画图层这条路。
+   叠加 `onlyRenderVisibleElements`（平移缩放时节点反复挂载、动画反复从头播），
+   「加载很慢」的体感就来自这里。
+
+上游 Imagora 全文件 **0 处 `will-change`**，入场动画也只写在 `.enter-up` / `.node-enter`
+这两类**按类生效**的选择器上，并由 `CanvasPage` 在动画结束后摘掉类 —— 所以那边不出
+这个现象。我们照它的结构：动画挂在 `.react-flow__node.node-enter .im-panel-card` 上，
+**默认不给节点加这个类**（即默认不动画）；要恢复入场动效就在节点创建时加 `node-enter`
+并在 `animationend` 摘掉，`lib/workflow.ts` 的 `withEnterAnim` / `stripAnimClasses`
+是现成工具。
+
+`smoke-client` 里有三条断言锁住它：卡上不许有 `will-change`、入场动画必须门控在
+`node-enter` 上、没有任何选择器给 `.im-panel-card` 无条件挂 `animation`。
+
+> 教训的通用形式：**任何按元素持续存在的 `animation` / `will-change` 都会让该元素脱离
+> 正常重栅格路径**。要动效就在需要动画的那一段挂类，结束后摘掉。
+
 ## 防错清单
 
 - 改包名：`package.json` / `cordis.patch.yml` / `build.mjs` 的 loader id / host 导出名，四处一起改。

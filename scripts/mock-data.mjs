@@ -305,6 +305,61 @@ export function defineConfig(path, url, rawBody) {
       style: { stroke: 'var(--edge-stroke-idle)', strokeWidth: 1.5, opacity: 1 },
       animated: true,
     })
+
+    /* 压测图：`HARNESS_MANY=200 pnpm run harness` 造 N 张图片节点 + 若干提示词卡。
+     *
+     * 为什么要这个开关：4 个节点复现不出「放大后文字发虚」——合成器对少量内容
+     * 会立刻重新栅格化，看不出陈旧位图；节点一多它就推迟重栅格来省开销，此时才会
+     * 看到「要等一会 / 点一下才清晰」。没有大图就没法验证这类问题，也没法量
+     * 「缩远再放回」一趟的真实开销。默认不开，不影响日常验收。
+     *
+     * 用环境变量而不是查询参数：客户端请求 `/imagora/recovery/latest` 时不带任何
+     * 查询串，参数传不进来（踩过一次，夹具静默没生效、白跑一轮）。 */
+    const many = Number(process.env.HARNESS_MANY)
+    if (Number.isFinite(many) && many > 0) {
+      const cols = Math.ceil(Math.sqrt(many))
+      const nodes = []
+      const edges = []
+      for (let i = 0; i < many; i += 1) {
+        const id = `img-bulk-${i}`
+        nodes.push({
+          id,
+          type: 'image',
+          position: { x: (i % cols) * 190, y: Math.floor(i / cols) * 260 },
+          data: {
+            registryId: `bulk-${i}`,
+            name: `bulk-${String(i).padStart(3, '0')}.png`,
+            url: '/imagora/file?id=ref-1',
+            size: 400000 + i * 1000,
+            ext: 'png',
+            absPath: `C:\\Users\\demo\\Desktop\\imagora\\imagora\\assets\\bulk-${i}.png`,
+            refCount: i % 3,
+          },
+        })
+      }
+      // 每 8 张图汇一个提示词卡：既造出连线，也让引用计数有真实的非零值
+      const promptCount = Math.max(1, Math.ceil(many / 8))
+      for (let p = 0; p < promptCount; p += 1) {
+        const pid = `prompt-bulk-${p}`
+        nodes.push({
+          id: pid,
+          type: 'prompt',
+          position: { x: 40 + p * 420, y: Math.ceil(many / cols) * 260 + 60 },
+          data: {
+            prompt: `bulk prompt ${p}: product still life, soft light, neutral backdrop`,
+            size: '1024x1024',
+            quality: 'high',
+            outputDir: '',
+            status: 'idle',
+          },
+        })
+        for (let k = p * 8; k < Math.min((p + 1) * 8, many); k += 1) {
+          edges.push(legacyEdge(`img-bulk-${k}->${pid}`, `img-bulk-${k}`, pid))
+        }
+      }
+      return { ok: true, name: `压测 ${many} 节点`, savedAt: '2026-11-09T00:00:00.000Z', nodes, edges }
+    }
+
     return {
       ok: true,
       name: '自动恢复 验收台',

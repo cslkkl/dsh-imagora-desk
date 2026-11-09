@@ -217,6 +217,42 @@ if (cssStart >= 0) {
     'LOD 状态四色齐备',
     ['is-queued', 'is-running', 'is-done', 'is-failed'].every(s => cssRules.includes(`.im-lod-status.${s}`)),
   )
+
+  /* ---------------- 节点卡：不许被提升成合成层 ----------------
+   *
+   * 对应维护者报的「缩小再放大后文字一直是糊的，点一下才清晰 / 加载很慢」。
+   * 真宿主里量到的现场（22 张卡）：
+   *     22/22  willChange: transform
+   *     22/22  animationName: im-enter-up        ← 入场动画永久挂着
+   * 两个都会把卡提升成独立合成层，而画布缩放改的是 .react-flow__viewport 的 scale，
+   * 合成层不按新倍率重栅格 → 放大后是拉大的旧位图。原版 Imagora 全文件 0 处
+   * will-change，入场动画也只在 .node-enter 上生效，所以那边不出这个现象。
+   *
+   * 断言锁两件事，谁改回去就红。 */
+
+  // 1) .im-panel-card 上不许出现 will-change
+  const cardRules = [...cssRules.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(m => /\.im-panel-card/.test(m[1]))
+  check(
+    '节点卡没有 will-change（会锁死栅格倍率 → 缩放后文字发虚）',
+    !cardRules.some(m => /will-change\s*:/u.test(m[2])),
+    `${cardRules.length} 条 .im-panel-card 规则`,
+  )
+
+  // 2) 入场动画必须按 node-enter 门控，不能无条件下在卡上
+  check(
+    '入场动画按 .node-enter 门控（不是每张卡永久挂着）',
+    /\.react-flow__node\.node-enter \.im-panel-card\s*\{[^}]*animation:/u.test(cssRules),
+  )
+  // 逐条规则看：选了 .im-panel-card 且带 animation 的，选择器里必须出现 node-enter。
+  // 用不带 u 标志的正则：u 模式下 `{`/`}` 的转义写法规则更严，容易写出非法表达式。
+  const unconditional = [...cssRules.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(
+    m => /\.im-panel-card/.test(m[1]) && /(^|;)\s*animation\s*:/.test(m[2]) && !/node-enter/.test(m[1]),
+  )
+  check(
+    '没有任何选择器给 .im-panel-card 无条件挂 animation',
+    unconditional.length === 0,
+    unconditional.map(m => m[1].trim().slice(0, 60)).join(' | '),
+  )
 }
 
 check('注册了 effect 清理', effects.length >= 2, effects.join(' | '))
