@@ -167,19 +167,31 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
       }
     >
       <div style={{ display: 'grid', gap: 12 }}>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div
+          style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}
+          role="group"
+          aria-label="裁剪比例"
+        >
           <span style={{ fontSize: 12, color: 'var(--im-ink-3)' }}>比例</span>
-          {RATIOS.map(row => (
-            <button
-              key={row.label}
-              type="button"
-              aria-pressed={row.ratio === ratio}
-              className={`im-btn-sm ${row.ratio === ratio ? 'im-btn-primary' : 'im-btn-ghost'}`}
-              onClick={() => applyRatio(row.ratio)}
-            >
-              {row.label}
-            </button>
-          ))}
+          {/* 比例是**参数**不是行动：原版用 chip chip--sm（18px 小胶囊），
+              用 btn 档会把一排比例做成按钮，视觉上比确认按钮还抢。 */}
+          {RATIOS.map(row => {
+            const active = row.ratio === ratio
+            return (
+              <button
+                key={row.label}
+                type="button"
+                aria-pressed={active}
+                className={`im-chip im-chip--sm im-chip--action${active ? ' is-brand' : ''}`}
+                onClick={() => applyRatio(row.ratio)}
+              >
+                {row.label}
+              </button>
+            )
+          })}
+          <span className="im-spec-mono" style={{ marginLeft: 'auto', color: 'var(--im-ink-3)' }}>
+            {pxW} × {pxH}px
+          </span>
         </div>
 
         <div

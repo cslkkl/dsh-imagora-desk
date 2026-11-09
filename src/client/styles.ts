@@ -482,6 +482,123 @@ body[data-ds-dark-theme] {
 }
 .im-field-state.is-ok { color: var(--im-ok); }
 .im-field-state.is-warn { color: var(--im-warn); }
+
+/* 只读「键 → 值」规格表：照搬原版 .spec-list（index.css:1226）。
+   用在设置弹窗的「生效中」一段 —— 那几条是**事实**不是输入项（改文件才能动它），
+   做成输入框会让用户以为能改。 */
+.im-spec-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.im-spec-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.im-spec-key {
+  flex: none;
+  font-size: 12px;
+  color: var(--im-ink-3);
+}
+.im-spec-val {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  font-size: 12px;
+  color: var(--im-ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 带分割线的宽松档（原版 .spec-list--roomy）：整段读起来像一份清单 */
+.im-spec-list.is-roomy .im-spec-row {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--im-line);
+}
+.im-spec-list.is-roomy .im-spec-row:last-child { border-bottom: 0; }
+.im-spec-list.is-roomy .im-spec-key { font-size: 13px; }
+.im-spec-list.is-roomy .im-spec-val { font-size: 13px; }
+/* 值里的等宽段（接口地址那一条） */
+.im-spec-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; }
+
+/* 设置弹窗里的分节：原版用 mt-5 border-t pt-4 划开「输入区」与「只读事实」 */
+.im-section {
+  padding-top: 16px;
+  border-top: 1px solid var(--im-line);
+}
+.im-section-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--im-ink-2);
+}
+/* 待生效提示行：图标角标 + 一句说明（原版 pending 那条） */
+.im-pending-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--im-ink-3);
+}
+
+/* ---------------- 粘贴导入的预览区（照搬原版 .prompt-import-*） ----------------
+   原版 index.css:792-801。预览卡与「识别到 N 张」是同一条信息链：
+   上面报数量，下面逐张列出解析结果，问题单独一条红底。 */
+.im-import-preview {
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.im-import-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--im-ink-3);
+}
+.im-import-summary-error { color: var(--im-danger); }
+/* 一张卡：外观与画布上的提示词卡同源（浮层档底 + 细边框 + 控件圆角），
+   让用户看到的预览就是他将要得到的东西 */
+.im-import-card {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--im-line);
+  border-radius: var(--im-r-control);
+  background: var(--im-surface-float);
+}
+.im-import-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--im-ink-3);
+}
+.im-import-card-meta strong { color: var(--im-ink); font-weight: 600; }
+.im-import-card-fallback { color: var(--im-warn); }
+/* 预览里只给一行：这里的作用是「认得出是哪张」，完整正文要回卡片里看 */
+.im-import-card-text {
+  margin: 5px 0 0;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--im-ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.im-import-issue {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: var(--im-r-sm);
+  background: color-mix(in srgb, var(--im-danger) 6%, transparent);
+  font-size: 12px;
+  color: var(--im-danger);
+}
 .im-row { display: flex; align-items: center; gap: 6px; }
 .im-muted { color: var(--im-ink-3); }
 .im-node-title { font-size: 12px; font-weight: 600; color: var(--im-brand-dark); }
@@ -496,6 +613,13 @@ body[data-ds-dark-theme] {
      截成「火山方舟官...」。上限只作兜底，防止超长模型 ID 把整行撑破。 */
   min-width: 0;
   max-width: 320px;
+}
+/* 表单里占满一行（设置弹窗的两个下拉）：弹窗里的下拉该和输入框同宽，
+   工具栏里那几颗才是按内容自适应。 */
+.im-select-root.is-block {
+  display: block;
+  width: 100%;
+  max-width: none;
 }
 
 /* 触发器：外形沿用输入控件（等高、同边框、同底色），加上图标与省略号 */
@@ -1168,17 +1292,29 @@ body[data-ds-dark-theme] {
   color: var(--im-warn);
   white-space: nowrap;
 }
-/* 成本条：指标等宽成列（标签在上、数值在下），与原版 CostBoard 同构。
-   原版还带「日预算 / 单次上限」两个输入框 —— 那是写接口，本步没做（见 PR 说明）。 */
+/* 成本条：指标等宽成列（标签在上、数值在下），右边接预算设置，与原版 CostBoard 同构。
+ * 原版的排法是「指标 flex-1 | 竖线 | 预算设置 shrink-0」：指标随宽度摊开，
+ * 设置固定靠右；窄屏时设置换行到下一排（gap-y 负责间距）。 */
 .im-history-stats {
   display: flex;
   flex: none;
   flex-wrap: wrap;
-  gap: 16px 24px;
+  align-items: stretch;
+  gap: 8px 16px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--im-line);
   background: var(--im-surface-float);
 }
+/* 指标网格：2 列 / 窄屏，3 列 / 中屏，5 列 / 宽屏（原版 sm:3 lg:5） */
+.im-history-stat-grid {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+}
+@media (min-width: 720px) { .im-history-stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1040px) { .im-history-stat-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 .im-history-stat { min-width: 0; }
 .im-history-stat-label {
   font-size: 10px;
@@ -1193,6 +1329,33 @@ body[data-ds-dark-theme] {
   color: var(--im-ink);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+/* 预算设置区：与指标之间一条竖线分区（原版 sm:border-l sm:pl-4） */
+.im-history-budget {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-left: 16px;
+  border-left: 1px solid var(--im-line);
+}
+.im-history-budget-field { display: flex; align-items: center; gap: 4px; }
+.im-history-budget-label { font-size: 11px; color: var(--im-ink-3); white-space: nowrap; }
+/* 输入框收窄并右对齐数字：金额列不用宽，右对齐才好横向比较 */
+.im-history-budget-input {
+  width: 80px;
+  height: 26px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  font-size: 12px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.im-history-budget-tip { font-size: 11px; color: var(--im-ink-3); }
+@media (max-width: 719px) {
+  /* 窄屏：设置区换行后不再拉一条竖线（左边没有内容可分隔了） */
+  .im-history-budget { padding-left: 0; border-left: 0; }
 }
 /* 列表：整屏**只有这里滚** */
 .im-history-list {
@@ -1260,8 +1423,9 @@ body[data-ds-dark-theme] {
   gap: 8px;
   min-width: 0;
 }
-/* 提示词：2 行截断（原版 line-clamp-2）。完整内容走 title —— 插件统一用原生 title，
-   不引宿主气泡（见根 AGENTS 的「原生 title」那条坑）。 */
+/* 提示词：2 行截断（原版 line-clamp-2）。完整内容走 .im-prompt-tip 浮层
+   （真被截断才出，见 prompt-cell.tsx）——正文补全不能用原生 title：
+   它显示不了换行排版的长提示词，这一处原版本来就是自绘浮层。 */
 .im-history-prompt {
   display: -webkit-box;
   margin: 0;
@@ -1272,6 +1436,30 @@ body[data-ds-dark-theme] {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
+}
+/* 提示词浮层：深色底白字（原版 bg-neutral-800 / text-white）。
+   位置与宽度由组件内联给（跟随鼠标 Y、水平居中、占屏 80%），这里只管外观。
+   颜色**不跟主题翻转**：它压在白底或深底之上都要能读，而浅色字只能配深色底。
+   暗色主题下页面本身就深，所以靠一圈描边 + 大投影把浮层从背景里拉出来，
+   不加描边会糊成一整块。 */
+.im-prompt-tip {
+  position: fixed;
+  z-index: 60;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--im-r-sm);
+  background: #262626;
+  color: #fff;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.36);
+  font-size: 12px;
+  line-height: 20px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  /* 纯展示：不能挡住底下行的悬浮与点击 */
+  pointer-events: none;
 }
 /* 时间 / 质量 / 尺寸：原版 text-[10px] tabular-nums */
 .im-history-meta {

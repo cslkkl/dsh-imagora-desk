@@ -215,6 +215,9 @@ importers:
       globals:
         specifier: ^16.5.0
         version: 16.5.0
+      playwright-core:
+        specifier: 1.64.0-alpha-1789764292000
+        version: 1.64.0-alpha-1789764292000
       prettier:
         specifier: 3.9.10
         version: 3.9.10
@@ -884,6 +887,11 @@ packages:
   picomatch@4.0.7:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
+
+  playwright-core@1.64.0-alpha-1789764292000:
+    resolution: {integrity: sha512-ZgRaybFv4rRy7QMGnYprEGFdNJnvapNqcaER2w96bDQA+40BWIle1el1Yh9KHD3E6XYmieMB+r+UxFTCauTGGQ==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   prelude-ls@1.2.1:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
@@ -1621,6 +1629,8 @@ snapshots:
   path-key@3.1.1: {}
 
   picomatch@4.0.7: {}
+
+  playwright-core@1.64.0-alpha-1789764292000: {}
 
   prelude-ls@1.2.1: {}
 

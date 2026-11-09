@@ -70,7 +70,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const message =
       (body && typeof body === 'object' && 'error' in body ? String((body as { error: unknown }).error) : '') ||
       text.slice(0, 200)
-    throw Object.assign(new Error(message || `请求失败（HTTP ${res.status}）`), { status: res.status })
+    // 把响应体一起挂上：409 的预算超限要读 body.overBudget 才能区分
+    // 「硬拦」与「超限需确认」（两者都是 409，只有后者带 overBudget）。
+    throw Object.assign(new Error(message || `请求失败（HTTP ${res.status}）`), { status: res.status, body })
   }
   return body as T
 }
@@ -155,6 +157,8 @@ export interface HistoryStats {
   bySize: { size: string; count: number; cost: number }[]
   byMode: { mode: string; count: number; cost: number }[]
   budget: { limit: number; spentToday: number; remaining: number }
+  /** 本机预算设置（.budget.json）：每日 / 单次上限，0 = 不限 */
+  localBudget?: LocalBudgetView
 }
 
 export const generationHistory = (input: { limit?: number; offset?: number; query?: string; status?: string } = {}) => {
@@ -178,6 +182,10 @@ export interface SubmitInput {
   spent?: number
   /** 蒙版 data URL：透明像素 = 要重绘的区域；空串表示不带 */
   mask?: string
+  /** 本次提交预估张数（默认 1）：host 用它算单次预估费用判超限 */
+  count?: number
+  /** 用户已确认「知道超了仍然要跑」：带上它 host 才放行（原版 allow_over_budget） */
+  allowOverBudget?: boolean
 }
 
 export const submitGenerate = (input: SubmitInput) =>
@@ -244,3 +252,24 @@ export const saveProvider = (patch: ProviderPatch) => request<ImagoraConfig>('pr
 /** 试连通：只读上游模型清单，不生成图、不花钱。 */
 export const probeProvider = (input: { baseUrl?: string; apiKey?: string }) =>
   request<{ ok: boolean; models: string[]; error?: string }>('provider/probe', jsonBody(input))
+
+/* ---------------- 本机预算设置（<输出目录>/.budget.json） ----------------
+ *
+ * 与原版 core/cost.py 同一份文件、同一套语义：**超限需确认**，不是硬拦。
+ * 与 setBudget（settings.budget，本画布累计上限、硬拦）是两件事：
+ * 那个管「这个画布别超支」，这个管「今天整体 / 单次别超支」。 */
+export interface LocalBudget {
+  dailyLimit: number
+  singleRunLimit: number
+}
+
+export interface LocalBudgetView extends LocalBudget {
+  /** 今天还剩多少额度（dailyLimit = 0 时为 0，表示不设限） */
+  remainingToday?: number
+  /** 实际读写的文件路径：看到它就知道「我改的是哪一份」 */
+  path?: string
+}
+
+export const getBudget = () => request<LocalBudgetView>('budget')
+export const saveBudget = (settings: LocalBudget) =>
+  request<{ ok: boolean } & LocalBudget>('budget', jsonBody(settings))

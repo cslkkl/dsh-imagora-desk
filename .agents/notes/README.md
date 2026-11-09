@@ -15,6 +15,7 @@
 - [2026-11-06-local-only-hooks.md](2026-11-06-local-only-hooks.md)：本地钩子为什么只用 `language: system`
 - [2026-11-07-imagora-visual-parity.md](2026-11-07-imagora-visual-parity.md)：观感为什么照搬 Imagora、配色为什么走宿主 token
 - [2026-11-07-shared-imagora-root.md](2026-11-07-shared-imagora-root.md)：与原版共用工作流 / 历史图片为什么用指针不用复制
+- [2026-11-08-budget-two-layers.md](2026-11-08-budget-two-layers.md)：本画布上限（硬拦）与本机日预算（需确认）为什么分两层
 
 ## 回引
 

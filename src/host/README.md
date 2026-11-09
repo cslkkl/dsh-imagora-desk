@@ -6,15 +6,18 @@
 
 ## 文件
 
-| 文件          | 职责                                                                                         | 关键导出                                                                      | 改后必测                  |
-| ------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------- |
-| `index.js`    | 插件入口：注册路由、鉴权、状态目录                                                           | `default.apply`、`name`、`requestRejection`                                   | `pnpm run test`           |
-| `routes.js`   | 全部 HTTP 路由与请求整形                                                                     | `createRouter`                                                                | host 冒烟                 |
-| `history.js`  | 读 `<imagora>/logs/generation.jsonl`：容错、聚合去重、分页、成本聚合（照 `core/history.py`） | `readLedger`、`collectAll`、`dedupeGenerationHistory`、`readRaw`、`summarize` | host 冒烟（历史 8 条）    |
-| `config.js`   | 读 Imagora 的 `config.json` / `providers.local.json` / `.env`，解析来源、模型、尺寸、密钥    | `loadImagoraConfig`、`foldId`、`costOfSize`、`readSettings`、`writeSettings`  | host 冒烟（配置解析用例） |
-| `generate.js` | 上游请求：`generations` 文生图 / `edits` 图生图，兼容三种响应口径                            | `generateImage`、`extractImageItem`、`humanizeError`                          | 真机跑一张                |
-| `tasks.js`    | 任务池：排队、并发上限、取消语义                                                             | `TaskPool`                                                                    | host 冒烟（取消分支）     |
-| `store.js`    | 状态目录、资产登记、工作流与恢复快照、路径白名单                                             | `Store`、`MIME`、`extOf`                                                      | host 冒烟                 |
+| 文件          | 职责                                                                                         | 关键导出                                                                      | 改后必测                   |
+| ------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------- |
+| `index.js`    | 插件入口：注册路由、鉴权、状态目录                                                           | `default.apply`、`name`、`requestRejection`                                   | `pnpm run test`            |
+| `routes.js`   | 全部 HTTP 路由与请求整形                                                                     | `createRouter`                                                                | host 冒烟                  |
+| `history.js`  | 读 `<imagora>/logs/generation.jsonl`：容错、聚合去重、分页、成本聚合（照 `core/history.py`） | `readLedger`、`collectAll`、`dedupeGenerationHistory`、`readRaw`、`summarize` | host 冒烟（历史 8 条）     |
+| `budget.js`   | 本机预算设置 `<输出目录>/.budget.json` 的读写与「单次 / 当日」超限判定（照 `core/cost.py`）  | `loadBudget`、`saveBudget`、`normalizeBudget`、`checkBudget`、`budgetPath`    | host 冒烟（预算 13 条）    |
+| `ledger.js`   | 生成账本的读路径判定与追加写入（照 `core/logging.py`）；插件出的图也进同一份                 | `ledgerRoot`、`buildRecord`、`appendGeneration`、`displayPath`                | host 冒烟（账本 14 条）    |
+| `errors.js`   | 异常 → 响应体：4xx 原样，**5xx 只回错误码**（不回显本机绝对路径）                            | `publicErrorBody`、`clientErrorBody`                                          | host 冒烟（5xx 脱敏 2 条） |
+| `config.js`   | 读 Imagora 的 `config.json` / `providers.local.json` / `.env`，解析来源、模型、尺寸、密钥    | `loadImagoraConfig`、`foldId`、`costOfSize`、`readSettings`、`writeSettings`  | host 冒烟（配置解析用例）  |
+| `generate.js` | 上游请求：`generations` 文生图 / `edits` 图生图，兼容三种响应口径                            | `generateImage`、`extractImageItem`、`humanizeError`                          | 真机跑一张                 |
+| `tasks.js`    | 任务池：排队、并发上限、取消语义                                                             | `TaskPool`                                                                    | host 冒烟（取消分支）      |
+| `store.js`    | 状态目录、资产登记、工作流与恢复快照、路径白名单                                             | `Store`、`MIME`、`extOf`                                                      | host 冒烟                  |
 
 ## 被谁依赖
 

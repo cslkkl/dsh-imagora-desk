@@ -1,0 +1,40 @@
+# 统一换行：文字文件在仓库与工作区都用 LF，二进制一律不碰。
+#
+# 为什么需要 .gitattributes 而不是靠 core.autocrlf：
+# core.autocrlf 是**每台机器各自的配置**（本机是 true，CI 的 Linux runner 是 false），
+# 没有这份文件时，同一个仓库在不同机器上会得到不同的工作区换行，表现为
+#   - 「只改了一个字，diff 却是整个文件」；
+#   - Windows 上改过的 dist/client.js 与 CI 生成的版本二进制不一致，
+#     末段那条 `git diff --exit-code -- dist/client.js` 无端变红。
+# 实测当前索引本来就是全 LF（git ls-files --eol：132 个 i/lf），
+# 这里做的事是把「本机碰巧这样」变成「仓库保证这样」。
+#
+# 副作用提醒：加了 eol=lf 之后，Windows 上**已有 CRLF 的工作区文件**会在下次
+# checkout 时被改写。代价是一次性的 crlf→lf 变更，之后长期稳定。
+
+* text=auto eol=lf
+
+# ---- 二进制：绝不参与换行转换，也不按文本 diff ----
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.zip binary
+*.tgz binary
+*.node binary
+
+# ---- 生成/锁定文件：显式声明，避免有人用编辑器保存后变成 CRLF ----
+# pnpm-lock.yaml 在本机工作区曾出现 CRLF（切分支/工具重写都可能），
+# 一变就是整文件 diff，且会让 `pnpm install --frozen-lockfile` 看不出真实变化。
+pnpm-lock.yaml text eol=lf
+# 浏览器半端产物：与源码同一个提交，也必须与 CI 生成的字节一致
+dist/client.js text eol=lf
+
+# ---- 本地生成目录：不是「文本」也不是「二进制」，直接不做任何处理 ----
+# 用 -text 而不是 text：这些文件随时被覆盖，转换没有意义，还可能在清理时留下脏状态。
+harness/dist/** -text

@@ -6,6 +6,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { resolveApiPaths } from '../src/host/config.js'
+import { publicErrorBody } from '../src/host/errors.js'
+import { readLedger, summarize } from '../src/host/history.js'
+import { LEDGER_NAME, appendGeneration, buildRecord, displayPath, ledgerRoot } from '../src/host/ledger.js'
 
 // 用临时目录跑：不往真实画布目录里塞测试资产与恢复快照
 const SANDBOX = mkdtempSync(join(tmpdir(), 'dsh-imagora-smoke-'))
@@ -320,6 +323,138 @@ try {
     body: JSON.stringify({ budget: 0 }),
   }).then(res => res.json())
   check('POST /settings 0 表示不设上限', clearBudget.budget === 0, String(clearBudget.budget))
+
+  // 本机预算设置（.budget.json，原版 core/cost.py 的口径）：超限需确认，不是硬拦
+  const budgetEmpty = await fetch(`${base}/budget`).then(res => res.json())
+  check(
+    'GET /budget 未设时两项皆 0',
+    budgetEmpty.dailyLimit === 0 && budgetEmpty.singleRunLimit === 0,
+    JSON.stringify(budgetEmpty),
+  )
+
+  const budgetSaved = await fetch(`${base}/budget`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ dailyLimit: 5, singleRunLimit: 0.05 }),
+  }).then(res => res.json())
+  check(
+    'POST /budget 回读规范化后的值',
+    budgetSaved.dailyLimit === 5 && budgetSaved.singleRunLimit === 0.05,
+    JSON.stringify(budgetSaved),
+  )
+
+  const budgetFile = join(FIXTURE_ROOT, 'output', '.budget.json')
+  check('POST /budget 落到输出目录的 .budget.json', existsSync(budgetFile), budgetFile)
+
+  // ---------------- 5xx 不许把本机绝对路径回显给前端 ----------------
+  //
+  // Node 的 fs 错误 message 自带路径（实测）：
+  //   ENOENT: no such file or directory, open 'C:\Users\<用户名>\...\config.json'
+  // 原来的 catch 直接 `{ error: error.message }`，于是浏览器网络面板、用户截图、
+  // 工单里都能看到本机用户名与目录结构。对照同包的 /file：失败只回「图片不存在」。
+  //
+  // 造一个真实的 500：把输出目录指到一个**文件**下面，mkdir/写入必然 ENOTDIR。
+  const blocker = join(FIXTURE_ROOT, 'not-a-dir')
+  mkdirSync(FIXTURE_ROOT, { recursive: true })
+  writeFileSync(blocker, 'x')
+  await fetch(`${base}/settings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ outputDir: join(blocker, 'sub') }),
+  })
+  const brokeRes = await fetch(`${base}/budget`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ dailyLimit: 1 }),
+  })
+  const brokeBody = await brokeRes.text()
+  const brokeStatus = brokeRes.status
+  const leaksPath = /[A-Za-z]:\\\\|[A-Za-z]:\\/.test(brokeBody) || brokeBody.includes(FIXTURE_ROOT)
+  if (brokeStatus >= 500) {
+    check('5xx 响应体不含本机绝对路径', !leaksPath, brokeBody.slice(0, 120))
+    check('5xx 响应体仍带错误码（可诊断）', /E[A-Z]{2,}/.test(brokeBody), brokeBody.slice(0, 120))
+  } else {
+    // 环境不允许造这个错误（权限/平台差异）：退一步直接验脱敏函数
+    check(
+      '5xx 脱敏（夹具造不出错误，改验函数）',
+      publicErrorBody({ code: 'ENOENT' }).error === '服务端内部错误（ENOENT）',
+    )
+  }
+  // 还原设置，后面的用例继续用正常目录
+  await fetch(`${base}/settings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ outputDir: '' }),
+  })
+  rmSync(blocker, { force: true })
+
+  const budgetRead = await fetch(`${base}/budget`).then(res => res.json())
+  check(
+    'GET /budget 读回刚写的值',
+    budgetRead.dailyLimit === 5 && budgetRead.singleRunLimit === 0.05,
+    JSON.stringify(budgetRead),
+  )
+
+  // 单次上限 0.05、该尺寸单价 0.1 → 预估超限，未确认时必须 409 且带 overBudget
+  const overSingle = await fetch(`${base}/generate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'smoke', size: '1024x1024', spent: 0 }),
+  })
+  check('POST /generate 超单次上限返回 409', overSingle.status === 409, String(overSingle.status))
+  const overSingleBody = await overSingle.json()
+  check(
+    '超限 409 带 overBudget.reason（供前端确认）',
+    typeof overSingleBody.overBudget?.reason === 'string' && overSingleBody.overBudget.reason.length > 0,
+    JSON.stringify(overSingleBody.overBudget ?? null),
+  )
+
+  // allowOverBudget = 原版的 confirmed=True：确认后必须放行
+  const overConfirmed = await fetch(`${base}/generate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'smoke', size: '1024x1024', spent: 0, allowOverBudget: true }),
+  })
+  check('POST /generate 带 allowOverBudget 放行', overConfirmed.status === 200, String(overConfirmed.status))
+
+  // 硬拦那条（本画布累计上限）不带 overBudget，两者不能串
+  await fetch(`${base}/settings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ budget: 1 }),
+  })
+  const hardBlocked = await fetch(`${base}/generate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'smoke', size: '1024x1024', spent: 1, allowOverBudget: true }),
+  })
+  const hardBody = await hardBlocked.json()
+  check(
+    '本画布上限是硬拦：confirmed 也不放行、且不带 overBudget',
+    hardBlocked.status === 409 && hardBody.overBudget === undefined,
+    String(hardBlocked.status),
+  )
+  await fetch(`${base}/settings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ budget: 0 }),
+  })
+
+  // 清空本机预算：0 表示不限，之后提交不再被拦
+  await fetch(`${base}/budget`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ dailyLimit: 0, singleRunLimit: 0 }),
+  })
+  const budgetCleared = await fetch(`${base}/budget`).then(res => res.json())
+  check('POST /budget 0 表示不限', budgetCleared.dailyLimit === 0 && budgetCleared.singleRunLimit === 0)
+
+  const afterClear = await fetch(`${base}/generate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'smoke', size: '1024x1024', spent: 0 }),
+  })
+  check('清空预算后提交不再被拦', afterClear.status === 200, String(afterClear.status))
 
   // 节点上没存 absPath 时，hydrate 要能从 registry 补回来：否则好文件被误判「缺失」，
   // url 被抹掉，图片节点的裁剪/切分/放大/预览全部哑掉。
@@ -643,6 +778,141 @@ try {
     !ownList.workflows.some(row => row.name === '原版工作流'),
     ownList.workflows.map(row => row.name).join(', ') || '(空)',
   )
+
+  // ---------------- 账本根目录：没显式设指针也要读得到 ----------------
+  //
+  // 这条锁的是一个**静默失效**的 bug：`imagoraRoot`（用户显式选的共享目录）为空时，
+  // 历史/统计/预算判定都拿空串去拼路径，结果一条记录都读不到 ——
+  // 生成历史空着（用户以为图没了），日预算的 todayCost 恒为 0（预算形同不存在）。
+  // 而同一个 loadImagoraConfig 里 defaultOutputDir 是拿 root 兜底的，两边取法不一致。
+  //
+  // 夹具：把账本写进自动探测到的那个目录（fixture 的 logs/），**不设 imagoraRoot**。
+  const fixtureLedgerDir = join(FIXTURE_ROOT, 'logs')
+  mkdirSync(fixtureLedgerDir, { recursive: true })
+  writeFileSync(
+    join(fixtureLedgerDir, 'generation.jsonl'),
+    `${JSON.stringify({
+      time: '2026-11-02 09:00:00',
+      mode: 'txt2img',
+      refs: 0,
+      prompt: '没设指针也要读到的账本行',
+      size: '1024x1024',
+      quality: 'high',
+      status: 'ok',
+      cost: 0.3,
+      seconds: 20,
+      output: '',
+    })}\n`,
+  )
+  const noPointerHistory = await fetch(`${base}/history?limit=60&offset=0`).then(res => res.json())
+  check(
+    '没设 imagoraRoot 时 /history 仍读到自动探测目录的账本',
+    noPointerHistory.source === 'ledger' && noPointerHistory.items?.some(row => row.prompt.includes('没设指针')),
+    `${noPointerHistory.source} / ${noPointerHistory.items?.length} 条`,
+  )
+  check(
+    '没设 imagoraRoot 时 /history 给出账本真实路径',
+    typeof noPointerHistory.ledgerPath === 'string' && noPointerHistory.ledgerPath.includes('generation.jsonl'),
+    noPointerHistory.ledgerPath || '(空)',
+  )
+  const noPointerStats = await fetch(`${base}/history/stats`).then(res => res.json())
+  check(
+    '没设 imagoraRoot 时 /history/stats 也读得到（todayCost 不再恒为 0）',
+    noPointerStats.total >= 1,
+    `total ${noPointerStats.total}`,
+  )
+  rmSync(fixtureLedgerDir, { recursive: true, force: true })
+
+  // ---------------- 账本写入：插件自己出的图也要进同一个账本 ----------------
+  //
+  // 「双源并存」那个待办：插件出的图过去只在资产注册表里，账本只有原版写的行，
+  // 于是生成历史（读账本）看不到插件出的图。现在按 core/logging.py 的格式追加。
+  //
+  // 这一段直接测模块，不起真实生成任务 —— 冒烟不许发上游请求（会花钱）。
+  const ledgerWriteRoot = mkdtempSync(join(tmpdir(), 'imagora-ledger-'))
+  const writeConfig = { imagoraRoot: ledgerWriteRoot, root: ledgerWriteRoot }
+
+  const rec = buildRecord({
+    prompt: '插件写的账本行',
+    size: '1024x1024',
+    quality: 'high',
+    refs: 2,
+    ok: true,
+    cost: 0.1234,
+    seconds: 12.34,
+    output: join(ledgerWriteRoot, 'output', 'a.png'),
+    assetId: 'asset-1',
+    root: ledgerWriteRoot,
+  })
+  check('账本记录：mode 由 refs 推导（有参考图 = img2img）', rec.mode === 'img2img', rec.mode)
+  check('账本记录：费用两位小数', rec.cost === 0.12, String(rec.cost))
+  check('账本记录：耗时一位小数', rec.seconds === 12.3, String(rec.seconds))
+  check('账本记录：time 是本地 YYYY-MM-DD HH:mm:ss', /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(rec.time), rec.time)
+  check('账本记录：output 相对化成正斜杠', rec.output === 'output/a.png', rec.output)
+  check('账本记录：带 outputAssetIds', rec.outputAssetIds?.[0] === 'asset-1')
+  check(
+    '账本记录：字段顺序与 core/logging.py 一致',
+    Object.keys(rec).join(',') === 'time,mode,refs,prompt,size,quality,status,cost,seconds,output,outputAssetIds',
+    Object.keys(rec).join(','),
+  )
+
+  const wrote = await appendGeneration(writeConfig, rec)
+  check('账本写入：返回 true', wrote === true, String(wrote))
+  const ledgerBack = await readLedger(ledgerWriteRoot)
+  check(
+    '账本写入：落到 <root>/logs/generation.jsonl 且能被读回',
+    ledgerBack.records.length === 1 && ledgerBack.records[0].prompt === '插件写的账本行',
+    `${ledgerBack.file} / ${ledgerBack.records.length} 条`,
+  )
+  check(
+    '账本写入：读回后算得进成本看板',
+    summarize(ledgerBack.records, 1).cost === 0.12,
+    String(summarize(ledgerBack.records, 1).cost),
+  )
+
+  // 写入闸门：只自动探测到 root（没有显式指针）且目录里没有 config.json → 不写。
+  // 这条防的是「往一个用户没确认过的目录里 append 日志」。
+  const implicitRoot = mkdtempSync(join(tmpdir(), 'imagora-implicit-'))
+  const implicitWrote = await appendGeneration({ root: implicitRoot }, rec)
+  check('账本写入：只有自动探测 root、且不是 imagora 目录时不写', implicitWrote === false, String(implicitWrote))
+  check(
+    '账本写入：不写时不产生 logs/generation.jsonl',
+    !existsSync(join(implicitRoot, 'logs', LEDGER_NAME)),
+    join(implicitRoot, 'logs', LEDGER_NAME),
+  )
+  rmSync(implicitRoot, { recursive: true, force: true })
+
+  // 反过来：目录里真有 config.json（= 确实是 imagora 安装目录）就允许写
+  writeFileSync(join(ledgerWriteRoot, 'config.json'), '{"profiles":{}}')
+  const afterDetect = await appendGeneration(
+    { root: ledgerWriteRoot },
+    {
+      ...rec,
+      prompt: '自动探测目录里也写',
+    },
+  )
+  check('账本写入：自动探测到真 imagora 目录（含 config.json）时允许写', afterDetect === true, String(afterDetect))
+
+  // 并发：同一进程里 3 条同时写，不许出现半行/交错
+  await Promise.all([1, 2, 3].map(i => appendGeneration(writeConfig, { ...rec, prompt: `并发 ${i}` })))
+  const concurrent = await readLedger(ledgerWriteRoot)
+  check(
+    '账本写入：并发 3 条全部完好（无半行、无交错）',
+    concurrent.records.length === 5 && concurrent.records.every(row => row.prompt.length > 0),
+    `${concurrent.records.length} 条`,
+  )
+  check(
+    '账本写入：ledgerRoot 读写同源（显式指针优先）',
+    ledgerRoot({ imagoraRoot: 'A', root: 'B' }) === 'A' && ledgerRoot({ root: 'B' }) === 'B',
+    `${ledgerRoot({ imagoraRoot: 'A', root: 'B' })} / ${ledgerRoot({ root: 'B' })}`,
+  )
+  check(
+    '账本写入：displayPath 目录外保留绝对路径（换正斜杠）',
+    displayPath('C:\\x', 'D:\\y\\z.png') === 'D:/y/z.png',
+    displayPath('C:\\x', 'D:\\y\\z.png'),
+  )
+  rmSync(ledgerWriteRoot, { recursive: true, force: true })
+
   rmSync(SHARED_ROOT, { recursive: true, force: true })
 } finally {
   server.close()

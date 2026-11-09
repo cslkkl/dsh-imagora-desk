@@ -2,9 +2,11 @@
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { extname, isAbsolute, join, resolve } from 'node:path'
-import { applyProviderPatch } from './config.js'
+import { checkBudget, loadBudget, saveBudget } from './budget.js'
+import { applyProviderPatch, costOfSize } from './config.js'
 import { humanizeError, listModels } from './generate.js'
 import { collectAll, readLedger, readRaw, summarize } from './history.js'
+import { ledgerRoot as sharedLedgerRoot } from './ledger.js'
 import { pickDirectory } from './picker.js'
 import { MIME, extOf } from './store.js'
 
@@ -64,6 +66,17 @@ async function readJson(req) {
     error.status = 400
     throw error
   }
+}
+
+/**
+ * 账本（logs/generation.jsonl）所在目录。
+ *
+ * 判定逻辑收口在 `ledger.js`（读写共用同一个 root，否则「读得到但写不到」或反过来）。
+ * 曾经这里各自写了一遍「只认 imagoraRoot」，于是没点过「选择目录」的用户
+ * 读不到自己机器上明明存在的账本 —— 历史空着、日预算的 todayCost 恒为 0。
+ */
+function ledgerRoot(config) {
+  return sharedLedgerRoot(config)
 }
 
 function publicConfig(config) {
@@ -297,7 +310,7 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
       // 两者不是一回事：账本一条 = 一次生成尝试（含失败、带提示词/成本/耗时），
       // 注册表一条 = 一个存在的图片文件（无提示词）。原版历史列表读的是账本。
       const config = getConfig()
-      const imagoraRoot = String(config.imagoraRoot || '').trim()
+      const imagoraRoot = ledgerRoot(config)
       const limit = Math.min(MAX_HISTORY_LIMIT, Math.max(1, Number(url.searchParams.get('limit')) || 60))
       const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0)
       const query = url.searchParams.get('query') || ''
@@ -333,11 +346,15 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
     if (path === '/history/stats' && method === 'GET') {
       // 成本看板：账本**原始行**聚合（不聚合、不截断）—— 每个成功行都真花过钱
       const config = getConfig()
-      const imagoraRoot = String(config.imagoraRoot || '').trim()
+      const imagoraRoot = ledgerRoot(config)
       const days = Number(url.searchParams.get('days')) || 14
       const { records } = await readLedger(imagoraRoot)
       const stats = summarize(readRaw(records), days)
       const budget = Number(getSettings()?.budget ?? 0)
+      // 本机预算设置（.budget.json）与「本画布上限」（settings.budget）是两件事：
+      // 前者管当天/单次（原版口径，软确认），后者管这个画布累计（硬拦）。
+      // 两个都给出去，看板上就能同时显示「今天花了多少 / 今天还有多少额度」。
+      const local = loadBudget(config.defaultOutputDir)
       return json(res, 200, {
         ...stats,
         budget: {
@@ -346,7 +363,26 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
           remaining:
             Number.isFinite(budget) && budget > 0 ? Math.round(Math.max(0, budget - stats.todayCost) * 100) / 100 : 0,
         },
+        localBudget: {
+          ...local,
+          remainingToday:
+            local.dailyLimit > 0 ? Math.round(Math.max(0, local.dailyLimit - stats.todayCost) * 100) / 100 : 0,
+        },
       })
+    }
+
+    // 本机预算设置（原版 GET/POST /api/budget）：落在当前输出目录的 .budget.json
+    if (path === '/budget' && method === 'GET') {
+      const config = getConfig()
+      const local = loadBudget(config.defaultOutputDir)
+      return json(res, 200, { ...local, path: join(String(config.defaultOutputDir || ''), '.budget.json') })
+    }
+
+    if (path === '/budget' && method === 'POST') {
+      const body = await readJson(req)
+      const config = getConfig()
+      const next = saveBudget(config.defaultOutputDir, body)
+      return json(res, 200, { ok: true, ...next })
     }
 
     if (path === '/file') {
@@ -411,8 +447,10 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
         }
         if (!mask.length) return json(res, 400, { error: '蒙版数据为空' })
       }
-      // 预算闸门：花到上限就别再发新任务。这里拦的是「提交」，不是「结果」——
-      // 排队后再拦没有意义，钱已经花了。
+      // 预算闸门（两道，语义不同，见 budget.js 文件头）：
+      //
+      // 1) 本画布累计上限（settings.budget）—— **硬拦**。这条先立住，是因为它管的是
+      //    「这个画布的活干完没」，花完了就该停，不该给个确认按钮绕过去。
       const budget = Number(getSettings()?.budget ?? 0)
       const spent = Number(body.spent ?? 0)
       if (Number.isFinite(budget) && budget > 0 && spent >= budget) {
@@ -422,6 +460,25 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
           spent,
         })
       }
+
+      // 2) 本机每日 / 单次上限（.budget.json）—— **超限需确认**，照原版 core/cost.py。
+      //    放行靠 body.allowOverBudget：前端弹出理由后由用户点「仍然提交」再发一次。
+      //    判据要现读账本（今天的钱是别的进程/原版花掉的也算），不能只信前端报的数。
+      const localBudget = loadBudget(config.defaultOutputDir)
+      if (localBudget.dailyLimit > 0 || localBudget.singleRunLimit > 0) {
+        const { records } = await readLedger(ledgerRoot(config))
+        const today = summarize(readRaw(records), 1).todayCost
+        const estimate = costOfSize(config, size) * Math.max(1, Number(body.count) || 1)
+        const verdict = checkBudget(estimate, localBudget, today, body.allowOverBudget === true)
+        if (!verdict.allowed) {
+          return json(res, 409, {
+            error: verdict.reason,
+            overBudget: verdict,
+            localBudget,
+          })
+        }
+      }
+
       const submitted = pool.submit({ prompt, size, quality, refs, outputDir, mask })
       return json(res, 200, submitted)
     }

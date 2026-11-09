@@ -4,7 +4,7 @@
 // 外壳用自家的 ModalShell（canvas/modal-shell.tsx）：四档宽度、头/身/脚三段、
 // 内容区自己滚。宿主 ui.Modal 的面板宽度按它自己的内容定，装不下我们这种表单
 // （表现是弹窗右边被裁），所以这里全部换成 ModalShell，尺寸交给 size 档。
-import { Fragment, useState } from 'react'
+import { useState } from 'react'
 import type { ImagoraConfig } from '../api'
 import { ModalShell } from './modal-shell'
 
@@ -164,13 +164,23 @@ export function LoadDialog({
   )
 }
 
+/** 操作帮助正文：照搬原版 CanvasPage.tsx:148 的 HELP_ROWS。
+ *
+ * 只改了**手势**那一处：原版是「右键框选」，插件里右键留给平移（React Flow 的
+ * panOnDrag），框选走 Shift+拖 —— 键位不同就必须写不同的话，照抄会教错操作。
+ *
+ * 原版四行（画布 / 节点 / 连线 / 快捷键）之后补了三行本插件独有的（引用 / 运行 / 保存）：
+ * 那三条是 DSH 侧的行为（@图片名 引用、批量运行、恢复快照），原版要么没有、要么分散在别处。 */
 const HELP_ROWS: [string, string][] = [
-  ['画布', '滚轮缩放 · 左键拖空白平移 · Shift+拖拽框选 · Ctrl/Cmd+点击加选 · 双击图片放大'],
-  ['节点', '悬停右侧操作栏 · Del 删除选中'],
-  ['连线', '图片/图片组 → 提示词（参考图）；提示词 → 图片（产出）'],
+  ['画布', 'Shift+拖拽框选 · Ctrl/Cmd+点击加选 · 滚轮缩放 · 空白拖拽平移 · 左下角「适应」全览 · 双击图片放大预览'],
+  ['节点', '悬停显右侧操作栏 · 选中后右上角可运行/整理/连线/设路径/删除 · 运行中可单卡取消'],
+  ['连线', '图片→提示词/图片组 · 图片组→提示词 · 提示词→图片；提示词仅一条入边，多图经图片组聚合'],
+  [
+    '快捷键',
+    'Ctrl+A 全选 · Ctrl+Z/Y 撤销恢复 · Delete 删除选中 · Ctrl+S 保存 · 双击连线或选中后 Delete/Backspace 删除连线',
+  ],
   ['引用', '提示词里写 @图片名 只挑指定图；不写就用全部入边图片'],
   ['运行', '单卡「运行」· 工具栏「全部运行」「运行所选」「取消全部」'],
-  ['快捷键', 'Ctrl+A 全选 · Ctrl+Z/Y 撤销恢复 · Ctrl+S 保存 · Delete 删除'],
   ['保存', '命名保存进工作流；画布改动会自动落恢复快照'],
 ]
 
@@ -178,8 +188,8 @@ export function HelpDialog({ onClose, config }: { onClose: () => void; config: I
   return (
     <ModalShell
       title="操作帮助"
-      subtitle="画布、节点、连线与快捷键速查。"
-      size="lg"
+      subtitle="拖入图片 · Shift+拖拽框选"
+      size="md"
       onClose={onClose}
       footer={
         <button type="button" className="im-btn-ghost im-btn-sm" onClick={onClose}>
@@ -187,15 +197,15 @@ export function HelpDialog({ onClose, config }: { onClose: () => void; config: I
         </button>
       }
     >
-      {/* 两列 grid，不 用 table：表格的 key 列宽度随内容变，几行之间的冒号对不齐。
+      {/* 两列 grid，不用 table：表格的 key 列宽度随内容变，几行之间的冒号对不齐。
           原版是 grid-cols-[3.25rem_1fr] gap-3，这里同理。 */}
       <div style={{ display: 'grid', gap: 12 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '3.25rem 1fr', gap: 12, fontSize: 12 }}>
+        <div style={{ display: 'grid', gap: 10, fontSize: 12 }}>
           {HELP_ROWS.map(([key, value]) => (
-            <Fragment key={key}>
+            <div key={key} style={{ display: 'grid', gridTemplateColumns: '3.25rem 1fr', gap: 12 }}>
               <span style={{ color: 'var(--im-ink-3)', fontWeight: 600 }}>{key}</span>
               <span style={{ lineHeight: 1.6 }}>{value}</span>
-            </Fragment>
+            </div>
           ))}
         </div>
         {config ? (

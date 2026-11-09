@@ -44,9 +44,12 @@ const PREVIEW_MAX_EDGE = 640
 
 export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const baseRef = useRef<HTMLImageElement | null>(null)
   const drawingRef = useRef(false)
   const [size, setSize] = useState<ImageSize | null>(null)
+  /** 底图本体放 state 而不是 ref：它加载完成是**异步**的，只用 ref 存的话
+   *  「图到了」不会触发重渲染，重画 effect 永远等不到 base，画布会停在默认 300×150 ——
+   *  表现为打开蒙版弹窗看到一片空白，得先拖一下笔刷滑杆才出图。 */
+  const [base, setBase] = useState<HTMLImageElement | null>(null)
   const [strokes, setStrokes] = useState<MaskStroke[]>([])
   const [mode, setMode] = useState<BrushMode>('paint')
   const [brush, setBrush] = useState(MASK_BRUSH_DEFAULT)
@@ -65,12 +68,12 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => {
-      baseRef.current = img
+      if (alive) setBase(img)
     }
     img.src = src
     return () => {
       alive = false
-      baseRef.current = null
+      setBase(null)
     }
   }, [src])
 
@@ -85,7 +88,6 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
   /** 重画预览：底图 + 所有笔画（半透明白）。 */
   useEffect(() => {
     const canvas = canvasRef.current
-    const base = baseRef.current
     if (!canvas || !base || !preview.width) return
     const context = canvas.getContext('2d')
     if (!context) return
@@ -127,7 +129,7 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
       }
     }
     context.restore()
-  }, [preview, strokes, brush, size])
+  }, [preview, strokes, brush, size, base])
 
   const pointOf = (event: React.PointerEvent): BrushPoint | null => {
     const canvas = canvasRef.current
@@ -168,7 +170,6 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
   }
 
   const exportMask = async (): Promise<string> => {
-    const base = baseRef.current
     if (!base || !size) throw new Error('原图还没加载好')
     const canvas = document.createElement('canvas')
     canvas.width = size.width
@@ -248,22 +249,22 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
     >
       <div style={{ display: 'grid', gap: 12 }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button
-            type="button"
-            aria-pressed={mode === 'paint'}
-            className={`im-btn-sm ${mode === 'paint' ? 'im-btn-primary' : 'im-btn-ghost'}`}
-            onClick={() => setMode('paint')}
-          >
-            涂（要重绘）
-          </button>
-          <button
-            type="button"
-            aria-pressed={mode === 'erase'}
-            className={`im-btn-sm ${mode === 'erase' ? 'im-btn-primary' : 'im-btn-ghost'}`}
-            onClick={() => setMode('erase')}
-          >
-            擦
-          </button>
+          {/* 涂 / 擦 是**模式**不是行动：原版这一类互斥开关用 chip chip--sm，
+              点中那枚走 chip--brand。用 btn-primary 会把模式渲染成「主操作」。 */}
+          {[
+            { mode: 'paint' as BrushMode, label: '涂（要重绘）' },
+            { mode: 'erase' as BrushMode, label: '擦' },
+          ].map(row => (
+            <button
+              key={row.mode}
+              type="button"
+              aria-pressed={mode === row.mode}
+              className={`im-chip im-chip--sm im-chip--action${mode === row.mode ? ' is-brand' : ''}`}
+              onClick={() => setMode(row.mode)}
+            >
+              {row.label}
+            </button>
+          ))}
           <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
             笔刷
             <input

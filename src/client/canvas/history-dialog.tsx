@@ -24,12 +24,15 @@ import {
   generationStats,
   listAssets,
   revealPath,
+  saveBudget,
   type AssetEntry,
   type GenerationHistoryItem,
   type HistoryStats,
+  type LocalBudget,
 } from '../api'
 import { errMessage } from '../lib/format'
 import { ModalShell } from './modal-shell'
+import { PromptCell } from './prompt-cell'
 import { ZoomModal } from './zoom-modal'
 
 export interface HistoryDialogProps {
@@ -81,6 +84,19 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
   /** 注册表：账本行只有 registryId，导入画布要拿它换完整的资产条目 */
   const [registry, setRegistry] = useState<Map<string, AssetEntry>>(new Map())
   const [zoomed, setZoomed] = useState<{ url: string; path?: string } | null>(null)
+  /** 本机预算设置的草稿（成本条那两个输入框，0 = 不限）。
+   *
+   * 存**字符串**而不是 number：这两个框是受控的金额输入，用户打「0.」或清空时
+   * 中间态必须能留在框里。之前直接 `Number(e.target.value) || 0`，于是
+   *   - 打小数点：`Number('1.')` = 1 → 回写 "1"，小数点被吞，永远打不出 0.5
+   *   - 清空：回写 0，框里立刻弹回 "0"，只能全选覆盖不能先删再打
+   * 保存时才 Number() 归一。 */
+  const [draftBudget, setDraftBudget] = useState<{ dailyLimit: string; singleRunLimit: string }>({
+    dailyLimit: '',
+    singleRunLimit: '',
+  })
+  const [savingBudget, setSavingBudget] = useState(false)
+  const [budgetTip, setBudgetTip] = useState('')
 
   const listRef = useRef<HTMLDivElement>(null)
   /** 请求代次：搜索/状态变化自增，旧响应（竞态）丢弃 */
@@ -155,6 +171,35 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
       .catch(() => setRegistry(new Map()))
   }, [load])
 
+  // 预算草稿：成本条那两个输入框。stats 回来时同步一次（原版 CostBoard 同一套做法）——
+  // 用户没编辑时显示后端已保存的值，编辑过就以草稿为准，直到点保存。
+  useEffect(() => {
+    if (!stats?.localBudget) return
+    setDraftBudget({
+      dailyLimit: stats.localBudget.dailyLimit ? String(stats.localBudget.dailyLimit) : '0',
+      singleRunLimit: stats.localBudget.singleRunLimit ? String(stats.localBudget.singleRunLimit) : '0',
+    })
+  }, [stats])
+
+  const saveLocalBudget = async () => {
+    setSavingBudget(true)
+    setBudgetTip('')
+    const payload: LocalBudget = {
+      dailyLimit: Math.max(0, Number(draftBudget.dailyLimit) || 0),
+      singleRunLimit: Math.max(0, Number(draftBudget.singleRunLimit) || 0),
+    }
+    try {
+      await saveBudget(payload)
+      const next = await generationStats()
+      setStats(next)
+      setBudgetTip('预算已保存')
+    } catch (err) {
+      setBudgetTip(`保存失败：${errMessage(err)}`)
+    } finally {
+      setSavingBudget(false)
+    }
+  }
+
   /** 滚动接近底部自动翻页（原版同样行为；按钮只作手动兜底） */
   const NEAR_BOTTOM_PX = 600
   const handleScroll = useCallback(() => {
@@ -219,23 +264,77 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
             </div>
           </div>
 
-          {/* 成本条：原版 CostBoard 的指标行（预算输入框属写接口，本步未做） */}
+          {/* 成本条：原版 CostBoard —— 左边指标，右边本机预算设置（日预算 / 单次上限 + 保存） */}
           {rows.length ? (
             <div className="im-history-stats">
-              {rows.map(row => (
-                <div key={row.label} className="im-history-stat">
-                  <div className="im-history-stat-label">{row.label}</div>
-                  <div className="im-history-stat-value">{row.value}</div>
-                </div>
-              ))}
-              {topSizes.length ? (
-                <div className="im-history-stat">
-                  <div className="im-history-stat-label">按尺寸</div>
-                  <div className="im-history-stat-value">
-                    {topSizes.map(row => `${row.size} ×${row.count}`).join(' · ')}
+              <div className="im-history-stat-grid">
+                {rows.map(row => (
+                  <div key={row.label} className="im-history-stat">
+                    <div className="im-history-stat-label">{row.label}</div>
+                    <div className="im-history-stat-value">{row.value}</div>
                   </div>
-                </div>
-              ) : null}
+                ))}
+                {topSizes.length ? (
+                  <div className="im-history-stat">
+                    <div className="im-history-stat-label">按尺寸</div>
+                    <div className="im-history-stat-value">
+                      {topSizes.map(row => `${row.size} ×${row.count}`).join(' · ')}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* 本机预算设置：写 <输出目录>/.budget.json，与原版同一份文件。
+                  语义是「超限需确认」不是硬拦（见 src/host/budget.js 文件头）。 */}
+              <div className="im-history-budget">
+                <label className="im-history-budget-field">
+                  <span className="im-history-budget-label">日预算</span>
+                  {/* type="text" + inputMode="decimal"，**不是** type="number"：
+                      后者在用户打「0.」这种中间态时 `.value` 直接返回空串（Chromium 判 badInput），
+                      受控组件拿不到用户真正敲的字，小数点永远打不进去、也清不空。
+                      金额框只需要「弹数字键盘 + 原样回显」，校验留到保存那一刻。 */}
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    className="im-field im-history-budget-input"
+                    value={draftBudget.dailyLimit}
+                    title="当日累计费用上限（元），0 = 不限；超限提交前会要求确认"
+                    onChange={event => setDraftBudget(prev => ({ ...prev, dailyLimit: event.target.value }))}
+                  />
+                </label>
+                <label className="im-history-budget-field">
+                  <span className="im-history-budget-label">单次上限</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    className="im-field im-history-budget-input"
+                    value={draftBudget.singleRunLimit}
+                    title="单次提交的预估上限（元），0 = 不限"
+                    onChange={event => setDraftBudget(prev => ({ ...prev, singleRunLimit: event.target.value }))}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="im-btn-ghost im-btn-sm"
+                  disabled={savingBudget || loading}
+                  onClick={() => void saveLocalBudget()}
+                >
+                  {savingBudget ? '保存中…' : '保存预算'}
+                </button>
+                <button
+                  type="button"
+                  className="im-btn-ghost im-btn-sm"
+                  disabled={loading}
+                  onClick={() =>
+                    void generationStats()
+                      .then(setStats)
+                      .catch(() => undefined)
+                  }
+                >
+                  刷新
+                </button>
+                {budgetTip ? <span className="im-history-budget-tip">{budgetTip}</span> : null}
+              </div>
             </div>
           ) : null}
 
@@ -270,9 +369,7 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
                           )}
                         </div>
                         <div className="im-history-main">
-                          <p className="im-history-prompt" title={item.prompt || '（无提示词）'}>
-                            {item.prompt || '无提示词'}
-                          </p>
+                          <PromptCell text={item.prompt || '无提示词'} />
                           <p className="im-history-meta">
                             {item.time || '-'} · {item.quality || '-'} · {item.size || '-'}
                           </p>

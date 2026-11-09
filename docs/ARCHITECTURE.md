@@ -54,14 +54,28 @@ client 半端通过 `window.__ModuleLoader__.load` 注册进宿主的模块表�
 | POST | `/upload`                                                      | 请求体是原始字节，`?name=` 给文件名                                 |
 | POST | `/asset/delete`                                                | 删登记与文件                                                        |
 | GET  | `/file?id=`                                                    | 按登记 id 出图，路径限定在 `assets/` 与 `output/`                   |
-| POST | `/generate`                                                    | 建任务，返回 `taskId`                                               |
+| POST | `/generate`                                                    | 建任务，返回 `taskId`；两道预算闸门见下                             |
 | GET  | `/task?id=`                                                    | 任务快照                                                            |
 | POST | `/task/cancel`                                                 | 排队中就地取消；运行中等当前这张结束                                |
 | POST | `/workflow/save` / GET `/workflow/list` / GET `/workflow/load` | 命名工作流                                                          |
 | POST | `/recovery/save` / GET `/recovery/latest`                      | 自动恢复快照，只留最近 5 份                                         |
+| GET  | `/history` / `/history/stats`                                  | 读账本分页 / 成本看板（附本机预算）                                 |
+| GET  | `/budget` / POST `/budget`                                     | 本机预算设置（`<输出目录>/.budget.json`，0 = 不限）                 |
 | POST | `/reveal`                                                      | 在资源管理器打开路径                                                |
+| POST | `/pick-folder`                                                 | 弹宿主的系统文件夹对话框，拿绝对路径                                |
 
 响应约定：成功返回对象本体，失败返回 `{ error: string }` 且带状态码。
+
+### 两道预算闸门
+
+`/generate` 上并排两道，**语义不同，不能合并**（详见 [决策](../.agents/notes/2026-11-08-budget-two-layers.md)）：
+
+| 闸门           | 存哪                             | 超限后                                                                 | 怎么区分            |
+| -------------- | -------------------------------- | ---------------------------------------------------------------------- | ------------------- |
+| 本画布累计上限 | 插件 `settings.json` 的 `budget` | 409，**硬拦**，不放过                                                  | 响应无 `overBudget` |
+| 本机日 / 单次  | `<输出目录>/.budget.json`        | 409，带 `overBudget.reason`，前端确认后带 `allowOverBudget` 重发即放行 | 响应有 `overBudget` |
+
+前端只看状态码会分不清这两种，必须读响应体。
 
 ## 数据流
 
@@ -258,10 +272,27 @@ client 半端通过 `window.__ModuleLoader__.load` 注册进宿主的模块表�
 - **相对 `output` 路径的基准是个已知近似**：原版用 `WORK_ROOT = Path.cwd()`，插件不知道
   原版进程当时的 cwd，只能用 imagora 目录近似。影响面被上一条压得很小。
 
-**插件自己的产出不进账本**，所以共用模式下历史里看到的是「原版出的图」；
-插件出的图在资产注册表里（画布上、以及 `GET /imagora/assets`）。要两边合流，
-得先让 `tasks.js` 按原版 schema 追加账本 —— 那是跨应用写别人的日志（还要处理
-Python 与 Node 同时写的互斥），**当前明确不做**，已在待办里记着。
+**插件自己的产出也写进同一份账本**（`src/host/ledger.js`），格式逐字段照
+`core/logging.py` 的 `log_generation`：`time / mode / refs / prompt / size / quality /
+status / cost / seconds / output`（+ 有资产副本时的 `outputAssetIds`）。
+于是共用模式下，历史里既能看到原版出的图，也能看到插件出的图 —— 这正是「双源并存」
+那条待办要解决的事。
+
+三条硬约束（改之前先读）：
+
+1. **字段名与取值口径必须一模一样**：`mode` 由 `refs > 0` 推导（img2img / txt2img），
+   `cost` 两位小数、`seconds` 一位，`time` 是本地时区 `YYYY-MM-DD HH:mm:ss`。
+   任一侧写偏，另一侧的成本看板就会读出 NaN 或空行。
+2. **`output` 要相对化成相对 imagora 目录、正斜杠**（原版 `_display_path`）：
+   绝对路径换台机器就失效，而账本是要跨机器读的历史。落在目录外的（用户另存到别处）
+   保留绝对路径 —— 原版也是这个行为。
+3. **写入闸门**：显式设了 `imagoraRoot` 就写；只有自动探测到的 `root` 时，
+   必须该目录里真有 `config.json` 才写。否则就是往用户没确认过的路径里 append 日志。
+
+并发：同进程内用一条串行队列（`appendGeneration` 的 `tail`），跨进程（原版 Python
+同时也在写）靠**整行一次 write** 的 `O_APPEND` 原子性兜住 —— 一次系统调用写整行，
+不拆包，就不会和 Python 那边交错成半行。写失败不影响生成主流程（原版同样是
+try/except 静默），所以 `appendGeneration` 只回 `boolean`，不抛错。
 
 ### 弹窗为什么不是「三页签设置」
 
@@ -272,9 +303,7 @@ Python 与 Node 同时写的互斥），**当前明确不做**，已在待办里
 
 **所以「照搬原版」的目标是现在的那个单表单选择器，不是把三页签装回来。** 三页签的 `.api-settings-modal` 样式在上游 `index.css` 里还留着，但那是**死代码**（没有组件再用它），不要照它写。
 
-对应到插件：插件没有 `config.json` / `.env` 可编（配置在 `~/.dsh/imagora/settings.json`），所以「写」的那半不得不留在弹窗里——这是**数据模型不同导致的必要偏差**，不是抄漏了。真正该补的是「使用中」那页的只读事实（生效来源/地址/模型/密钥是否配置）。
-
-> > > > > > > origin/main
+对应到插件：插件没有 `config.json` / `.env` 可编（配置在 `~/.dsh/imagora/settings.json`），所以「写」的那半不得不留在弹窗里——这是**数据模型不同导致的必要偏差**，不是抄漏了。只读事实那一段（生效来源 / 模型 / 密钥是否配置 / 接口地址）已经补上，见 `canvas/settings-dialog.tsx` 的「生效中」规格表。
 
 ## 存档与本层的边界
 
