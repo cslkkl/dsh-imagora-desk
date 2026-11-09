@@ -4,6 +4,9 @@
 
 - 每完成一处修改就单独提交并推送一次，不攒批。
 - 提交信息用 `<type>(<scope>): <subject>`；scope 取目录名（`host` / `client` / `deps` / `docs` / `hooks` / `tooling`）。
+- **标题只写一行、说清改了什么**：`fix(client): 缩放后文字模糊（节点卡被提升成合成层）`。
+  不要罗列问题细节、不要用「」或破折号串一串症状，也不要写「修三个问题」这种计数器。
+  排查过程、根因、实测数据全放正文。PR 标题同理（squash 后它就是 main 上的提交标题）。
 - 改代码前先查 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 的不变量与防错清单。
 - 构建产物 `dist/client.js` 必须与源码在同一个提交里更新。
 - `src/client/lib/` 是移植区，不按本项目风格改写；格式检查已排除。
