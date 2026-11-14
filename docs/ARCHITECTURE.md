@@ -28,7 +28,10 @@ client 半端通过 `window.__ModuleLoader__.load` 注册进宿主的模块表�
 
 - 模块加载器 id 必须等于 `package.json` 的 `name`。
 - `cordis.patch.yml` 的 `name` 必须等于同一个包名。
-- `dsh.client.inject` 至少要含 `@deepseek-ai/dsh-client-runtime`。
+- `dsh.client.inject` **不要**写 `@deepseek-ai/dsh-client-runtime`：那个包在 DSH 0.1.1-rc.2 之后就没了
+  （0.2.2 线里由 `dsh-client-modules` + `dsh-client-connection` 取代）。`inject` 只是加载顺序提示，
+  指向一个不在启动图里的 id 会被静默跳过 —— 不报错，但也永远不会生效，只留下一句误导后来人的声明。
+  本插件不 import 任何宿主 Client 包（组件走模块表 `require`，见 `src/client/ui.ts`），所以这一项直接不写。
 - `dist/client.js` 必须随源码一起提交；CI 有一条 `git diff --exit-code -- dist/client.js` 守着。
 - `react` / `react-dom` / `react/jsx-runtime` 必须 external；打进 bundle 会出现两份 React。
 
