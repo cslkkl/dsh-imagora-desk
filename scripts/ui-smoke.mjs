@@ -641,6 +641,39 @@ try {
       .catch(() => '')
     check('重新认领：任务已不存在时不假装运行中', !String(goneClass).includes('is-running'), String(goneClass))
     check('重新认领：任务不存在后停止轮询', taskCalls.length <= 2, String(taskCalls.length))
+
+    // ---------------- 缺字段的工作流不该白屏 ----------------
+    // 回归：一份手改/旧版本写的工作流，提示词卡只有 `{ prompt }`、没有 size。
+    // 早先渲染层对 `undefined` 直接 `.trim()`，抛 TypeError；画布没有错误边界，
+    // 整棵树被卸载 —— 页面全白，而且崩溃时又把坏画布存回快照，下次打开接着崩。
+    // 这里播一份缺 size 的快照，断言：页面还在、卡片还在、尺寸框被补成了配置的第一档。
+    const broken = {
+      id: 'broken-probe',
+      type: 'prompt',
+      position: { x: 80, y: 80 },
+      data: { prompt: '缺字段的旧卡片', status: 'idle' },
+    }
+    await seedSnapshot([broken], [])
+    const brokenNodes = await page.locator('.react-flow__node').count()
+    const hasCanvas = await page.locator('.react-flow').isVisible()
+    check(
+      '缺字段的工作流不会白屏（画布与卡片都还在）',
+      hasCanvas && brokenNodes === 1,
+      `canvas=${hasCanvas} nodes=${brokenNodes}`,
+    )
+    const brokenSize = await page
+      .locator('.react-flow__node .im-select-trigger .im-select-label')
+      .first()
+      .innerText()
+      .catch(() => '')
+    check('缺 size 的卡片被补成了配置里的第一档（不是空白）', brokenSize.trim().length > 0, `size=${brokenSize.trim()}`)
+    // 运行按钮可用 = 这张卡是完整的，不是「活着但不能用」
+    const runDisabled = await page
+      .locator('.react-flow__node button')
+      .first()
+      .isDisabled()
+      .catch(() => null)
+    check('缺字段的卡片补全后可直接运行（运行按钮没有因为缺字段被禁用）', runDisabled === false, String(runDisabled))
   }
 
   // ---------------- 快照不写蒙版涂抹图 ----------------

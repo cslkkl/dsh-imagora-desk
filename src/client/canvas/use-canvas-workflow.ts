@@ -19,6 +19,14 @@ interface Options {
   flash: (line: string) => void
   closeDialog: () => void
   /**
+   * 修复旧卡片时用的参数缺省值（缺 size/quality 的卡补成这些）。
+   *
+   * 与「新建卡片」用的是同一个来源（`config.sizes[0]` / `config.qualities[0]`），
+   * 所以修复出来的卡和手动新建的卡完全一样。取的是 ref 而不是值：
+   * 加载那一刻的配置才是准的（用户可能刚在设置里换过模型）。
+   */
+  defaultsRef: MutableRefObject<{ size?: string; quality?: string }>
+  /**
    * 恢复流程走完（无论接到快照、还是本来就没有）后回调一次，参数是**此刻画布上的节点**。
    *
    * 为什么要把节点当参数传、而不是让回调自己读 nodesRef：恢复里刚 `setNodes`，
@@ -41,6 +49,7 @@ export function useCanvasWorkflow({
   log,
   flash,
   closeDialog,
+  defaultsRef,
   onRestored,
 }: Options) {
   const timerRef = useRef<number | null>(null)
@@ -102,7 +111,12 @@ export function useCanvasWorkflow({
         const snapshot = await latestRecovery()
         if (cancelled) return
         if (!snapshot.empty && snapshot.nodes?.length && !nodesRef.current.length) {
-          const canvas = workflowToCanvas(snapshot.nodes, (snapshot.edges ?? []) as WorkflowEdge[], [])
+          const canvas = workflowToCanvas(
+            snapshot.nodes,
+            (snapshot.edges ?? []) as WorkflowEdge[],
+            [],
+            defaultsRef.current,
+          )
           setNodes(canvas.nodes)
           setEdges(canvas.edges as Edge[])
           effective = canvas.nodes
@@ -138,7 +152,12 @@ export function useCanvasWorkflow({
     async (name: string) => {
       try {
         const data = await loadWorkflow(name)
-        const canvas = workflowToCanvas(data.nodes, data.edges as WorkflowEdge[], data.missing ?? [])
+        const canvas = workflowToCanvas(
+          data.nodes,
+          data.edges as WorkflowEdge[],
+          data.missing ?? [],
+          defaultsRef.current,
+        )
         setNodes(canvas.nodes)
         setEdges(canvas.edges as Edge[])
         closeDialog()
@@ -148,7 +167,7 @@ export function useCanvasWorkflow({
         flash(`加载失败：${errMessage(error)}`)
       }
     },
-    [setNodes, setEdges, instanceRef, closeDialog, flash],
+    [setNodes, setEdges, instanceRef, closeDialog, flash, defaultsRef],
   )
 
   return { doSave, doLoad }
