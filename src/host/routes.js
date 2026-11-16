@@ -5,7 +5,7 @@ import { extname, isAbsolute, join, resolve } from 'node:path'
 import { checkBudget, loadBudget, saveBudget } from './budget.js'
 import { applyProviderPatch, costOfSize } from './config.js'
 import { humanizeError, listModels } from './generate.js'
-import { collectAll, readLedger, readRaw, summarize } from './history.js'
+import { RAW_LIMIT, dedupeGenerationHistory, ledgerExists, readLedger, summarize } from './history.js'
 import { ledgerRoot as sharedLedgerRoot } from './ledger.js'
 import { pickDirectory } from './picker.js'
 import { MIME, extOf } from './store.js'
@@ -316,10 +316,13 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
       const query = url.searchParams.get('query') || ''
       const status = url.searchParams.get('status') || ''
 
-      const { file, records } = await readLedger(imagoraRoot)
+      // 过滤与上限在读取层完成（凑够 RAW_LIMIT 条匹配就停，不再往文件更早的部分读），
+      // 所以这里只拿到「最新的那一段」，而不是整份账本。
+      const { file, records } = await readLedger(imagoraRoot, { query, status, rawLimit: RAW_LIMIT })
       // 没有账本（没设 imagora 目录 / 原版没生成过图）：说清楚，让前端回落资产网格。
-      // 静默返回空列表会让用户以为「历史被清空了」。
-      if (!records.length) {
+      // 静默返回空列表会让用户以为「历史被清空了」。这里要看**文件是否存在**，
+      // 不能用 records.length —— 搜索不到任何结果时文件明明在，报「没有账本」是撒谎。
+      if (!(await ledgerExists(imagoraRoot))) {
         return json(res, 200, {
           source: 'none',
           ledgerPath: file,
@@ -330,7 +333,7 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
       }
       // 聚合后的完整列表：offset/limit 都作用在**聚合后**的数组上（与原版分页语义一致，
       // 前端按已加载条数推进 offset 即可，不受聚合压缩影响）
-      const all = collectAll(records, { query, status })
+      const all = dedupeGenerationHistory(records)
       const page = all.slice(offset, offset + limit)
       // 注册表一次读入复用：逐条 resolve 每条都读盘会是卡顿主要来源
       const entries = await assetIndex()
@@ -348,8 +351,10 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
       const config = getConfig()
       const imagoraRoot = ledgerRoot(config)
       const days = Number(url.searchParams.get('days')) || 14
+      // 统计要**全部**原始行（每个成功行都真花过钱，聚合会少算），所以不给 rawLimit；
+      // 但同样走倒序按块读，内存只与块大小有关。
       const { records } = await readLedger(imagoraRoot)
-      const stats = summarize(readRaw(records), days)
+      const stats = summarize(records, days)
       const budget = Number(getSettings()?.budget ?? 0)
       // 本机预算设置（.budget.json）与「本画布上限」（settings.budget）是两件事：
       // 前者管当天/单次（原版口径，软确认），后者管这个画布累计（硬拦）。
@@ -466,8 +471,10 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
       //    判据要现读账本（今天的钱是别的进程/原版花掉的也算），不能只信前端报的数。
       const localBudget = loadBudget(config.defaultOutputDir)
       if (localBudget.dailyLimit > 0 || localBudget.singleRunLimit > 0) {
+        // 只要「今天花了多少」：账本时间为本地时间戳，倒序读到的前若干条已覆盖当天，
+        // 但跨天数混排时不安全，这里仍取全量（按块倒序读，不会整份进内存）。
         const { records } = await readLedger(ledgerRoot(config))
-        const today = summarize(readRaw(records), 1).todayCost
+        const today = summarize(records, 1).todayCost
         const estimate = costOfSize(config, size) * Math.max(1, Number(body.count) || 1)
         const verdict = checkBudget(estimate, localBudget, today, body.allowOverBudget === true)
         if (!verdict.allowed) {
