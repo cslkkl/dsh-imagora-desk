@@ -121,6 +121,9 @@ export function useCanvasWorkflow({
           setEdges(canvas.edges as Edge[])
           effective = canvas.nodes
           log(`已恢复上次的画布（${snapshot.name ?? '自动恢复'}）`)
+          if (canvas.dropped.length) {
+            log(`${canvas.dropped.length} 个节点数据不完整，已跳过（${canvas.dropped[0]?.reason ?? ''}）`)
+          }
         }
       } catch {
         // 没有快照或接口不可用，保持空画布
@@ -162,6 +165,11 @@ export function useCanvasWorkflow({
         setEdges(canvas.edges as Edge[])
         closeDialog()
         flash(`已加载「${data.name || name}」`)
+        // 跳过的节点必须说出来：用户打开一份工作流发现少几张卡，
+        // 没有任何提示只会以为是自己误删了
+        if (canvas.dropped.length) {
+          flash(`${canvas.dropped.length} 个节点数据不完整，已跳过（${canvas.dropped[0]?.reason ?? ''}）`)
+        }
         window.setTimeout(() => instanceRef.current?.fitView({ padding: 0.2, duration: 300 }), 60)
       } catch (error) {
         flash(`加载失败：${errMessage(error)}`)

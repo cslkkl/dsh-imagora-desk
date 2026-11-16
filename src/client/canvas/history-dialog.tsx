@@ -159,21 +159,25 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
   // 预算草稿：成本条那两个输入框。stats 回来时同步一次（原版 CostBoard 同一套做法）——
   // 用户没编辑时显示后端已保存的值，编辑过就以草稿为准，直到点保存。
   //
-  // `budgetDirty` 是这道「编辑过就算数」的闸。只看 stats 变化会把**用户刚敲的字**盖掉：
+  // `budgetDirtyRef` 是这道「编辑过就算数」的闸。只看 stats 变化会把**用户刚敲的字**盖掉：
   // stats 是一次网络请求，它晚到时（慢一点、或点保存后的回读）会把框重置回旧值 ——
-  // 用户看到的是「我打进去的 0.5 自己变回 0 了」。加闸之后只有没碰过才接受服务端的值。
-  const [budgetDirty, setBudgetDirty] = useState(false)
+  // 用户看到的是「我打进去的 0.5 自己变回 0 了」。
+  //
+  // 用 **ref** 而不是 state，是为了挡「已经排队、还没跑的那次 effect」：那个 effect 的
+  // 闭包读到的是它被创建时的状态，用 state 的话用户在这个窗口里敲的字照样会被盖掉 ——
+  // 原版那处实测就是这么时红时绿的（单文件连跑 8 次红 1 次）。ref 写入即生效，没这个窗口。
+  const budgetDirtyRef = useRef(false)
   useEffect(() => {
-    if (!stats?.localBudget || budgetDirty) return
+    if (!stats?.localBudget || budgetDirtyRef.current) return
     setDraftBudget({
       dailyLimit: stats.localBudget.dailyLimit ? String(stats.localBudget.dailyLimit) : '0',
       singleRunLimit: stats.localBudget.singleRunLimit ? String(stats.localBudget.singleRunLimit) : '0',
     })
-  }, [stats, budgetDirty])
+  }, [stats])
 
   /** 改金额框：记下「用户动过」，并清掉上一次的保存提示 */
   const editBudget = (patch: Partial<{ dailyLimit: string; singleRunLimit: string }>) => {
-    setBudgetDirty(true)
+    budgetDirtyRef.current = true
     setBudgetTip('')
     setDraftBudget(prev => ({ ...prev, ...patch }))
   }
@@ -190,7 +194,7 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
       const next = await generationStats()
       setStats(next)
       // 保存成功：交还控制权，下一次回读的值可以覆盖草稿
-      setBudgetDirty(false)
+      budgetDirtyRef.current = false
       setBudgetTip('预算已保存')
     } catch (err) {
       setBudgetTip(`保存失败：${errMessage(err)}`)
