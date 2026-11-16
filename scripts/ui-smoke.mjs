@@ -308,6 +308,54 @@ try {
   await page.waitForTimeout(300)
   check('Ctrl+Z 与撤销按钮同一个栈', (await countNodes()) === baseCount, String(await countNodes()))
 
+  // ---------------- 自动整理：提示词卡也必须参与 ----------------
+  // 回归：插件曾把这个按钮实现成「只把选中的**图片节点**横排」（baseX + index * 172），
+  // 提示词卡直接跳过 —— 于是「全选后点整理」看着像没反应，而原版走的是分层布局
+  // （layoutSelection），三类节点一起排。断言锁住「提示词卡的坐标真的变了」。
+  {
+    const readPositions = () =>
+      page.$$eval('.react-flow__node', els =>
+        els.map(el => {
+          const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(el.style.transform || '')
+          return {
+            id: el.getAttribute('data-id') || '',
+            // 提示词卡是这一种里唯一带 textarea 的节点
+            isPrompt: !!el.querySelector('textarea'),
+            x: m ? Number(m[1]) : null,
+            y: m ? Number(m[2]) : null,
+          }
+        }),
+      )
+    const before = await readPositions()
+    const promptBefore = before.find(row => row.isPrompt)
+    await page.locator('.react-flow__pane').click({ position: { x: 24, y: 24 } })
+    await page.keyboard.press('Control+a')
+    await page.waitForTimeout(150)
+    await page.getByRole('button', { name: /^自动整理/ }).click()
+    await page.waitForTimeout(400)
+    const after = await readPositions()
+    const promptAfter = after.find(row => row.id === promptBefore?.id)
+    const movedCount = after.filter(row => {
+      const old = before.find(b => b.id === row.id)
+      return old && (old.x !== row.x || old.y !== row.y)
+    }).length
+    check(
+      '自动整理会重排提示词卡（不是只排图片）',
+      !!promptBefore && !!promptAfter && (promptBefore.x !== promptAfter.x || promptBefore.y !== promptAfter.y),
+      `${promptBefore?.x},${promptBefore?.y} → ${promptAfter?.x},${promptAfter?.y}`,
+    )
+    check('自动整理后多个节点都动了', movedCount >= 2, `moved=${movedCount}`)
+    // 布局是派生重算：撤销能退回原样（说明它记进了历史，且记录时保留重做栈）
+    await page.keyboard.press('Control+z')
+    await page.waitForTimeout(300)
+    const restored = (await readPositions()).find(row => row.id === promptBefore?.id)
+    check(
+      '自动整理可撤销（退回原坐标）',
+      restored?.x === promptBefore?.x && restored?.y === promptBefore?.y,
+      `${restored?.x},${restored?.y}`,
+    )
+  }
+
   // ---------------- 中文输入法：合成不得被打断 ----------------
   // 回归：受控 textarea 在合成期间被 value 回写，浏览器会提交并重置合成缓冲区，
   // 已输入的拼音被当成正文逐段追加（`nihao` → `nninihnihani…`）。
