@@ -36,25 +36,62 @@ export function useCanvasWorkflow({
 }: Options) {
   const timerRef = useRef<number | null>(null)
 
-  // 画布一改就排一次快照；空画布不写，避免把「刚打开」也存成一份空快照
+  /**
+   * 立刻把当前画布写进快照并取消防抖。
+   *
+   * 为什么需要它：保存是 2500ms 防抖，而组件卸载 / 切走窗口时如果只是
+   * clearTimeout，防抖窗口里那些改动**根本没落盘**。回来时再按快照恢复，
+   * 就等于把刚做的东西退回上一个旧版本 —— 用户看到的是「我的新卡片没了」。
+   * 所以离开前必须先 flush。
+   */
+  const flushRef = useRef<() => void>(() => {})
+  flushRef.current = () => {
+    if (timerRef.current) {
+      window.clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+    if (!nodesRef.current.length) return
+    void saveRecovery(nodesRef.current, edgesRef.current as WorkflowEdge[]).catch(() => undefined)
+  }
+
+  // 画布一改就排一次快照；空画布不写，避免把「刚打开」也存成一份空快照。
+  // 这里**不清理计时器**：清理等于「每次改动都把上一次待写取消」，卸载时更是直接丢；
+  // 重新排期由上面那句 clearTimeout 负责。
   useEffect(() => {
     if (!nodes.length) return undefined
     if (timerRef.current) window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(() => {
+      timerRef.current = null
       void saveRecovery(nodesRef.current, edgesRef.current as WorkflowEdge[]).catch(() => undefined)
     }, RECOVERY_DEBOUNCE)
-    return () => {
-      if (timerRef.current) window.clearTimeout(timerRef.current)
-    }
   }, [nodes, edges, nodesRef, edgesRef])
 
-  // 挂载时尝试接上次的画布；第一次打开没有快照属正常，静默跳过
+  // 离开前落盘：切窗口 / 切标签页（visibilitychange）、页面卸载（pagehide）、
+  // 以及组件真的卸载时各兜一次。三个入口都试，因为宿主什么时机拆我们说不准。
+  useEffect(() => {
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') flushRef.current()
+    }
+    const onPageHide = () => flushRef.current()
+    document.addEventListener('visibilitychange', onHidden)
+    window.addEventListener('pagehide', onPageHide)
+    return () => {
+      document.removeEventListener('visibilitychange', onHidden)
+      window.removeEventListener('pagehide', onPageHide)
+      flushRef.current()
+    }
+  }, [])
+
+  // 挂载时尝试接上次的画布；第一次打开没有快照属正常，静默跳过。
+  // **本地已经有节点就不恢复**：恢复只该服务「刚打开还是空画布」这一种情况，
+  // 拿旧快照盖掉用户当前的画布是所有数据丢失里最难解释的一种。
   useEffect(() => {
     let cancelled = false
     const restore = async () => {
       try {
         const snapshot = await latestRecovery()
         if (cancelled || snapshot.empty || !snapshot.nodes?.length) return
+        if (nodesRef.current.length) return
         const canvas = workflowToCanvas(snapshot.nodes, (snapshot.edges ?? []) as WorkflowEdge[], [])
         setNodes(canvas.nodes)
         setEdges(canvas.edges as Edge[])
@@ -67,7 +104,7 @@ export function useCanvasWorkflow({
     return () => {
       cancelled = true
     }
-  }, [setNodes, setEdges, log])
+  }, [setNodes, setEdges, log, nodesRef])
 
   const doSave = useCallback(
     async (name: string) => {
