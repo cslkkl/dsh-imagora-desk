@@ -32,7 +32,6 @@
 | `overlays.tsx`           | 空态、日志轮播、toast、大图预览、顶部提示条    |
 | `dialogs.tsx`            | 保存 / 加载 / 帮助三个对话框                   |
 | `modal-shell.tsx`        | 弹窗基座：四档宽度、头/身/脚三段、内容区自己滚 |
-| `generation-pending.tsx` | 生成中占位卡（渐近假进度 + 文案轮播）          |
 | `imagora-root-row.tsx`   | 设置里的 Imagora 目录与输出目录指针            |
 | `budget-row.tsx`         | 设置里的「本画布预算上限」（硬拦那一层）       |
 | `use-canvas-drop.tsx`    | 拖入建节点：落点胶囊、工具栏拖出、文件拖放     |
@@ -50,7 +49,6 @@
 - 格式检查已排除该目录；改它要按上游语义判断。
 - 关键规则都在这里：连线方向约束、`@` 引用解析、组递归聚合、引用计数溯源、落点错开、工作流归一化。
 - 下拉框相关：`optionGroups`（分组）、`popupLayer`（浮层栈，Esc 让位）、`rankByName`（搜索排序）、`apiCatalog`、`customValue`（自由输入归一化）。
-- 生成中占位的进度曲线与文案轮播：`generationPending`。
 - 大图预览的缩放与平移换算：`previewZoom`；剪贴板写入：`imageCopy`。
 
 ## 被谁依赖
