@@ -674,6 +674,24 @@ try {
       .isDisabled()
       .catch(() => null)
     check('缺字段的卡片补全后可直接运行（运行按钮没有因为缺字段被禁用）', runDisabled === false, String(runDisabled))
+
+    // 更狠的一种：节点**本身**不合法（`manual.json` 里就是 `{ "id": "manual" }`，
+    // 没有 type、没有 position、没有 data）。缺字段能补，这种补不了 ——
+    // 猜出来的节点比没有更糟。React Flow 读 `position.x` 时会直接抛错，
+    // 所以这类必须**跳过**而不是硬塞进去。
+    await seedSnapshot([{ id: 'manual' }], [])
+    const junkRoot = await page.locator('.im-root').count()
+    const junkNodes = await page.locator('.react-flow__node').count()
+    check(
+      '节点本身不合法（只有 id）时跳过它，页面照常（不是白屏）',
+      junkRoot === 1 && junkNodes === 0,
+      `root=${junkRoot} nodes=${junkNodes}`,
+    )
+
+    // 一好一坏：坏的被跳过，好的照常显示
+    await seedSnapshot([{ id: 'manual' }, promptCard('ok-probe', { prompt: '好的一张卡' })], [])
+    const mixedNodes = await page.locator('.react-flow__node').count()
+    check('一好一坏时只跳过坏的那个（好的照常显示）', mixedNodes === 1, `nodes=${mixedNodes}`)
   }
 
   // ---------------- 快照不写蒙版涂抹图 ----------------
