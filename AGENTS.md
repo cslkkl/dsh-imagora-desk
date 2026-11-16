@@ -39,7 +39,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - 本地钩子（commit 前）：文本卫生、prettier、eslint、tsc、host 冒烟、bundle 冒烟，全绿。
 - CI：`.github/workflows/ci.yml`，只读；末段 `git diff --exit-code -- dist/client.js` 守住产物同步。
 - CI 状态以 Actions 徽章为准，不在这里抄结论；最近一次 main 的 push 为绿。
-- 冒烟数字：host 113 项、client 25 项、UI 87 项（host 侧含预算两层 13 项与账本读写 14 项；UI 侧用真实浏览器跑验收台，`pnpm run test:ui`，其中右键菜单/框选 9 条、自动整理 3 条、缩略图 3 条、快照不写蒙版 4 条、重新认领 4 条、生成历史版面 5 条、坏数据与错误边界 7 条、设置弹窗版面 8 条、切分预设/手填 5 条、对齐线坐标系 3 条、图片组操作栏 1 条）。
+- 冒烟数字：host 113 项、client 30 项、UI 95 项（host 侧含预算两层 13 项与账本读写 14 项；client 侧含文案图层 6 项：inject 含 locale、词典已注册、中英两份齐全、键集一致、main 声明 locale 座位、侧栏 label 是 thunk；UI 侧用真实浏览器跑验收台，`pnpm run test:ui`，其中右键菜单/框选 9 条、自动整理 3 条、缩略图 3 条、快照不写蒙版 4 条、重新认领 4 条、生成历史版面 5 条、坏数据与错误边界 7 条、设置弹窗版面 8 条、切分预设/手填 5 条、对齐线坐标系 3 条、控件坞不被裁 5 条、图片组操作栏 1 条）。
 - 验收台示例图是仓库里的 `harness/sample.png`（1600×1200）：内嵌兜底只有 64×64，会让所有尺寸相关验收失去意义。
 - 渲染验收台：`scripts/harness-server.mjs` + 真实浏览器，实测建卡→运行→回流、四个对话框、Del 删除、粘贴导入、生成历史、滚轮缩放、左键平移、拖拽吸附与对齐线、锁定画布、成本徽章与预算闸门、裁剪/切分/放大/蒙版四个对话框。
 - 真实出图链路验证过两次（火山 Seedream 5.0 pro，1024x1024，单张 0.20 元）：一次走 imagora 配置，一次走插件内配置。
@@ -47,7 +47,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 ## 待办
 
 - [x] 市场可搜索：自托管索引 + GitHub Pages，实测搜到并安装成功。发 npm 只是可选增强（`dsh plugin add dsh-imagora-desk` 直接装）
-- [x] 自动化 UI 测试：`pnpm run test:ui` 用真实浏览器跑 87 条断言；host 侧另有 6 条任务池 TTL 断言（弹窗结构 / 提示词浮层 / 蒙版底图 / 预算输入 / 生成历史版面 / 右键菜单与框选 / 自动整理 / 中文输入法 / 重新认领 / 无页面异常）。浏览器找不到时打 SKIP 退 0，CI 仍只跑 `pnpm run test`
+- [x] 自动化 UI 测试：`pnpm run test:ui` 用真实浏览器跑 95 条断言；host 侧另有 6 条任务池 TTL 断言（弹窗结构 / 提示词浮层 / 蒙版底图 / 预算输入 / 生成历史版面 / 右键菜单与框选 / 自动整理 / 中文输入法 / 重新认领 / 无页面异常）。浏览器找不到时打 SKIP 退 0，CI 仍只跑 `pnpm run test`
 - [x] 生成历史「双源并存」：插件出的图现在按 `core/logging.py` 的格式追加进同一份账本（`src/host/ledger.js`），历史里能看见；写入闸门见下
 - [x] 生成历史成本条的「日预算 / 单次上限」输入框（原版 CostBoard）：落在 `<输出目录>/.budget.json`，与原版共读一份；语义是「超限需确认」，见 [决策](.agents/notes/2026-11-08-budget-two-layers.md)
 - [x] 生成历史里提示词的鼠标悬浮：改用原版 `PromptCell`（2 行截断，真被截断才出跟随鼠标的深色浮层）
@@ -73,6 +73,8 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - **不要把 Markdown 正文塞进 PowerShell 变量再交给 `gh`**：反引号在 pwsh 里是转义符（`` `b `` → 退格、`` `0 `` → NUL），正文会被吃掉或变成乱码，GitHub 收到的是一条残缺评论/PR 描述（踩过两次：一次评论只剩一句、一次 `border-box` 变成 `\order-box` 且中文变 `图��`）。**一律用 `write` 工具写成 UTF-8 文件再 `gh pr create/edit --body-file <路径>`**。另外本机 `gh` 2.96.0 没有 `--attach`，别用它挂图。
 - **CSS 里引用不存在的 `var()` 会让整条声明作废，且不报错**：`stroke: var(--x)` 在 `--x` 未定义时计算值是 `none`，元素直接消失，控制台一片安静。用户报过「新存的工作流加载后看不见线、旧的却能看见」—— 根因就是从原版存档里读进来的 `stroke: var(--edge-stroke-idle)`，而插件早把变量名收口成了 `--im-*`。所以：每条 `var()` 要么给兜底值，要么保证变量存在；从上游读进来的表现层字段一律在加载时清掉。见 [ARCHITECTURE](docs/ARCHITECTURE.md#存档与本层的边界)。
 - **节点数据是外部数据，任何读取都可能撞上 `undefined`**：工作流文件与恢复快照都可以是手改的、旧版本写的、写一半断电留下的。同一周栽了两次白屏（缺 `size` 字段、节点只剩 `{ id }`）。三层防线缺一不可：① 加载时补全/跳过（`lib/workflow.ts`）② 保存前收敛形状（`lib/recovery.ts`）③ 错误边界（`canvas/error-boundary.tsx`）。**只加字段校验不够** —— 它只能枚举已知形状，边界才兜得住未知缺陷。见 [决策](.agents/notes/2026-11-16-error-boundaries.md)。
+- **改界面文字只能动 `src/client/locales.ts`**：文案全部集中在那一个文件，`zh` 是键集真源、`en` 用 `Record<LocaleKey, string>` 兜完整性。漏译、拼错键名都是**编译错误**，那是这套结构存在的理由。三处配套别忘：① 组件里用 `useT()` 取 `t`，不在 JSX 里写中文；② `src/client/lib/` 是 A 档移植区，**不许**往里塞 `t()` —— 它产出的界面文字在消费处换（见 [ARCHITECTURE](docs/ARCHITECTURE.md#a-档移植件与文案层之间只有一道缝)）；③ 插件页标题与说明在 [locale/](locale/README.md)，与界面文案是两条独立的路。
+- **英文标签比中文长得多，会实际影响版面**：`Generation history` 压成 `History`、`New prompt card` 压成 `Prompt card` 都是因为整行排不下。改英文短标签或加新按钮后，**去验收台里看它是否还放得下**，别只看字符串长度。控件坞的行宽就栽在这一点上：钉死 64px（按中文两字算），英文直接溢出到列外。
 - **`CANVAS_CSS` 是模板字面量，注释里不能出现反引号**：一个反引号就等于提前结束字符串，之后整个文件语法崩掉，报错还会指到别处（TS1005 / TS1351 / TS1443 一串）。写 CSS 注释时把代码片段的反引号换成普通引号或全角引号。
 - **节点卡不许有 `will-change`，入场动画必须按类门控**：两者都会把卡提升成合成层，而合成层按提升那一刻的倍率栅格化 —— 画布缩放改的是 viewport 的 `scale`，合成层不跟着重栅格，结果就是「缩小再放大后文字一直是糊的，点一下才清晰」，卡片多了还会「加载很慢」。真宿主里量到过 22/22 张卡同时带 `will-change: transform` 和永久挂着的 `im-enter-up`。上游 Imagora 全文件 0 处 `will-change`，动画只挂在 `.enter-up` / `.node-enter` 上。三条冒烟断言锁住。见 [ARCHITECTURE](docs/ARCHITECTURE.md#画布节点不许提升成合成层)。
 - **插件是软链到主检出（`D:\ProjectSomething\dsh-imagora-desk`）的**：在工作树（`git worktree`）里构建 `dist/client.js`，真实宿主页面读不到 —— 它仍然加载主检出那份。要在真页面里验证就得在主检出上构建（或用工作树时把 dist 复制过去）。本次排查就因此白跑了一轮：改在工作树、验在主检出，看到的是没改之前的状态。
@@ -88,5 +90,6 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - client 半端手册 → [src/client/README.md](src/client/README.md)
 - 脚本与验收台 → [scripts/README.md](scripts/README.md)
 - 渲染验收台 → [harness/README.md](harness/README.md)
+- 插件页展示元数据（标题 / 说明）→ [locale/README.md](locale/README.md)
 - 第三方声明 → [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 - 对外门面 → [README.md](README.md)

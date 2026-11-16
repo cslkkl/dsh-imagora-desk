@@ -518,6 +518,47 @@ React Flow 会把所有节点重挂载 —— 入场动画重播、输入框失�
 - 从上游存档读进来的表现层字段（`style` / `className` / `animated` / `marker*`）必须在加载时清掉，别指望「照搬上游的存法」：上游的 CSS 变量名与我们不同，存进去的是状态快照而不是样式定义。
 - 往 `CANVAS_CSS` 的模板字面量里写注释时**不能用反引号**：它就是模板字面量的结束符，一个反引号会让之后整个文件语法崩掉（TS1005/TS1351/TS1443 一串），而错误位置报在别处。
 
+## 文案与语言
+
+界面文字**全部**在 [`src/client/locales.ts`](../src/client/locales.ts) 里，分 `zh` / `en` 两份。语言跟随宿主的设置（设置 → 通用 → 语言），本插件不提供自己的语言开关。
+
+三层结构：
+
+| 层   | 在哪                    | 做什么                                                                                                  |
+| ---- | ----------------------- | ------------------------------------------------------------------------------------------------------- |
+| 词典 | `src/client/locales.ts` | 唯一的文案住所。`zh` 是键集真源，`en` 声明成 `Record<LocaleKey, string>`                                |
+| 接线 | `src/client/i18n.tsx`   | `LocaleProvider` + `useT()`。宿主注入的 `t` 只到 `CanvasApp` 一层，靠 Context 送到 40 多个子组件与 hook |
+| 入口 | `src/client/index.tsx`  | `ctx.locale.register(NS, { zh, en })`；slot 注册项声明 `locale: NS`，框架据此注入 `t`                   |
+
+**漏译与拼错都是编译错误**：`LocaleKey` 从 `zh` 推出联合类型，`en` 少一个键、`t()` 拼错一个键名都过不了 `tsc`。这是这套结构存在的理由 —— 靠自觉保持双语平衡在 400 多条文案上不成立。
+
+### 两种语言各自写，不做逐字直译
+
+中文短、信息密度高，英文要显式主语与冠词；中文的「（未设置）」在英文里是 `Not set`，不是 `(Not set)`。**同一个键的两句话可以结构完全不同**，只要说的是同一件事。带数量的按钮尤其如此：中文用全角括号「（3）」，英文用半角加空格「 (3)」，所以是**两个键**（单数 / 复数）而不是「文案 + 拼接括号」。
+
+英文按钮标签比中文长得多，会实际影响版面：`Generation history` 压成 `History`、`New prompt card` 压成 `Prompt card`，就是因为整行排不下（维护者 2026-11-17 定）。改英文短标签时**先在验收台里看它是否还放得下**，别只看字符串长度。
+
+### A 档移植件与文案层之间只有一道缝
+
+`src/client/lib/` 里有些模块**产出用户可见的文字**：`contextMenu.ts` 的菜单项 label、`customValue.ts` 的「自定义」分组、`canvasDrop.ts` 的落点胶囊、`cost.ts` 的金额与指标标签。它们是 A 档（规范化后与上游相同），不能为了 i18n 往里塞 `t()` —— 那会把 19 个 A 档文件改成 C 档，而上游不做 i18n。
+
+所以在**消费边界**换文案，这也是上游自己留的缝：
+
+| 移植件           | 缝在哪                                                                     | 怎么换                                                                                                               |
+| ---------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `contextMenu.ts` | [`canvas/menu-labels.ts`](../src/client/canvas/menu-labels.ts)             | 按 `action.id` 换 label。上游文件头写着「接线方按 id 分派，**不要按 label 匹配**」                                   |
+| `customValue.ts` | `select.tsx` 渲染分组标题处                                                | 按 `group.id === '__custom'` 换                                                                                      |
+| `canvasDrop.ts`  | [`canvas/use-canvas-drop.tsx`](../src/client/canvas/use-canvas-drop.tsx)   | 只用它的判定函数，文案自己按意图与张数取                                                                             |
+| `cost.ts`        | [`canvas/cost.tsx`](../src/client/canvas/cost.tsx) 与 `history-dialog.tsx` | `formatMoney` 把「元」烘在返回值里 → 金额格式改由显示层给；`formatRate` / `formatSeconds` 语言无关，继续用移植区那份 |
+
+判据是：**纯逻辑留在移植区，文字在消费处取**。往 `lib/` 里加文案，等于把 A 档改成 C 档。
+
+### 宿主侧
+
+`locale/` 目录里的 `en.json` / `zh.json` 是**插件页上的标题与一句话说明**，与界面文案是两条独立的路：宿主直读那两个 JSON，本仓代码一个字节都不读（详见 [locale/](../locale/README.md)）。
+
+host 半端（Node）拿不到 `ctx.locale` —— 那是 client 服务。所以 host 的中文错误文案只能作为**数据**返回，前端原样显示。要让它也跟随语言，得改成「host 回稳定错误码 + 前端词典翻译」，目前**没做**（34 处，记在这里免得下次误以为已经覆盖）。
+
 ## 相关
 
 - 决策记录 → [.agents/notes/](../.agents/notes/README.md)
