@@ -366,6 +366,19 @@ export function defineConfig(path, url, rawBody) {
     return { ok: true, nodes: live.recovery.nodes.length }
   }
 
+  /**
+   * 重新开始接受自动保存。
+   *
+   * 播种之后 `ignoreSaves` 一直是开的（理由见上）；而「快照里不该带什么」这类用例
+   * 恰恰需要**真的存一次**再读回来。给一个显式开关，比让用例自己 play 时序稳。
+   */
+  if (path === '/imagora/__harness/accept-saves') {
+    // 只翻开关：**不能**在这里清 recovery —— 种子就是刚播进去的那一份，
+    // 清掉等于把要验的画布一起抹了。
+    live.ignoreSaves = false
+    return { ok: true }
+  }
+
   if (path === '/imagora/recovery/latest') {
     // 存过快照就返回它，语义与真 host 一致：latest = 最近一次自动保存
     if (live.recovery) {

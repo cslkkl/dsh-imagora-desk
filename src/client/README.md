@@ -52,6 +52,7 @@
 - 关键规则都在这里：连线方向约束、`@` 引用解析、组递归聚合、引用计数溯源、落点错开、工作流归一化。
 - 右键菜单的内容与位置算术：`contextMenu`（`buildNodeMenu` 按节点类型排项、`clampMenuPosition` 贴边夹取、`menuHeight` 推高度；纯函数，渲染在 `canvas/node-context-menu.tsx`）。
 - 下拉框相关：`optionGroups`（分组）、`popupLayer`（浮层栈，Esc 让位）、`rankByName`（搜索排序）、`apiCatalog`、`customValue`（自由输入归一化）。
+- 画布卡片的缩略图：`thumbnails`（长边 512、模块级会话缓存、LRU + `revokeObjectURL`）与 `useThumbnail`（取数 hook）。**卡片只用缩略图，原图留给预览 / 裁剪 / 放大 / 蒙版**——原图 12 MP，摊开一次约 48 MB，而卡片只显示 128×160。
 - 大图预览的缩放与平移换算：`previewZoom`；剪贴板写入：`imageCopy`。
 
 ## 被谁依赖

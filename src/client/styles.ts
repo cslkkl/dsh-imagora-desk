@@ -876,6 +876,14 @@ body[data-ds-dark-theme] {
   cursor: zoom-in;
 }
 .im-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+/* 缩略图占位：还在生成时先占住格子（尺寸由 .im-thumb 固定，不会有布局跳动）。
+   底色从品牌色极淡掺出来，与卡片面同族；不加动画——它通常只存在几十毫秒。 */
+.im-thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: color-mix(in srgb, var(--im-brand) 6%, transparent);
+}
 .im-thumb-label { margin-top: 4px; max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--im-ink-2); }
 
 /* ---------------- LOD 抽象模式（缩到 10% 以下） ----------------

@@ -381,6 +381,43 @@ try {
   await page.waitForTimeout(300)
   check('Ctrl+Z 与撤销按钮同一个栈', (await countNodes()) === baseCount, String(await countNodes()))
 
+  // ---------------- 缩略图：卡片用小图，预览用原图 ----------------
+  // 回归（维护者报「开十几张大图很吃内存」）：卡片只显示 128×160，却 src 直指
+  // 3072×4096 的原图 —— 每张摊开约 48 MB。现在卡片走浏览器侧缩略图（长边 512），
+  // 而双击预览 / 裁剪 / 蒙版仍必须拿原图。三条断言把这两件事分开钉住。
+  {
+    await page.locator('.react-flow').waitFor()
+    // evaluate 的回调在**页面**里跑，但 ESLint 按 Node 环境检查这个文件：
+    // 浏览器全局一律经元素自己的文档取（与本文件其它断言同一做法）。
+    const thumb = await page
+      .locator('.im-thumb')
+      .first()
+      .evaluate(async box => {
+        const img = box.querySelector('img')
+        if (!img) return { ok: false, reason: 'no thumb img' }
+        if (!img.complete) await new Promise(done => img.addEventListener('load', done, { once: true }))
+        return { ok: true, src: img.getAttribute('src') || '', natural: img.naturalWidth }
+      })
+    check('卡片缩略图走的是本地生成的小图（blob:）', thumb.src?.startsWith('blob:') === true, JSON.stringify(thumb))
+    check(
+      '缩略图确实被缩小了（长边 ≤ 512）',
+      thumb.natural > 0 && thumb.natural <= 512,
+      `naturalWidth=${thumb.natural}`,
+    )
+
+    // 双击放大：预览里必须是原图（1600×1200 的验收台样例），不能被缩略图顶替
+    await page.locator('.im-thumb img').first().dblclick()
+    const zoom = page.locator('[data-zoom-image]')
+    await zoom.waitFor({ timeout: 5000 })
+    const natural = await zoom.evaluate(async img => {
+      if (!img.complete) await new Promise(done => img.addEventListener('load', done, { once: true }))
+      return { w: img.naturalWidth, h: img.naturalHeight, src: img.getAttribute('src') || '' }
+    })
+    check('双击预览加载的是原图（未被缩略图降质）', natural.w > 512, JSON.stringify(natural))
+    await page.keyboard.press('Escape')
+    await zoom.waitFor({ state: 'detached' })
+  }
+
   // ---------------- 自动整理：提示词卡也必须参与 ----------------
   // 回归：插件曾把这个按钮实现成「只把选中的**图片节点**横排」（baseX + index * 172），
   // 提示词卡直接跳过 —— 于是「全选后点整理」看着像没反应，而原版走的是分层布局
@@ -533,6 +570,54 @@ try {
       .catch(() => '')
     check('重新认领：任务已不存在时不假装运行中', !String(goneClass).includes('is-running'), String(goneClass))
     check('重新认领：任务不存在后停止轮询', taskCalls.length <= 2, String(taskCalls.length))
+  }
+
+  // ---------------- 快照不写蒙版涂抹图 ----------------
+  // 回归：蒙版是原图尺寸的 PNG data URL（几 MB），而快照每 2.5 秒重写一次、留 5 份。
+  // 一旦用过蒙版，快照会从几 KB 涨到几十 MB 并反复写盘。现在保存前剥掉它
+  // （代价：刷新后涂抹痕迹不恢复，图本身不受影响）。断言直接读宿主收到的 JSON。
+  {
+    const mask = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg=='
+    await page.request.post(`${BASE}imagora/__harness/reset-canvas`)
+    await page.request.post(`${BASE}imagora/__harness/seed-canvas`, {
+      data: {
+        nodes: [
+          {
+            id: 'mask-probe',
+            type: 'image',
+            position: { x: 60, y: 60 },
+            data: {
+              registryId: 'ref-1',
+              name: 'masked.png',
+              url: '/imagora/file?id=ref-1',
+              size: 1234,
+              ext: 'png',
+              refCount: 0,
+              absPath: 'D:/probe/masked.png',
+              maskDataUrl: mask,
+            },
+          },
+        ],
+        edges: [],
+      },
+    })
+    // 顺序很关键：reload 会触发旧页面的「卸载前 flush」，那一次写的是旧画布，
+    // 必须在 ignoreSaves 仍然开着的时候发生（否则刚播的种子当场被盖掉）。
+    // 等新页面把种子画布挂上去、再打开保存，让它的自动保存把这份画布写回来。
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.waitForTimeout(1200)
+    await page.request.post(`${BASE}imagora/__harness/accept-saves`)
+    await page.waitForTimeout(3200) // > RECOVERY_DEBOUNCE(2500)
+
+    const saved = await page.evaluate(async () => {
+      const r = await fetch('/imagora/recovery/latest').then(x => x.json())
+      return { nodes: r?.nodes ?? [], text: JSON.stringify(r ?? {}) }
+    })
+    check('快照确实存下了这次画布（有 1 个节点）', saved.nodes.length === 1, String(saved.nodes.length))
+    check('快照里没有蒙版涂抹图', !saved.text.includes('maskDataUrl'), saved.text.slice(0, 120))
+    check('快照里没有那串 base64 本体', !saved.text.includes('iVBORw0KGgoAAAANSUhEUg'), saved.text.slice(0, 120))
+    // 图本身照旧进快照：只剥蒙版，不剥节点
+    check('蒙版之外的数据照旧保留', saved.text.includes('masked.png'), saved.text.slice(0, 120))
   }
 
   // ---------------- 全程无 JS 报错 ----------------
