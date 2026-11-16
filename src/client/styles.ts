@@ -81,7 +81,22 @@ body {
   --edge-stroke-hovered: var(--im-edge-hovered);
   --edge-stroke-selected: var(--im-edge-selected);
 
-  /* 尺寸阶梯：顶栏控件 28 → 表单控件 38 → 主行动 46；圆角 胶囊 / 卡片 16 / 控件 10 */
+  /* 尺寸阶梯（**控件高度只有这两档，见下**）：紧凑 28 → 表单 38。
+   *
+   * ⚠️ 这两行的纪律：任何「可点/可输入」的控件都必须二选一，不许自己用
+   * padding + line-height 撑高。实测过一遍全项目，各写各的会漂成 10 种：
+   *   13.8 / 17.2 / 18 / 21.2 / 22.4 / 23.1 / 28 / 36.4 / 40.4 / 87.5
+   * 其中 40.4 是 .im-field 靠 padding: 8px 20px + 14px/1.6 算出来的，
+   * 而紧挨着它的下拉触发器写死 --im-h-ctl(28) —— 同一行差 12.4px，
+   * 就是维护者报的「下拉框又是一个高度、跟输入框对不齐」。
+   *
+   * 分两档而不是一档，是因为两处场景本来就不同：
+   *   紧凑档 28：顶栏、工具栏、节点卡内部、生成历史那两条带子
+   *   表单档 38：设置 / 保存 / 加载 / 粘贴导入这些表单弹窗
+   * 弹窗里要并排的按钮跟输入框同档（「.im-field-control」 那条规则）。
+   *
+   * 例外（不算进阶梯）：textarea 高度自适应、.im-chip 是角标不是控件（18）、
+   * .im-icon-btn 是正方形图标按钮（宽=高=紧凑档）。 */
   --im-h-ctl: 28px;
   --im-h-field: 38px;
   --im-r-pill: 999px;
@@ -302,7 +317,11 @@ body[data-ds-dark-theme] {
   /* 圆角按原版分档：一般场景 ghost 10 / primary 11，只有页头那一行是胶囊。
      见下面 .im-btn-ghost / .im-btn-primary / .is-pill 三条。 */
   border-radius: var(--im-r-control);
-  padding: 8px 16px;
+  /* 高度走 token，不用 padding 撑。默认动作按钮（不带 -sm / -xs）是表单档 38，
+     与同屏的输入框等高；-sm 才是紧凑档 28。早先靠 padding: 8px 16px 撑，
+     算出来 33.6px —— 又一个「跟谁都不相等」的高度。 */
+  height: var(--im-h-field);
+  padding: 0 16px;
   font-size: 14px;
   font-weight: 600;
   line-height: 1.2;
@@ -358,8 +377,12 @@ body[data-ds-dark-theme] {
 .im-btn-primary:disabled,
 .im-btn-ghost:disabled { cursor: not-allowed; opacity: 0.5; }
 /* 尺寸档：工具栏 / 模态 / 行内小按钮 */
-.im-btn-sm { padding: 4px 12px; font-size: 12px; }
-.im-btn-xs { padding: 4px 8px; font-size: 11px; }
+/* 小按钮：紧凑档 28（顶栏、工具栏、节点操作栏、历史行）。高度走 token 而不是
+ * padding —— 4px 12px 撑出来是 22.4px，与旁边 28px 的下拉/输入永远差半档。 */
+.im-btn-sm { height: var(--im-h-ctl); padding: 0 12px; font-size: 12px; }
+/* 极小档：只给「行内附属动作」用（历史条目里那几个、错误边界里的重试）。
+ * 24px 是紧凑档与 18px 角标之间的中间档，不是随手取的数：再小点击区域就不够了。 */
+.im-btn-xs { height: 24px; padding: 0 8px; font-size: 11px; }
 /* 危险修饰：文字与涟漪同为红色，配合 ghost 使用 */
 .im-btn-danger { color: var(--im-danger); --im-btn-fill: var(--im-danger); }
 
@@ -369,9 +392,13 @@ body[data-ds-dark-theme] {
   justify-content: center;
   /* 原版 .btn-icon--sm 声明 30×30 / 圆角 8，但真机实测圆角是 **10**：
      .btn-ghost { border-radius: 10px } 写在未分层规则里，压过了 @layer 里的
-     btn-icon--sm。两处叠用时的实际值以实测为准。 */
-  min-width: 30px;
-  min-height: 30px;
+     btn-icon--sm。两处叠用时的实际值以实测为准。
+     尺寸取紧凑档（28×28）：它同时带 .im-btn-ghost，而那条基础规则现在把高度
+     钉在表单档 38 —— 不在这里显式覆盖，图标按钮会比同一栏的文字按钮高一圈。 */
+  width: var(--im-h-ctl);
+  min-width: var(--im-h-ctl);
+  height: var(--im-h-ctl);
+  min-height: var(--im-h-ctl);
   padding: 0;
   border: 0;
   border-radius: var(--im-r-control);
@@ -395,8 +422,10 @@ body[data-ds-dark-theme] {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 22px;
-  padding: 0 9px;
+  /* 与顶栏那排按钮同高（紧凑档）。写 22 时它夹在 28 高的按钮中间矮一截，
+     而它本来是「一眼扫到花销」的东西，矮下去反而不显眼。 */
+  height: var(--im-h-ctl);
+  padding: 0 10px;
   border-radius: var(--im-r-pill);
   background: var(--im-hover);
   color: var(--im-ink-2);
@@ -413,23 +442,45 @@ body[data-ds-dark-theme] {
 .im-cost.is-over .im-cost-fill { background: var(--im-danger); }
 .im-cost-flag { font-size: 10.5px; font-weight: 600; }
 
-/* ---------------- 输入控件（照搬 .field-control） ----------------
-   transition 只含 border/box-shadow：含尺寸会让 textarea 拖拽 resize 卡顿。 */
-.im-field {
+/* ---------------- 控件面：输入框与下拉触发器 ----------------
+ *
+ * **两者共用一组声明**，这是照上游的结构来的：上游 Select 的触发器是
+ * 「className="field-control select-trigger …"」 —— 它同时带输入控件的类，所以高度、
+ * 左右内边距、边框、圆角、底色、字号、聚焦环**天生同源**，不存在「各写一份然后对不齐」。
+ *
+ * 插件此前把 「.im-select-trigger」 写成独立类、自己给 「padding: 0 10px」，而 「.im-field」
+ * 是 20px —— 同一行里输入框的字从 20px 起、下拉的字从 10px 起，维护者一眼看出的
+ * 「左边距没统一」就是这个。现在改成一个规则块，以后要调内边距只改这一处。
+ *
+ * transition 只含 border/box-shadow：含尺寸会让 textarea 拖拽 resize 卡顿。 */
+.im-field,
+.im-select-trigger {
   width: 100%;
+  height: var(--im-h-field);
+  /* 20px 对齐上游 .field-control 的 px-5；紧凑档（顶栏 / 节点卡 / 历史两条带子）
+     在各自容器上覆写成 10px，与上游 .compact-controls 的 padding-inline: 10px 同值。 */
+  padding: 0 20px;
   box-sizing: border-box;
   border: 1px solid var(--im-line-strong);
   /* 原版 .field-control = rounded-lg（8px），不是 --r-control(10) */
   border-radius: var(--im-r-sm);
   background: var(--im-surface);
   color: var(--im-ink);
-  font-size: 14px;
-  line-height: 1.6;
-  padding: 8px 20px;
-  resize: vertical;
   font-family: inherit;
+  font-size: 14px;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.im-field {
+  line-height: 1.6;
+  resize: vertical;
+}
+/* textarea 不受高度 token 约束：它要跟着内容长、还要能拖右下角拉高。
+   min-height 用表单档兜住「空着时只剩一条线」。 */
+textarea.im-field {
+  height: auto;
+  min-height: var(--im-h-field);
+  padding: 8px 20px;
 }
 .im-field:hover { border-color: var(--im-ink-3); }
 /* 聚焦：**只加一圈柔和光环，边框颜色不变、也没有 outline**。
@@ -509,7 +560,10 @@ body[data-ds-dark-theme] {
 }
 .im-split-axis-input {
   width: 4rem;
-  padding: 6px 8px;
+  /* 高度走表单档：它旁边就是预设 chip 与「确认切分」按钮，自己用 padding 撑会
+     多出第四种高度（实测是 36.4px）。 */
+  height: var(--im-h-field);
+  padding: 0 8px;
   text-align: center;
 }
 .im-split-summary {
@@ -642,6 +696,13 @@ body[data-ds-dark-theme] {
 .im-field-control > .im-select-root {
   flex: 1;
   min-width: 0;
+}
+/* 表单行里的动作按钮（选择… / 测试连通 / 打开 / 日预算在哪设）：提到表单档，
+ * 与同行输入框等高。否则会出现截图里那种「输入框很高、旁边按钮一截」。
+ * 判据挂在容器上而不是让每个调用点写内联 style —— 一处维护。 */
+.im-field-control > .im-btn-ghost,
+.im-field-control > .im-btn-primary {
+  height: var(--im-h-field);
 }
 .im-field-control > .im-btn-ghost {
   flex: none;
@@ -853,25 +914,20 @@ body[data-ds-dark-theme] {
   max-width: none;
 }
 
-/* 触发器：外形沿用输入控件（等高、同边框、同底色），加上图标与省略号 */
+/* 触发器：外形**来自上面那个共用规则块**（与 .im-field 同源：等高、同内边距、
+ * 同边框、同圆角、同底色、同字号、同聚焦环）。这里只补它独有的三件事：
+ * 横向排布、光标、文字对齐。
+ *
+ * ⚠️ 不许在这里重写 height / padding / font-size —— 一旦重写就又变成「两份值」，
+ * 那正是维护者看到的「下拉和输入框左边距不一样」。紧凑场景在容器上覆写
+ * （见 .im-canvas .im-select-trigger 与 .im-history-bar 那两条）。 */
 .im-select-trigger {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  width: 100%;
-  height: var(--im-h-ctl);
-  padding: 0 10px;
-  box-sizing: border-box;
-  border: 1px solid var(--im-line-strong);
-  border-radius: var(--im-r-sm);
-  background: var(--im-surface);
-  color: var(--im-ink);
-  font-family: inherit;
-  font-size: 12px;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.2s ease;
 }
 .im-select-trigger:hover { border-color: var(--im-ink-3); }
 .im-select-trigger:disabled { cursor: not-allowed; opacity: 0.55; }
@@ -974,8 +1030,10 @@ body[data-ds-dark-theme] {
 }
 .im-select-search-input {
   width: 100%;
-  height: 30px;
-  padding: 0 9px;
+  /* 紧凑档 + 与其它控件同一个左右内边距。原先是 30 / 9px —— 两个都是阶梯外的手写值，
+     于是下拉展开后浮层里的输入框与画布上的控件又不是一个高度。 */
+  height: var(--im-h-ctl);
+  padding: 0 10px;
   box-sizing: border-box;
   border: 0;
   border-radius: var(--im-r-sm);
@@ -1032,8 +1090,23 @@ body[data-ds-dark-theme] {
 .im-select-fill { display: block; width: 100%; max-width: none; }
 .im-select-fill .im-select-trigger { width: 100%; }
 .im-canvas .im-select-trigger {
-  height: 30px;
-  padding: 0 8px;
+  /* 画布内的下拉（节点卡里的尺寸/质量、顶栏那两个）取紧凑档。
+     与同容器的 .im-field 用同一组内边距（见下一条注释），否则同一张卡里
+     输入框的字与下拉的字又是两个起点。 */
+  height: var(--im-h-ctl);
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+/* 顶栏那两个下拉（来源 / 模型）：**紧凑档**。
+ *
+ * 基础规则给的是表单档（38 / 20px，与输入框同源），而顶栏是 28 高的一排，
+ * 所以这里覆写成紧凑档 —— 与上游 .compact-controls 的
+ * 「height: var(--row-h); padding-inline: 10px; font-size: 12px」 同一组值。 */
+.im-select-profile .im-select-trigger,
+.im-select-model .im-select-trigger {
+  height: var(--im-h-ctl);
+  padding: 0 10px;
   font-size: 12px;
 }
 
@@ -1052,19 +1125,20 @@ body[data-ds-dark-theme] {
 .im-select-model { width: 230px; max-width: none; }
 .im-select-model .im-select-trigger { width: 100%; }
 
-/* 节点内的输入/下拉用紧凑档：字号压到 12px。
- * ⚠️ 纵向内边距与左右内边距**保持 8px 20px 不变** —— 原版节点里的 textarea 实测就是
- * padding: 8px 20px; font-size: 12px（字号是它自己挂的 text-xs，内边距没被覆盖）。
- * 早先这里跟着收成 4px 8px，比原版紧一档，卡片里那几行提示词显得贴边。 */
+/* 节点内的输入/下拉用紧凑档：字号压到 12px、内边距收到 10px（与同卡内的下拉同一组值）。
+ * 原版节点里的 textarea 实测是 padding: 8px 20px —— 那是**多行**控件，左右留白更宽
+ * 才不显得字贴边；单行的输入框与下拉在卡里只有一行的宽度，20px 会把
+ * 「1024x1024 (1:1)」这类标签挤成省略号（上游 index.css 里为此专门写过一段）。 */
 .im-field--compact,
 .im-canvas .im-field {
-  height: 30px;
-  padding: 4px 20px;
+  height: var(--im-h-ctl);
+  padding: 0 10px;
   font-size: 12px;
 }
 .im-canvas textarea.im-field {
   height: auto;
-  padding: 8px 20px;
+  min-height: 64px;
+  padding: 8px 16px;
 }
 
 /* ---------------- 节点卡片（照搬 .panel-card + .node-pop） ----------------
@@ -1624,7 +1698,11 @@ body[data-ds-dark-theme] {
 .im-history-stats .im-btn-ghost,
 .im-history-stats .im-btn-primary {
   height: var(--im-row-h, var(--im-h-ctl));
+  /* 内边距也要一起收：只统一高度的话，输入框的字从 20px 起、下拉的字从 10px 起，
+     同一行里左端还是参差（上游 .compact-controls 就是这么写的：
+     height + padding-block: 0 + padding-inline: 10px + font-size 12px 四件一起）。 */
   padding-block: 0;
+  padding-inline: 10px;
   box-sizing: border-box;
   font-size: 12px;
 }
@@ -1734,8 +1812,10 @@ body[data-ds-dark-theme] {
 /* 输入框收窄并右对齐数字：金额列不用宽，右对齐才好横向比较。
  * 高度不在这里写死 —— 归上面那条「成本条控件同高」，否则又会比旁边的按钮矮一截。 */
 .im-history-budget-input {
-  width: 80px;
-  padding-inline: 6px;
+  /* 宽度补偿到 88px：内边距从 6 提到整行统一的 10，不补宽度数字会被挤。
+     内边距必须与同行其它控件一致，否则这一行的字又从两个起点开始。 */
+  width: 88px;
+  padding-inline: 10px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -2042,7 +2122,10 @@ body[data-ds-dark-theme] {
      整列右侧就多出一条空白。 */
   box-sizing: border-box;
   width: 64px;
-  min-height: 30px;
+  /* 取紧凑档，不再单写 30：整条阶梯只有 28 / 38 两档控件高度，
+     多一个 30 就是「看起来都差不多、但就是对不齐」的来源。 */
+  height: var(--im-h-ctl);
+  min-height: var(--im-h-ctl);
   padding: 0 8px;
   font-size: 10px;
   line-height: 1;

@@ -215,6 +215,62 @@ try {
   await page.locator('.im-select-option', { hasText: 'aiwanwu 中转站' }).first().click()
   await page.waitForTimeout(200)
 
+  // ---------------- 控件高度阶梯：全项目只有两档 ----------------
+  // 回归（维护者报）：设置弹窗里下拉一个高度、输入框一个高度、按钮又一个，
+  // 同一行对不齐。根因是每个控件各自用 padding + line-height 撑高，加上
+  // `--im-h-field: 38px` 这个 token 定义了却**从没被使用过**。实测当时全项目有
+  // **10 种**控件高度：13.8 / 17.2 / 18 / 21.2 / 22.4 / 23.1 / 28 / 36.4 / 40.4 / 87.5。
+  //
+  // 现收敛为两档 + 两个例外，全部来自 :root：
+  //   紧凑档 28（--im-h-ctl）：顶栏、工具栏、节点卡、控件坞、生成历史两条带子
+  //   表单档 38（--im-h-field）：设置 / 保存 / 切分这些表单弹窗
+  //   例外：.im-chip 18（角标不是控件）、.im-btn-xs 24（行内附属动作）、textarea 自适应
+  //
+  // 只量「同一行里并排的控件」—— 那才是用户看得出参差的地方。
+  {
+    const heights = await dialog.evaluate(el => {
+      const view = el.ownerDocument.defaultView
+      const h = n => (n ? Math.round(n.getBoundingClientRect().height) : null)
+      const rows = [...el.querySelectorAll('.im-field-row')].map(row => ({
+        control: h(row.querySelector('.im-field, .im-select-trigger')),
+        button: h(row.querySelector('.im-field-control > .im-btn-ghost')),
+      }))
+      const fieldToken = Number(view.getComputedStyle(el).getPropertyValue('--im-h-field').replace('px', ''))
+      return { rows, fieldToken }
+    })
+    const mismatched = heights.rows.filter(r => r.button !== null && r.control !== r.button)
+    check(
+      '设置弹窗里每个字段行的控件与按钮等高',
+      mismatched.length === 0,
+      mismatched.length ? JSON.stringify(mismatched) : `${heights.rows.length} 行全部等高`,
+    )
+    check(
+      '表单控件读的是 --im-h-field（不再是 padding 撑出来的怪数字）',
+      heights.rows.every(r => r.control === heights.fieldToken),
+      `token=${heights.fieldToken} 实测=${JSON.stringify(heights.rows.map(r => r.control))}`,
+    )
+
+    // 文字左边距：输入框与下拉必须是同一个起点。
+    // 回归（维护者报）：「下拉框和输入框里面文字的边距也没统一，左边距就很明显」。
+    // 根因是 .im-select-trigger 自己写了 padding: 0 10px，而 .im-field 是 20px。
+    // 现在两者共用同一组声明（上游的做法：Select 触发器直接带 field-control 类）。
+    // 口径统一算「边框 + 左内边距」—— 只读 paddingLeft 会把输入框的 1px 边框漏掉。
+    const insets = await dialog.evaluate(el => {
+      const rows = []
+      for (const row of el.querySelectorAll('.im-field-row')) {
+        const node = row.querySelector('input.im-field, .im-select-trigger')
+        if (!node) continue
+        const cs = node.ownerDocument.defaultView.getComputedStyle(node)
+        rows.push({
+          kind: node.classList.contains('im-select-trigger') ? 'select' : 'input',
+          inset: Math.round(parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft)),
+        })
+      }
+      return rows
+    })
+    check('输入框与下拉的文字左边距一致', new Set(insets.map(r => r.inset)).size === 1, JSON.stringify(insets))
+  }
+
   // 预算框：必须能清空、能输入小数（type=text 而非 number）
   const budget = dialog.locator('#imagora-budget')
   await budget.fill('')
