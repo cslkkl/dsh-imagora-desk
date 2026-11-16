@@ -5,6 +5,7 @@ import { useCallback, useRef, type MutableRefObject } from 'react'
 import type { Edge } from '@xyflow/react'
 import { createCanvasHistory } from '../lib/canvasHistory'
 import type { WorkflowEdge, WorkflowNode } from '../lib/types'
+import { useT } from '../i18n'
 
 interface Options {
   nodesRef: MutableRefObject<WorkflowNode[]>
@@ -15,6 +16,7 @@ interface Options {
 }
 
 export function useCanvasHistory({ nodesRef, edgesRef, setNodes, setEdges, flash }: Options) {
+  const t = useT()
   const historyRef = useRef(createCanvasHistory(50))
 
   /** 在改动画布结构之前调一次。
@@ -41,7 +43,7 @@ export function useCanvasHistory({ nodesRef, edgesRef, setNodes, setEdges, flash
       edges: edgesRef.current as WorkflowEdge[],
     })
     if (!previous) {
-      flash('没有可撤销的操作')
+      flash(t('history.nothingToUndo'))
       return
     }
     setNodes(previous.nodes)
@@ -54,7 +56,7 @@ export function useCanvasHistory({ nodesRef, edgesRef, setNodes, setEdges, flash
       edges: edgesRef.current as WorkflowEdge[],
     })
     if (!next) {
-      flash('没有可恢复的操作')
+      flash(t('history.nothingToRedo'))
       return
     }
     setNodes(next.nodes)

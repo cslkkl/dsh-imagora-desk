@@ -6,6 +6,12 @@
 //
 // 为什么不放顶栏：这些动作都依赖「当前选了什么」，放进顶栏会让人以为对整张画布生效，
 // 而顶栏的「全部运行」「自动连线」确实是全局的。原版就是这样分开放的。
+//
+// 带数量的按钮**按单复数各给一个键**，而不是「文案 + 拼接括号」：
+// 中文的 `（3）` 是全角括号，英文的 ` (3)` 是半角加空格，拼接出来的必然有一边不对。
+import { useT } from '../i18n'
+import type { LocaleKey, Translate } from '../locales'
+
 export interface InspectorProps {
   selectedCount: number
   selectedPromptCount: number
@@ -19,10 +25,26 @@ export interface InspectorProps {
   onDeleteSelected: () => void
 }
 
+/** 数量后缀：只有多选时才有意义（单选时不显示括号，与上游一致）。 */
+function suffix(t: Translate, count: number): string {
+  return count > 1 ? t('inspector.countSuffix', { count }) : ''
+}
+
+/** 取「单数键 / 复数键」里对得上的那一条。数量 ≤ 1 走单数，其余走复数。 */
+function counted(
+  t: Translate,
+  count: number,
+  one: LocaleKey,
+  many: LocaleKey,
+  params: Record<string, string | number> = {},
+): string {
+  return t(count > 1 ? many : one, { count, ...params })
+}
+
 export function SelectionInspector(props: InspectorProps) {
   const { selectedCount, selectedPromptCount, selectedRunnableIds, pickingOutputDir } = props
+  const t = useT()
   if (selectedCount < 1) return null
-  const suffix = (count: number) => (count > 1 ? ` (${count})` : '')
   return (
     <div className="im-inspector nodrag">
       {selectedPromptCount > 0 ? (
@@ -30,41 +52,51 @@ export function SelectionInspector(props: InspectorProps) {
           type="button"
           className="im-btn-primary im-btn-sm nodrag"
           disabled={!selectedRunnableIds.length}
-          title={`运行 ${selectedRunnableIds.length} 张选中的提示词卡片（只运行提示词，图片/图片组忽略）`}
+          title={counted(t, selectedRunnableIds.length, 'inspector.run.title.one', 'inspector.run.title.many')}
           onClick={props.onRunSelected}
         >
-          运行所选{suffix(selectedRunnableIds.length)}
+          {counted(t, selectedRunnableIds.length, 'inspector.runOne', 'inspector.runMany')}
         </button>
       ) : null}
       <button
         type="button"
         className="im-btn-ghost im-btn-sm nodrag"
-        title="按参考关系分层重排选中的节点，其余保持原位（提示词卡 / 结果图 / 图片组一起参与，同层按标题从左到右）"
+        title={t('inspector.layout.title')}
         onClick={props.onAutoLayout}
       >
-        自动整理{suffix(selectedCount)}
+        {t('inspector.layout')}
+        {suffix(t, selectedCount)}
       </button>
       <button
         type="button"
         className="im-btn-ghost im-btn-sm nodrag"
-        title="只对选中的节点自动补齐明显连线，未选中节点不受影响"
+        title={t('inspector.connect.title')}
         onClick={props.onAutoConnectSelected}
       >
-        自动连线{suffix(selectedCount)}
+        {t('inspector.connect')}
+        {suffix(t, selectedCount)}
       </button>
       {selectedPromptCount > 0 ? (
         <button
           type="button"
           className="im-btn-ghost im-btn-sm nodrag"
           disabled={pickingOutputDir}
-          title={`设置 ${selectedPromptCount} 张提示词卡片的输出路径`}
+          title={counted(
+            t,
+            selectedPromptCount,
+            'inspector.outputDir.title.one',
+            'inspector.outputDir.title.many',
+          )}
           onClick={props.onSetOutputDir}
         >
-          {pickingOutputDir ? '选择中…' : `设置输出路径${suffix(selectedPromptCount)}`}
+          {pickingOutputDir
+            ? t('inspector.picking')
+            : `${t('inspector.outputDir')}${suffix(t, selectedPromptCount)}`}
         </button>
       ) : null}
       <button type="button" className="im-btn-ghost im-btn-danger im-btn-sm nodrag" onClick={props.onDeleteSelected}>
-        删除所选{suffix(selectedCount)}
+        {t('inspector.delete')}
+        {suffix(t, selectedCount)}
       </button>
     </div>
   )

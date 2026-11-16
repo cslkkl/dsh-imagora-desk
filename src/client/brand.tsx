@@ -7,6 +7,8 @@
 // 与原版的差异只有「点击去哪」：原版点开 GitHub 仓库；插件里点开帮助弹窗，
 // 在宿主页面里再开一个外链标签页会把人带离工作流。
 
+import { useT } from './i18n'
+
 /** 与 brand/logo.svg 的 viewBox 一致 */
 const VIEW_BOX = '0 0 1024 1024'
 
@@ -28,8 +30,9 @@ export function BrandLogo({ size = 30, fill = 'var(--im-brand)' }: { size?: numb
 
 /** 顶栏左侧的品牌区：logo + 标题（原版是 logo 与 h1 并排）。 */
 export function BrandHeader({ onClick }: { onClick: () => void }) {
+  const t = useT()
   return (
-    <button type="button" className="im-brand" onClick={onClick} title="自由画布 · 操作帮助与快捷键">
+    <button type="button" className="im-brand" onClick={onClick} title={t('brand.title')}>
       <BrandLogo />
       <span className="im-brand-title">Imagora</span>
     </button>

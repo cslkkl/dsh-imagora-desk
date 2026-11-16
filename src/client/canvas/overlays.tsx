@@ -2,13 +2,15 @@
 // 全部是纯展示，唯一交互是「清空日志」「关闭预览」。
 import type { CSSProperties } from 'react'
 import { Icon } from '../icons'
+import { useT } from '../i18n'
 
 export function EmptyState() {
+  const t = useT()
   return (
     <div className="im-empty">
-      <strong>这里是自由画布</strong>
-      <span>点「提示词卡」开始，把图片拖进来当参考；连线就是参考关系。</span>
-      <span>双击图片放大 · 滚轮缩放 · 空白处拖拽平移</span>
+      <strong>{t('empty.title')}</strong>
+      <span>{t('empty.line1')}</span>
+      <span>{t('empty.line2')}</span>
     </div>
   )
 }

@@ -8,6 +8,7 @@
 // 原版注释说的是「文字是语义来源，别删」，不是「不要图标」——只留文字会比原版单薄一档。
 import { Icon } from '../icons'
 import { zoomToPercent } from './zoom'
+import { useT } from '../i18n'
 
 export interface DockProps {
   zoom: number
@@ -56,42 +57,43 @@ function DockRow({
 
 export function CanvasDock(props: DockProps) {
   const { zoom, snapEnabled, canvasLocked, minimapOpen } = props
+  const t = useT()
   return (
     <div className="im-dock nodrag">
       <div className="im-dock-row im-dock-row--readout">
         <span className="im-dock-row-label im-dock-row-value">{zoomToPercent(zoom)}%</span>
       </div>
-      <DockRow icon="zoomIn" label="放大" title="放大画布（滚轮同样可以缩放）" onClick={props.onZoomIn} />
-      <DockRow icon="zoomOut" label="缩小" title="缩小画布（滚轮同样可以缩放）" onClick={props.onZoomOut} />
-      <DockRow icon="maximize" label="适应" title="适应视图：把所有节点缩放到一屏可见" onClick={props.onFitView} />
+      <DockRow icon="zoomIn" label={t('dock.zoomIn')} title={t('dock.zoomIn.title')} onClick={props.onZoomIn} />
+      <DockRow icon="zoomOut" label={t('dock.zoomOut')} title={t('dock.zoomOut.title')} onClick={props.onZoomOut} />
+      <DockRow icon="maximize" label={t('dock.fit')} title={t('dock.fit.title')} onClick={props.onFitView} />
       <DockRow
         icon="focus"
-        label="聚焦"
-        title="聚焦（有选中时只看选中的，否则看全图）"
+        label={t('dock.focus')}
+        title={t('dock.focus.title')}
         onClick={props.onFocusSelected}
       />
       <DockRow
         icon="magnet"
-        label="吸附"
-        title={snapEnabled ? '关闭拖拽吸附' : '开启拖拽吸附'}
+        label={t('dock.snap')}
+        title={snapEnabled ? t('dock.snap.on') : t('dock.snap.off')}
         active={snapEnabled}
         onClick={props.onToggleSnap}
       />
       <DockRow
         icon="map"
-        label="地图"
-        title={minimapOpen ? '隐藏小地图' : '显示小地图'}
+        label={t('dock.minimap')}
+        title={minimapOpen ? t('dock.minimap.on') : t('dock.minimap.off')}
         active={minimapOpen}
         onClick={props.onToggleMinimap}
       />
       <DockRow
         icon={canvasLocked ? 'lock' : 'unlock'}
-        label={canvasLocked ? '已锁' : '锁定'}
-        title={canvasLocked ? '解锁画布' : '锁定画布：防止误拖节点（滚轮缩放与「适应」仍然可用）'}
+        label={canvasLocked ? t('dock.locked') : t('dock.lock')}
+        title={canvasLocked ? t('dock.lock.unlock') : t('dock.lock.lock')}
         active={canvasLocked}
         onClick={props.onToggleLock}
       />
-      <DockRow icon="help" label="帮助" title="操作帮助与快捷键" onClick={props.onOpenHelp} />
+      <DockRow icon="help" label={t('dock.help')} title={t('dock.help.title')} onClick={props.onOpenHelp} />
     </div>
   )
 }

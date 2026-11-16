@@ -15,16 +15,29 @@ import { createPortal } from 'react-dom'
 import { Icon } from '../icons'
 import {
   CANVAS_DRAG_MIME,
-  TOOLBAR_DROP_LABEL_CANCEL,
-  TOOLBAR_DROP_LABELS,
   countDraggedFiles,
   dragCarriesFiles,
-  dropChipLabel,
   extractImageFiles,
   isInsideRect,
   resolveDropIntent,
   type CanvasDropIntent,
 } from '../lib/canvasDrop'
+import { useT } from '../i18n'
+import type { Translate } from '../locales'
+
+/**
+ * 落点胶囊的文案。
+ *
+ * 不用 lib/canvasDrop.ts 的 dropChipLabel：它把中文烘在返回值里（A 档移植件，
+ * 不改)。这里只借用它的**判定**（esolveDropIntent / countDraggedFiles），
+ * 文案自己按意图与张数取。
+ */
+function chipLabel(t: Translate, intent: CanvasDropIntent, fileCount: number, inside: boolean): string {
+  if (intent === 'images') {
+    return t('drop.images', { count: fileCount })
+  }
+  return t(inside ? (intent === 'prompt' ? 'drop.prompt' : 'drop.group') : 'drop.cancel')
+}
 
 /** 胶囊相对光标的偏移：略大于鼠标，避免被拖拽虚影挡住 */
 const CHIP_OFFSET_X = 22
@@ -60,6 +73,7 @@ export interface CanvasDropResult {
 }
 
 export function useCanvasDrop(options: CanvasDropOptions): CanvasDropResult {
+  const t = useT()
   const { canvasRef, modalOpen, getCreatePosition, toFlowPosition, onDropFiles, onDropNode, onRejectFiles } = options
 
   const [dropIntent, setDropIntent] = useState<CanvasDropIntent | null>(null)
@@ -119,7 +133,7 @@ export function useCanvasDrop(options: CanvasDropOptions): CanvasDropResult {
       positionDropChip(event.clientX, event.clientY)
       const el = canvasRef.current
       const inside = Boolean(el && isInsideRect(event.clientX, event.clientY, el.getBoundingClientRect()))
-      const label = inside ? TOOLBAR_DROP_LABELS[intent] : TOOLBAR_DROP_LABEL_CANCEL
+      const label = chipLabel(t, intent, 0, inside)
       const text = chipTextRef.current
       if (text && text.textContent !== label) text.textContent = label
       chipInnerRef.current?.classList.toggle('is-outside', !inside)
@@ -150,7 +164,8 @@ export function useCanvasDrop(options: CanvasDropOptions): CanvasDropResult {
       if (!intent) return
       event.preventDefault()
       if (intent === 'images') depthRef.current += 1
-      showDropChip(intent, dropChipLabel(intent, countDraggedFiles(event.dataTransfer)))
+      const count = countDraggedFiles(event.dataTransfer)
+      showDropChip(intent, count >= 1 ? chipLabel(t, 'images', count, true) : t('drop.noImage'))
       positionDropChip(event.clientX, event.clientY)
     },
     onDragOver: (event: DragEvent<HTMLDivElement>) => {
@@ -199,7 +214,7 @@ export function useCanvasDrop(options: CanvasDropOptions): CanvasDropResult {
     (event: DragEvent<HTMLButtonElement>, kind: 'prompt' | 'group') => {
       event.dataTransfer.setData(CANVAS_DRAG_MIME, kind)
       event.dataTransfer.effectAllowed = 'copy'
-      showDropChip(kind, TOOLBAR_DROP_LABELS[kind])
+      showDropChip(kind, chipLabel(t, kind, 0, true))
       positionDropChip(event.clientX, event.clientY)
     },
     [positionDropChip, showDropChip],
@@ -214,7 +229,7 @@ export function useCanvasDrop(options: CanvasDropOptions): CanvasDropResult {
         <span className="im-drop-chip-icon im-drop-chip-icon--cancel">
           <Icon name="close" size={14} />
         </span>
-        <span ref={chipTextRef}>松开添加图片</span>
+        <span ref={chipTextRef}>{t('drop.releaseImage')}</span>
       </div>
     </div>,
     document.body,
