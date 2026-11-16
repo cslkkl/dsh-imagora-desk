@@ -158,13 +158,25 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
 
   // 预算草稿：成本条那两个输入框。stats 回来时同步一次（原版 CostBoard 同一套做法）——
   // 用户没编辑时显示后端已保存的值，编辑过就以草稿为准，直到点保存。
+  //
+  // `budgetDirty` 是这道「编辑过就算数」的闸。只看 stats 变化会把**用户刚敲的字**盖掉：
+  // stats 是一次网络请求，它晚到时（慢一点、或点保存后的回读）会把框重置回旧值 ——
+  // 用户看到的是「我打进去的 0.5 自己变回 0 了」。加闸之后只有没碰过才接受服务端的值。
+  const [budgetDirty, setBudgetDirty] = useState(false)
   useEffect(() => {
-    if (!stats?.localBudget) return
+    if (!stats?.localBudget || budgetDirty) return
     setDraftBudget({
       dailyLimit: stats.localBudget.dailyLimit ? String(stats.localBudget.dailyLimit) : '0',
       singleRunLimit: stats.localBudget.singleRunLimit ? String(stats.localBudget.singleRunLimit) : '0',
     })
-  }, [stats])
+  }, [stats, budgetDirty])
+
+  /** 改金额框：记下「用户动过」，并清掉上一次的保存提示 */
+  const editBudget = (patch: Partial<{ dailyLimit: string; singleRunLimit: string }>) => {
+    setBudgetDirty(true)
+    setBudgetTip('')
+    setDraftBudget(prev => ({ ...prev, ...patch }))
+  }
 
   const saveLocalBudget = async () => {
     setSavingBudget(true)
@@ -177,6 +189,8 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
       await saveBudget(payload)
       const next = await generationStats()
       setStats(next)
+      // 保存成功：交还控制权，下一次回读的值可以覆盖草稿
+      setBudgetDirty(false)
       setBudgetTip('预算已保存')
     } catch (err) {
       setBudgetTip(`保存失败：${errMessage(err)}`)
@@ -281,7 +295,7 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
                       className="im-field im-history-budget-input"
                       value={draftBudget.dailyLimit}
                       title="当日累计费用上限（元），0 = 不限；超限提交前会要求确认"
-                      onChange={event => setDraftBudget(prev => ({ ...prev, dailyLimit: event.target.value }))}
+                      onChange={event => editBudget({ dailyLimit: event.target.value })}
                     />
                   </label>
                   <label className="im-history-budget-field">
@@ -292,7 +306,7 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
                       className="im-field im-history-budget-input"
                       value={draftBudget.singleRunLimit}
                       title="单次提交的预估上限（元），0 = 不限"
-                      onChange={event => setDraftBudget(prev => ({ ...prev, singleRunLimit: event.target.value }))}
+                      onChange={event => editBudget({ singleRunLimit: event.target.value })}
                     />
                   </label>
                   <button

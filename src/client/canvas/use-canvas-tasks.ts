@@ -184,7 +184,7 @@ export function useGeneratedTasks({
     async (nodeId: string) => {
       const node = nodesRef.current.find(row => row.id === nodeId)
       if (!node || node.type !== 'prompt') return
-      if (!node.data.prompt.trim()) {
+      if (!(node.data.prompt ?? '').trim()) {
         flash('提示词是空的')
         return
       }

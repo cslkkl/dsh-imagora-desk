@@ -494,7 +494,7 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
           type="button"
           className={`im-btn-primary im-btn-sm nodrag${busy ? ' im-btn-busy' : ''}`}
           style={{ flex: 1 }}
-          disabled={busy || !data.prompt.trim()}
+          disabled={busy || !(data.prompt ?? '').trim()}
           onClick={event => {
             event.stopPropagation()
             actions.runPrompt(id)

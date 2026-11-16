@@ -118,6 +118,14 @@ export function CanvasApp() {
 
   const { config, configIssues, configRef, switchProfile, switchModel, replaceConfig } = useCanvasConfig(flash)
 
+  /** 新建卡片与「修复缺字段的旧卡片」共用的参数缺省值（配置里的第一档）。
+   *  取 ref 而不是值：加载工作流那一刻的配置才是准的（用户可能刚换过模型）。 */
+  const configDefaultsRef = useRef<{ size?: string; quality?: string }>({})
+  configDefaultsRef.current = {
+    size: configRef.current?.sizes[0]?.value,
+    quality: configRef.current?.qualities[0],
+  }
+
   // 首次使用（既没插件内配置、也没有可用密钥）时直接把设置弹出来：
   // 「下载后填一次 key 就能用」靠这一步，不然用户只会看到一行错误提示。
   const settingsPrompted = useRef(false)
@@ -162,6 +170,8 @@ export function CanvasApp() {
     log,
     flash,
     closeDialog: () => setDialog(null),
+    // 缺 size/quality 的旧卡片补成「配置里的第一档」，与新建卡片同源（见 addPromptNode）
+    defaultsRef: configDefaultsRef,
     // 快照恢复完成后认领还活着的任务（切走 tab 再回来时要接着跑）
     onRestored: resumeTasks,
   })
@@ -209,7 +219,7 @@ export function CanvasApp() {
     .filter(node => node.data.status === 'queued' || node.data.status === 'running')
     .map(node => node.id)
   const runnableIds = promptNodes
-    .filter(node => node.data.prompt.trim() && node.data.status !== 'running' && node.data.status !== 'queued')
+    .filter(node => (node.data.prompt ?? '').trim() && node.data.status !== 'running' && node.data.status !== 'queued')
     .map(node => node.id)
 
   /* ---------------- 节点操作 ---------------- */
@@ -255,10 +265,9 @@ export function CanvasApp() {
 
   const addPromptNode = useCallback(
     (at?: { x: number; y: number }) => {
-      const cfg = configRef.current
       const node = buildPromptNode(at ?? createPosition(), {
-        size: cfg?.sizes[0]?.value ?? '1024x1024',
-        quality: cfg?.qualities[0] ?? 'high',
+        size: configDefaultsRef.current.size ?? '1024x1024',
+        quality: configDefaultsRef.current.quality ?? 'high',
         outputDir: '',
       })
       // 新增节点是用户意图：必须记一笔，否则「撤销」按钮恒为 disabled、
