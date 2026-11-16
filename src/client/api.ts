@@ -1,5 +1,6 @@
 // /imagora/* 的浏览器侧封装。host 半片已做鉴权，这里只负责把回答变成对象。
 import type { AssetEntry, WorkflowEdge, WorkflowNode } from './lib/types'
+import { buildRecoverySnapshot } from './lib/recovery'
 
 export interface ImagoraConfig {
   source?: 'plugin' | 'imagora'
@@ -205,7 +206,13 @@ export const loadWorkflow = (name: string) =>
   )
 
 export const saveRecovery = (nodes: WorkflowNode[], edges: WorkflowEdge[]) =>
-  request<{ ok: boolean; name: string; savedAt: string }>('recovery/save', jsonBody({ nodes, edges }))
+  // 落盘的是「可恢复的画布」，不是内存里那份：maskDataUrl 这类大体量字段在
+  // buildRecoverySnapshot 里就被剥掉了（原图尺寸的 data URL 有 MB 级，
+  // 而快照每 2.5 秒重写、留 5 份，用过蒙版就会把磁盘写穿）。
+  request<{ ok: boolean; name: string; savedAt: string }>(
+    'recovery/save',
+    jsonBody({ ...buildRecoverySnapshot(nodes, edges) }),
+  )
 
 export const latestRecovery = () =>
   request<{

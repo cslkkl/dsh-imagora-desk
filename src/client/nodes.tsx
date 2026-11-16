@@ -5,6 +5,7 @@ import { createContext, memo, useContext, useEffect, useRef, useState } from 're
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import type { CanvasGroupNodeData, CanvasImageNodeData, CanvasPromptNodeData } from './lib/types'
 import { generatingLabel } from './lib/format'
+import { useThumbnail } from './lib/useThumbnail'
 import { Icon } from './icons'
 import type { ImagoraConfig } from './api'
 import { Select } from './select'
@@ -155,6 +156,9 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
   const lod = useLod()
   const [broken, setBroken] = useState(false)
   const missing = data.missing || broken
+  // 卡片只显示 128×160，原图却是 3072×4096（摊开约 48 MB）—— 一律走缩略图。
+  // 原图地址仍留给预览 / 裁剪 / 放大 / 蒙版，那些地方要真实像素。
+  const thumbSrc = useThumbnail(data.url)
   return (
     <div
       className={`im-panel-card${selected ? ' is-selected' : ''}${missing ? ' is-missing' : ''}`}
@@ -220,7 +224,9 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
           </RailButton>
         </Rail>
       )}
-      {/* 固定展示框：避免图片加载后撑高节点，object-contain 保留完整画面 */}
+      {/* 固定展示框：避免图片加载后撑高节点，object-contain 保留完整画面。
+          卡片只用缩略图：原图 3072×4096 摊开一次约 48 MB，而这里只显示 128×160。
+          原图地址仍留给双击放大 / 裁剪 / 放大 / 蒙版（见各自的回调）。 */}
       <div
         className="im-thumb"
         onDoubleClick={event => {
@@ -228,15 +234,18 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
           actions.zoomImage(id)
         }}
       >
-        {data.url ? (
+        {data.url && thumbSrc ? (
           <img
-            src={data.url}
+            src={thumbSrc}
             alt={data.name}
             loading="lazy"
             decoding="async"
             draggable={false}
             onError={() => setBroken(true)}
           />
+        ) : data.url ? (
+          // 缩略图还在生成：占位（格子尺寸由 .im-thumb 固定，不会引起布局跳动）
+          <span className="im-thumb-placeholder" aria-hidden />
         ) : (
           <span className="im-muted" style={{ fontSize: 11 }}>
             图片缺失
