@@ -964,7 +964,16 @@ body[data-ds-dark-theme] {
   pointer-events: none;
   transition: opacity 0.12s ease;
 }
-.im-panel-card:hover .im-rail { opacity: 1; pointer-events: auto; }
+/* 两个根节点各有一条 hover 规则。图片组（.im-group-node）原先**漏了**这一条，
+ * 于是组右侧的「删除图片组」永远是 opacity:0 + pointer-events:none ——
+ * 鼠标扫过去什么都不出现，只能靠右键菜单删。上游没有这个问题：它的 NodeActions
+ * 挂在 Tailwind 的 group-hover: 上，靠根节点的 group 类无条件生效。
+ *
+ * TODO（下一轮）：两行重复选择器换成共享根类（如 .im-node-shell:hover .im-rail），
+ * 由 panel-card 与 group-node 各自挂上。现在先按「一行止血」处理，避免为了整齐
+ * 同时动两个组件的 className 与它们的冒烟断言。 */
+.im-panel-card:hover .im-rail,
+.im-group-node:hover .im-rail { opacity: 1; pointer-events: auto; }
 
 /* ---------------- 图片组节点（照搬 Imagora 的 GroupNode 叠卡） ----------------
  * 结构是**三块**：外层是节点根（.node-pop，浮面 + 大投影，**方角、无边框**）、
@@ -1096,6 +1105,22 @@ body[data-ds-dark-theme] {
 /* 悬停的节点整体抬高，否则右侧那条操作栏会被相邻节点盖住（原版同一条规则） */
 .react-flow__node:hover { z-index: 1001 !important; }
 .react-flow__edges { z-index: 1200 !important; }
+
+/* 吸附对齐线（canvas/snap-guides.tsx 渲染，走 ViewportPortal 挂进 .react-flow__viewport）。
+ *
+ * 类名与属性是**上游契约**，别改名：上游的 .snap-guide + data-axis +
+ * data-testid="snap-guide" 被它自己的 E2E 与基线测试引用，改成 im- 前缀能让
+ * 本仓看着统一，但两边就没法共用同一批断言了。
+ *
+ * 取色走 --im-snap（=品牌色），不写死；opacity 0.55 与上游 index.css 同值，
+ * 压过节点但让底下的卡片仍可辨认 —— 对齐线是辅助，不该盖住内容。 */
+.snap-guide {
+  position: absolute;
+  pointer-events: none;
+  background: var(--im-snap, #4c8dff);
+  opacity: 0.55;
+  z-index: 5;
+}
 
 /* 连线三态。用 CSS :hover 而非 JS 内联：插件没有移植 edgeStyle 的四态驱动，
    这里就是唯一取色处，别再叠一层 JS 内联（内联优先级更高，会变成死规则）。

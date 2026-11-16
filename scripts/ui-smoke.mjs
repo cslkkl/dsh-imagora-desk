@@ -415,6 +415,32 @@ try {
     }
   }
 
+  // ---------------- 图片组的操作栏：hover 必须出现 ----------------
+  // 回归：让 rail 显现的 hover 规则只写了 .im-panel-card，而图片组的根是
+  // .im-group-node —— 组右侧的「删除图片组」恒为 opacity:0 + pointer-events:none，
+  // 鼠标扫过去什么都不出现，只能靠右键菜单删。上游靠 Tailwind 的 group-hover
+  // 挂在根节点上，不存在这个缺口，所以这是插件侧的移植遗漏而不是刻意简化。
+  {
+    const group = page.locator('.im-group-node').first()
+    if ((await group.count()) === 0) {
+      check('图片组节点存在（否则下一条断言无从谈起）', false, '页面里没有 .im-group-node')
+    } else {
+      const rail = group.locator('.im-rail').first()
+      const before = await rail.evaluate(el => getComputedStyle(el).opacity)
+      await group.hover()
+      await page.waitForTimeout(250)
+      const after = await rail.evaluate(el => getComputedStyle(el).opacity)
+      const pe = await rail.evaluate(el => getComputedStyle(el).pointerEvents)
+      check(
+        '图片组 hover 后操作栏出现（含「删除图片组」）',
+        before === '0' && after === '1' && pe === 'auto',
+        `before=${before} after=${after} pointer-events=${pe}`,
+      )
+      await page.mouse.move(4, 4)
+      await page.waitForTimeout(120)
+    }
+  }
+
   // ---------------- 撤销：工具栏新增的节点必须可撤销 ----------------
   // 回归：三条新增入口（提示词卡 / 图片组 / 上传）曾经都只 setNodes、不 record，
   // 于是「撤销」按钮恒为 disabled，Ctrl+Z 也无可撤销 —— 用户视角就是「撤销不好使」。
@@ -880,6 +906,67 @@ try {
     check('快照里没有那串 base64 本体', !saved.text.includes('iVBORw0KGgoAAAANSUhEUg'), saved.text.slice(0, 120))
     // 图本身照旧进快照：只剥蒙版，不剥节点
     check('蒙版之外的数据照旧保留', saved.text.includes('masked.png'), saved.text.slice(0, 120))
+  }
+
+  // ---------------- 吸附对齐线：必须画在 ViewportPortal 里 ----------------
+  // 回归：对齐线原先是 `<ReactFlow>` 的 children，而 children 在渲染树里是 GraphView
+  // 的**兄弟**（落在 .react-flow 包裹层里、带 transform 的 .react-flow__viewport 外面），
+  // 于是 absolute 定位拿到的是「未缩放的屏幕坐标」—— 只要平移或缩放过，线就画在错位置，
+  // 而且不报任何错。现在挂进 ViewportPortal，画布坐标可直接用。
+  //
+  // 放在套件末尾 + 用 __harness 种子画布，是为了不污染夹具布局：这一块要真的拖节点，
+  // 摆在中间会把后面「双击图片放大」的落点挪走（实测 dblclick 直接超时）。
+  {
+    const twoCards = [
+      { id: 'snap-a', type: 'prompt', position: { x: 120, y: 140 }, data: { prompt: 'snap a', size: '1024x1024', quality: 'high', outputDir: '', status: 'idle' } },
+      { id: 'snap-b', type: 'prompt', position: { x: 520, y: 140 }, data: { prompt: 'snap b', size: '1024x1024', quality: 'high', outputDir: '', status: 'idle' } },
+    ]
+    await page.request.post(`${BASE}imagora/__harness/reset-canvas`)
+    await page.request.post(`${BASE}imagora/__harness/seed-canvas`, { data: { nodes: twoCards, edges: [] } })
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.waitForTimeout(1800)
+
+    const cardA = await page.locator('.react-flow__node').nth(0).boundingBox()
+    const cardB = await page.locator('.react-flow__node').nth(1).boundingBox()
+    let guideInfo = { found: false, reason: 'no nodes' }
+    if (cardA && cardB) {
+      // 慢速把 B 拖向 A 的左边缘，制造一次吸附（太快会被拖动阈值吃掉）
+      await page.mouse.move(cardB.x + 30, cardB.y + 16)
+      await page.mouse.down()
+      for (let step = 1; step <= 12; step += 1) {
+        const t = step / 12
+        await page.mouse.move(cardB.x + 30 + (cardA.x - cardB.x - 4) * t, cardB.y + 16)
+        await page.waitForTimeout(40)
+      }
+      guideInfo = await page.evaluate(() => {
+        const guide = document.querySelector('[data-testid="snap-guide"]')
+        if (!guide) return { found: false, reason: 'no guide during drag' }
+        return {
+          found: true,
+          className: guide.className,
+          axis: guide.getAttribute('data-axis'),
+          // 坐标系正确性的判据：必须落在带 transform 的 viewport 之内
+          inViewport: Boolean(guide.closest('.react-flow__viewport')),
+        }
+      })
+      await page.mouse.up()
+      await page.waitForTimeout(200)
+    }
+    check(
+      '拖拽吸附时对齐线出现，且画在 .react-flow__viewport 内（坐标系正确）',
+      guideInfo.found === true && guideInfo.inViewport === true,
+      JSON.stringify(guideInfo),
+    )
+    check(
+      '对齐线保持上游 DOM 契约（.snap-guide + data-axis）',
+      guideInfo.found === true && guideInfo.className === 'snap-guide' && Boolean(guideInfo.axis),
+      `${guideInfo.className} axis=${guideInfo.axis}`,
+    )
+    check(
+      '松手后对齐线消失（不残留到静态画面）',
+      (await page.locator('[data-testid="snap-guide"]').count()) === 0,
+      String(await page.locator('[data-testid="snap-guide"]').count()),
+    )
   }
 
   // ---------------- 全程无 JS 报错 ----------------
