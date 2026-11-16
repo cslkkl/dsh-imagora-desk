@@ -20,6 +20,7 @@ import {
   countDraggedFiles,
   dragCarriesFiles,
   dropChipLabel,
+  extractImageFiles,
   isInsideRect,
   resolveDropIntent,
   type CanvasDropIntent,
@@ -40,6 +41,9 @@ export interface CanvasDropOptions {
   toFlowPosition: (screen: { x: number; y: number }) => { x: number; y: number }
   onDropFiles: (files: File[], point: { x: number; y: number }) => void
   onDropNode: (kind: 'prompt' | 'group', point: { x: number; y: number }) => void
+  /** 拖进来的文件里一个图片都没有：给用户一句话，别静默吞掉。
+   *  上游在同一处 `pushLog('未检测到图片文件，拖拽未添加任何图片')`。 */
+  onRejectFiles: () => void
 }
 
 export interface CanvasDropResult {
@@ -56,7 +60,7 @@ export interface CanvasDropResult {
 }
 
 export function useCanvasDrop(options: CanvasDropOptions): CanvasDropResult {
-  const { canvasRef, modalOpen, getCreatePosition, toFlowPosition, onDropFiles, onDropNode } = options
+  const { canvasRef, modalOpen, getCreatePosition, toFlowPosition, onDropFiles, onDropNode, onRejectFiles } = options
 
   const [dropIntent, setDropIntent] = useState<CanvasDropIntent | null>(null)
   /** 意图的最新引用：dragover 判定与窗口级跟随都从这里读（避免闭包过期） */
@@ -174,8 +178,14 @@ export function useCanvasDrop(options: CanvasDropOptions): CanvasDropResult {
       const inside = !el || isInsideRect(event.clientX, event.clientY, el.getBoundingClientRect())
       hideDropChip()
       if (intent === 'images') {
-        const files = Array.from(event.dataTransfer.files ?? [])
-        if (!files.length) return
+        // 过滤**在这里**做（与上游同一处），这样「一个图片都没有」是可知的，
+        // 从而能给用户一句话。过滤若留在下游 addImages 里，拖进一个 .txt
+        // 是彻底静默的 —— 用户以为卡住了。
+        const files = extractImageFiles(event.dataTransfer)
+        if (!files.length) {
+          onRejectFiles()
+          return
+        }
         void onDropFiles(files, dropPointFromEvent(event.clientX, event.clientY, true))
         return
       }

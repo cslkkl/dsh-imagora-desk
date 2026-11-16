@@ -5,6 +5,13 @@
 // （浏览器只在 drop 时才允许读自定义类型）。所以判定必须同时接受一个
 // dragstart 时登记的 fallback，否则 dragover 里永远判不出意图 ——
 // 不 preventDefault 浏览器就不认这个 drop，松手什么都不会发生。
+//
+// 与上游的两处差异（都记在这里，别再漂）：
+//   1. MIME 名带插件前缀 `application/x-dsh-imagora-canvas`。它只在**本页内部**
+//      从工具栏按钮传到画布 drop 处理，不跨页面，改名不影响行为。
+//   2. `extractImageFiles` 一度缺失（过滤被挪到下游 addImages），代价是拖进非图片
+//      完全没有反馈；已按上游补回，见该函数注释。
+import { isImageFile } from './workflow'
 
 /** 工具栏按钮拖出的自定义类型（值 = prompt | group） */
 export const CANVAS_DRAG_MIME = 'application/x-dsh-imagora-canvas'
@@ -48,6 +55,17 @@ export function resolveDropIntent(
 /** dragover 阶段 dataTransfer.files 是空的（浏览器延迟到 drop 才填），数量只能从 items 数 */
 export function countDraggedFiles(dataTransfer: { items: ArrayLike<{ kind: string }> } | null): number {
   return dataTransfer ? Array.from(dataTransfer.items).filter(item => item.kind === 'file').length : 0
+}
+
+/** drop 阶段：从 dataTransfer.files 里挑出图片。
+ *
+ * 上游 `canvasDrop.ts` 有同名同签名的函数，这里补回来是为了两件事：
+ * ① 与上传 / 粘贴 / 新建共用同一个 `isImageFile` 判定，各入口的「什么算图片」不会漂；
+ * ② 过滤**在 drop 处**做，才能知道「一个图片都没有」，从而给用户一句话 ——
+ *    过滤挪到下游 `addImages` 里时，拖进一个 .txt 是彻底静默的（界面毫无反应）。
+ *    维护者报过「拖进去没反应，以为卡住了」。 */
+export function extractImageFiles(dataTransfer: { files: ArrayLike<File> } | null): File[] {
+  return Array.from(dataTransfer?.files ?? []).filter(isImageFile)
 }
 
 /** 落点示意文案 */
