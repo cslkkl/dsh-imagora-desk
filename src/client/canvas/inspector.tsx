@@ -39,7 +39,7 @@ export function SelectionInspector(props: InspectorProps) {
       <button
         type="button"
         className="im-btn-ghost im-btn-sm nodrag"
-        title="局部整理选中的节点，其余保持原位（同层提示词卡片按左上角标题从左到右）"
+        title="按参考关系分层重排选中的节点，其余保持原位（提示词卡 / 结果图 / 图片组一起参与，同层按标题从左到右）"
         onClick={props.onAutoLayout}
       >
         自动整理{suffix(selectedCount)}

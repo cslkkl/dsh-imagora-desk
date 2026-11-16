@@ -33,6 +33,7 @@ import { errMessage } from '../lib/format'
 import { buildPromptNodes } from '../lib/promptImportFormat'
 import { applySnapToChanges, readSnapEnabled, saveSnapEnabled, snapBoxOf } from '../lib/snapDrag'
 import { snapToNeighbors, type SnapGuide } from '../lib/snapGuide'
+import { layoutSelection } from '../lib/layout'
 import { LodContext, NodeActionContext } from '../nodes'
 import { CANVAS_CSS } from '../styles'
 import { NODE_TYPES } from './node-types'
@@ -325,20 +326,15 @@ export function CanvasApp() {
       flash('先选中要整理的节点')
       return
     }
-    history.record()
-    setNodes(current => {
-      const images = current.filter(node => ids.has(node.id) && node.type === 'image')
-      if (!images.length) return current
-      const baseX = Math.min(...images.map(node => node.position.x))
-      const baseY = Math.min(...images.map(node => node.position.y))
-      const order = new Map(images.map((node, index) => [node.id, index]))
-      return current.map(node => {
-        const index = order.get(node.id)
-        if (index === undefined) return node
-        return { ...node, position: { x: baseX + index * 172, y: baseY } }
-      })
-    })
-  }, [selectedIds, setNodes, flash, history])
+    // 派生重算（只改布局、不改用户意图）：不清重做栈，与 Imagora 的
+    // `recordHistory({ preserveRedo: true })` 同一语义。
+    history.record({ preserveRedo: true })
+    // 走 Imagora 的分层布局（lib/layout.ts 与上游逐字节相同）：
+    // 提示词卡、结果图、图片组**一起**参与，未选中的邻居当只读锚点。
+    // 曾经这里是个简化版：只把选中的图片节点横排（baseX + index * 172），
+    // 提示词卡直接跳过 —— 于是「全选后整理」看着像没反应。
+    setNodes(current => layoutSelection(current, edgesRef.current as WorkflowEdge[], ids))
+  }, [selectedIds, setNodes, flash, history, edgesRef])
 
   /* ---------------- 拖入：文件 / 工具栏按钮 ---------------- */
   // 文件拖进来 -> 建图片节点；工具栏按钮拖进来 -> 在落点建提示词卡 / 图片组。

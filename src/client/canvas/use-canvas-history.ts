@@ -17,13 +17,23 @@ interface Options {
 export function useCanvasHistory({ nodesRef, edgesRef, setNodes, setEdges, flash }: Options) {
   const historyRef = useRef(createCanvasHistory(50))
 
-  /** 在改动画布结构之前调一次。 */
-  const record = useCallback(() => {
-    historyRef.current.record({
-      nodes: nodesRef.current,
-      edges: edgesRef.current as WorkflowEdge[],
-    })
-  }, [nodesRef, edgesRef])
+  /** 在改动画布结构之前调一次。
+   *
+   * `preserveRedo` 只给「派生重算」用（自动整理 / 自动连线这类不改用户意图、只改布局的操作）：
+   * 它不清空重做栈。默认清空是正确语义——新分支会让旧重做失效。
+   * 与 Imagora 的 `recordHistory(options)` 同一参数名同一语义。 */
+  const record = useCallback(
+    (options?: { preserveRedo?: boolean }) => {
+      historyRef.current.record(
+        {
+          nodes: nodesRef.current,
+          edges: edgesRef.current as WorkflowEdge[],
+        },
+        options,
+      )
+    },
+    [nodesRef, edgesRef],
+  )
 
   const undo = useCallback(() => {
     const previous = historyRef.current.undo({
