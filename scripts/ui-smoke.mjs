@@ -338,7 +338,7 @@ try {
   )
   const budgetInputs = history.locator('.im-history-budget-input')
   check(
-    '生成历史成本条有「日预算 / 单次上限」两个输入框',
+    '生成历史成本条有「每日上限 / 单次上限」两个输入框',
     (await budgetInputs.count()) === 2,
     String(await budgetInputs.count()),
   )
@@ -418,7 +418,7 @@ try {
   const daily = budgetInputs.first()
   await daily.fill('')
   await daily.pressSequentially('0.5', { delay: 30 })
-  check('日预算能逐字打出 0.5（小数点不被吞）', (await daily.inputValue()) === '0.5', await daily.inputValue())
+  check('每日上限能逐字打出 0.5（小数点不被吞）', (await daily.inputValue()) === '0.5', await daily.inputValue())
 
   // 浮层只对**真被截断**的行出现
   const longRow = history.locator('.im-history-prompt').first()

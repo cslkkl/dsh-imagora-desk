@@ -110,6 +110,9 @@ export const zh = {
   'flash.lock.on': '画布已锁：只可缩放，拖动 / 连线 / 选中 / 平移都停了',
   'flash.lock.off': '画布已解锁',
   'flash.renderError': '画布渲染出错：{reason}',
+  'flash.profile.switched': '已切到 {name}',
+  'flash.profile.failed': '切换失败：{reason}',
+  'flash.model.switched': '已切换到 {model}',
 
   // ---------- 画布其他 ----------
   'canvas.goSettings': '去设置',
@@ -303,8 +306,8 @@ export const zh = {
   'settings.root.label': 'Imagora 目录',
   'settings.root.hint': '指向后工作流与生成历史直接读那一份，不复制。留空 = 只用插件自己的数据目录。',
   'settings.root.placeholder': '例如 D:/imagora（含 config.json 与 .env）',
-  'settings.pick': '选择…',
-  'settings.open': '打开',
+  'settings.pick.folder': '选择文件夹',
+  'settings.reveal': '在文件管理器中打开',
   'settings.pick.root': '选择 Imagora 目录（含 config.json）',
   'settings.pick.output': '选择图片输出目录',
   'settings.pick.unsupported': '这台机器不支持弹目录对话框，直接填路径',
@@ -314,11 +317,11 @@ export const zh = {
   'settings.outputDir.hint': '当前生效：{dir}',
   'settings.outputDir.placeholder': '留空 = 跟随上面的 Imagora 目录',
   'settings.budget.label': '本画布累计上限',
+  // hint 只说这一个字段自己的语义。「日预算 / 单次上限在别处设」曾经既做成了按钮、又写进了
+  // 这一行：按钮只会弹个提示条说明「去别处」，等于拿按钮演一句说明（用户会以为它能改值）；
+  // 而真正关心日预算的人是在「生成历史」的成本条那里看花费时顺手设的，不需要这里再指一遍。
   'settings.budget.hint': '花到上限即拒绝新任务（硬拦）。',
   'settings.budget.placeholder': '留空 = 不设上限',
-  'settings.budget.elsewhere': '日预算在哪设',
-  'settings.budget.elsewhere.title': '日预算 / 单次上限是另一层（超限需确认），在生成历史的成本条里设',
-  'settings.budget.elsewhere.flash': '日预算 / 单次上限在「生成历史」顶部的成本条里设',
   'settings.keyConfigured': '密钥已配置',
   'settings.keyMissing': '密钥未配置',
   'settings.save.done': '已保存，立即生效',
@@ -327,8 +330,8 @@ export const zh = {
   // ---------- 成本徽章 ----------
   'cost.money': '{value} 元',
   'cost.title': '本画布累计 {spent} · {cards} 张卡花过钱，共出图 {images} 张',
-  'cost.title.withBudget': '本画布累计 {spent} / 预算 {budget} · {cards} 张卡花过钱，共出图 {images} 张',
-  'cost.over': '已达预算',
+  'cost.title.withBudget': '本画布累计 {spent} / 上限 {cap} · {cards} 张卡花过钱，共出图 {images} 张',
+  'cost.over': '已达上限',
 
   // ---------- 控件坞（左下角） ----------
   'dock.zoomIn': '放大',
@@ -413,10 +416,10 @@ export const zh = {
 
   // ---------- 任务运行 ----------
   'task.budget.confirm': '{reason}\n\n仍然要提交这一次吗？',
-  'task.budget.cancelled': '已按预算取消：{reason}',
-  'task.budget.overridden': '超预算已确认，继续提交：{reason}',
+  'task.budget.cancelled': '已按上限取消：{reason}',
+  'task.budget.overridden': '超上限已确认，继续提交：{reason}',
   'task.done': '完成 · {count} 张',
-  'task.done.cost': '完成 · {count} 张 · {cost} 元',
+  'task.done.cost': '完成 · {count} 张 · {cost}',
   'task.cancelled': '已取消',
   'task.failed': '失败',
   'task.failed.withReason': '{status} · {reason}',
@@ -451,12 +454,12 @@ export const zh = {
   'history.search': '搜索',
   'history.lostRefs': '{count} 条参考图已丢失',
   'history.lostRefs.title': '图生图记录但参考图已从资产库找不回，无法还原',
-  'history.budget.daily': '日预算',
-  'history.budget.daily.title': '当日累计费用上限（元），0 = 不限；超限提交前会要求确认',
+  'history.budget.daily': '每日上限',
+  'history.budget.daily.title': '每日累计花费上限（元），0 = 不限；超限提交前会要求确认',
   'history.budget.single': '单次上限',
   'history.budget.single.title': '单次提交的预估上限（元），0 = 不限',
-  'history.budget.save': '保存预算',
-  'history.budget.saved': '预算已保存',
+  'history.budget.save': '保存上限',
+  'history.budget.saved': '上限已保存',
   'history.budget.saveFailed': '保存失败：{reason}',
   'history.refresh': '刷新',
   'history.bySize': '按尺寸',
@@ -639,6 +642,9 @@ export const en: Record<LocaleKey, string> = {
   'flash.lock.on': 'Canvas locked: zoom only — no dragging, connecting, selecting, or panning',
   'flash.lock.off': 'Canvas unlocked',
   'flash.renderError': 'Canvas failed to render: {reason}',
+  'flash.profile.switched': 'Switched to {name}',
+  'flash.profile.failed': 'Switch failed: {reason}',
+  'flash.model.switched': 'Switched to {model}',
 
   'canvas.goSettings': 'Open settings',
   'canvas.minimap': 'Canvas minimap',
@@ -835,8 +841,8 @@ export const en: Record<LocaleKey, string> = {
   'settings.root.hint':
     'Once pointed at it, workflows and generation history are read from there rather than copied. Empty = the plugin’s own data folder only.',
   'settings.root.placeholder': 'e.g. D:/imagora (holding config.json and .env)',
-  'settings.pick': 'Choose…',
-  'settings.open': 'Open',
+  'settings.pick.folder': 'Choose folder',
+  'settings.reveal': 'Reveal in file manager',
   'settings.pick.root': 'Choose the Imagora folder (holding config.json)',
   'settings.pick.output': 'Choose the image output folder',
   'settings.pick.unsupported': 'This machine cannot show a folder dialog — type the path instead',
@@ -848,11 +854,6 @@ export const en: Record<LocaleKey, string> = {
   'settings.budget.label': 'Cap for this canvas',
   'settings.budget.hint': 'Once the cap is hit, new jobs are refused outright.',
   'settings.budget.placeholder': 'Empty = no cap',
-  'settings.budget.elsewhere': 'Where is the daily budget?',
-  'settings.budget.elsewhere.title':
-    'The daily budget and per-job cap are a separate layer (over-limit needs confirmation), set in the cost bar at the top of generation history',
-  'settings.budget.elsewhere.flash':
-    'Set the daily budget and per-job cap in the cost bar at the top of generation history',
   'settings.keyConfigured': 'Key configured',
   'settings.keyMissing': 'No key configured',
   'settings.save.done': 'Saved and live',
@@ -861,8 +862,8 @@ export const en: Record<LocaleKey, string> = {
 
   'cost.money': '¥{value}',
   'cost.title': 'This canvas: {spent} · {cards} cards billed, {images} images made',
-  'cost.title.withBudget': 'This canvas: {spent} of {budget} · {cards} cards billed, {images} images made',
-  'cost.over': 'At budget',
+  'cost.title.withBudget': 'This canvas: {spent} of {cap} · {cards} cards billed, {images} images made',
+  'cost.over': 'At cap',
 
   'dock.zoomIn': 'Zoom in',
   'dock.zoomIn.title': 'Zoom into the canvas (the wheel does this too)',
@@ -939,10 +940,10 @@ export const en: Record<LocaleKey, string> = {
   'images.replaceFailed': 'Replace failed: {reason}',
 
   'task.budget.confirm': '{reason}\n\nSubmit this job anyway?',
-  'task.budget.cancelled': 'Cancelled by the budget: {reason}',
-  'task.budget.overridden': 'Over budget, confirmed — submitting: {reason}',
+  'task.budget.cancelled': 'Cancelled by the cap: {reason}',
+  'task.budget.overridden': 'Over the cap, confirmed — submitting: {reason}',
   'task.done': 'Done · {count}',
-  'task.done.cost': 'Done · {count} · {cost} CNY',
+  'task.done.cost': 'Done · {count} · {cost}',
   'task.cancelled': 'Cancelled',
   'task.failed': 'Failed',
   'task.failed.withReason': '{status} · {reason}',
@@ -976,17 +977,17 @@ export const en: Record<LocaleKey, string> = {
   'history.lostRefs': '{count} reference images lost',
   'history.lostRefs.title':
     'An image-to-image run whose reference images can no longer be found in the asset store, so it cannot be reproduced',
-  'history.budget.daily': 'Daily budget',
+  'history.budget.daily': 'Daily cap',
   'history.budget.daily.title':
     "Today's spending cap in CNY; 0 = no cap. Over the cap you are asked to confirm before submitting",
-  'history.budget.single': 'Per-job cap',
+  'history.budget.single': 'Per-run cap',
   'history.budget.single.title': 'Estimated cap for one submission in CNY; 0 = no cap',
-  'history.budget.save': 'Save budget',
-  'history.budget.saved': 'Budget saved',
+  'history.budget.save': 'Save caps',
+  'history.budget.saved': 'Caps saved',
   'history.budget.saveFailed': 'Could not save: {reason}',
   'history.refresh': 'Refresh',
   'history.bySize': 'By size',
-  'history.bySize.row': '{count}× · {cost}',
+  'history.bySize.row': '{count} runs · {cost}',
   'history.reading': 'Reading history…',
   'history.imageAlt': 'Generated image',
   'history.zoom.title': 'Double-click to enlarge',

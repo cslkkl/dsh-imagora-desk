@@ -199,20 +199,29 @@ check(
 /* ---------------- 文案层：中文不许漏回组件里 ----------------
  *
  * 这条是「便于维护」的实际抓手。文案集中到 `locales.ts` 之后，最大的退化方式是
- * **以后图省事又在 JSX 里写一句中文** —— 编译器不会报错（它只是多了一个字面量），
+ * **以后图省事又在代码里写一句中文** —— 编译器不会报错（它只是多了一个字面量），
  * 于是那一句永远停在中文，切语言时留在原地，而且只有把界面切到英文才看得见。
  *
- * 判据只看「用户可见位置」：JSX 文本节点、以及 title / aria-label / placeholder /
- * alt / emptyLabel 这些字面量属性。注释里的中文、console/throw 里的中文不算 ——
- * 那些是给维护者看的，不随语言变。
+ * 三类位置都算「用户能看到」：
+ *   ① JSX 文本节点与 title / aria-label / placeholder / alt / emptyLabel 字面量；
+ *   ② 写进 `flash(...)` / `setError(...)` / `message:` 的提示（提示条、卡片上的错误）；
+ *   ③ 写进 `log(...)` 的日志行 —— 它会显示在画布右下角，也是用户读的。
  *
- * 排除两处：
- *   - `locales.ts`：它就是词典本身；
- *   - `lib/`：A 档移植区，不许为 i18n 改写，它的界面文字在消费处换。
+ * **只放行** console / throw 里的中文：那是给维护者看的，不随语言变。
+ * 也放行注释（整行以 // 或 * 开头）。排除 `locales.ts`（词典本身）与 `lib/`
+ * （A 档移植区，不许为 i18n 改写，它的界面文字在消费处换）。
+ *
+ * 这条守卫是真抓到过东西的：设置弹窗的「API Key」标签、切来源的 `flash` 提示，
+ * 都是它揪出来的 —— 两处都长得像「不像要翻」的地方。
  */
 {
   const ATTR = /(title|aria-label|placeholder|alt|emptyLabel)\s*=\s*"[^"]*[\u4e00-\u9fff]/
   const TEXT = />[^<>{}]*[\u4e00-\u9fff][^<>{}]*</
+  /** 用户会读到的提示：闪条、错误、卡片上的失败原因 */
+  const SINK = /\b(flash|setError|setProbeResult|setBudgetTip)\(\s*[`'"][^`'"]*[\u4e00-\u9fff]/
+  const MESSAGE = /\bmessage:\s*[`'"][^`'"]*[\u4e00-\u9fff]/
+  /** 画布右下角的日志行 */
+  const LOG = /\blog\(\s*[`'"][^`'"]*[\u4e00-\u9fff]/
   const offenders = []
   const walk = dir => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -228,14 +237,15 @@ check(
         const trimmed = line.trim()
         // 注释行整行跳过：单行、块注释续行、JSX 注释都一样
         if (/^(\/\/|\*|\/\*|\{\/\*)/.test(trimmed)) return
-        if (ATTR.test(line) || TEXT.test(line)) {
+        // 用户可见位置命中任一条就算漏译
+        if (ATTR.test(line) || TEXT.test(line) || SINK.test(line) || MESSAGE.test(line) || LOG.test(line)) {
           offenders.push(`${full.slice(ROOT.length + 1)}:${index + 1}`)
         }
       })
     }
   }
   walk(join(ROOT, 'src', 'client'))
-  check('组件里没有漏回的中文字面量（文案只许在 locales.ts）', offenders.length === 0, offenders.join(', '))
+  check('组件与 hook 里没有漏回的中文字面量（文案只许在 locales.ts）', offenders.length === 0, offenders.join(', '))
 
   // 反向：词典里的每个键都真的被用到过。孤儿键是「改了文案却没删旧键」的残渣，
   // 会让人误以为某句还在生效。允许 `en` 只被类型约束，所以只在源码里找 key。

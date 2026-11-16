@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getConfig, setModel, setProfile, type ImagoraConfig } from '../api'
 import { errMessage } from '../lib/format'
+import { useT } from '../i18n'
 
 export function useCanvasConfig(flash: (line: string) => void) {
+  const t = useT()
   const [config, setConfig] = useState<ImagoraConfig | null>(null)
   /** 配置缺失的原因，逐条列（不是拼成一句话）。顶栏按条目渲染，读起来才不像报错页。 */
   const [configIssues, setConfigIssues] = useState<string[]>([])
@@ -50,9 +52,9 @@ export function useCanvasConfig(flash: (line: string) => void) {
       try {
         const next = await setProfile(name)
         apply(next)
-        flash(`已切到 ${next.profileLabel || next.profile}`)
+        flash(t('flash.profile.switched', { name: next.profileLabel || next.profile }))
       } catch (error) {
-        flash(`切换失败：${errMessage(error)}`)
+        flash(t('flash.profile.failed', { reason: errMessage(error) }))
       }
     },
     [apply, flash],
@@ -63,9 +65,9 @@ export function useCanvasConfig(flash: (line: string) => void) {
       try {
         const next = await setModel(model)
         apply(next)
-        flash(`已切换到 ${next.modelLabel}`)
+        flash(t('flash.model.switched', { model: next.modelLabel }))
       } catch (error) {
-        flash(`切换失败：${errMessage(error)}`)
+        flash(t('flash.profile.failed', { reason: errMessage(error) }))
       }
     },
     [apply, flash],

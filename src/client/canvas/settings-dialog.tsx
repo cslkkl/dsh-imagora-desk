@@ -49,6 +49,7 @@ import {
   type ImagoraConfig,
 } from '../api'
 import { errMessage } from '../lib/format'
+import { Icon } from '../icons'
 import { Select } from '../select'
 import { ModalShell } from './modal-shell'
 import { useT } from '../i18n'
@@ -533,7 +534,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
                 disabled={busy}
                 onClick={() => void chooseFolder('root')}
               >
-                {t('settings.pick')}
+                {t('settings.pick.folder')}
               </button>
             }
           >
@@ -559,15 +560,21 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
                   disabled={busy}
                   onClick={() => void chooseFolder('output')}
                 >
-                  {t('settings.pick')}
+                  {t('settings.pick.folder')}
                 </button>
+                {/* 「打开」从第二个文字按钮改成**图标按钮**：一行里并排两个文字按钮，
+                    主次与含义都不清楚（维护者原话「有些又有两个按钮，我也不清楚」）。
+                    留下这一枚图标仍能被发现 —— 它有 aria-label 与 title，且图标本身就是
+                    文件夹。动词交给 hover 文案，不占版面。 */}
                 <button
                   type="button"
-                  className="im-btn-ghost im-btn-sm"
+                  className="im-btn-ghost im-icon-btn"
                   disabled={busy || !config?.defaultOutputDir}
+                  title={t('settings.reveal')}
+                  aria-label={t('settings.reveal')}
                   onClick={() => void revealPath(config?.defaultOutputDir ?? '')}
                 >
-                  {t('settings.open')}
+                  <Icon name="folder" size={14} />
                 </button>
               </>
             }
@@ -586,21 +593,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
         {/* ---------- 三、花钱上限 ---------- */}
         <section className="im-settings-group">
           <h3 className="im-settings-group-title">{t('settings.group.budget')}</h3>
-          <Field
-            id="imagora-budget"
-            label={t('settings.budget.label')}
-            hint={t('settings.budget.hint')}
-            action={
-              <button
-                type="button"
-                className="im-btn-ghost im-btn-sm"
-                onClick={() => onFlash(t('settings.budget.elsewhere.flash'))}
-                title={t('settings.budget.elsewhere.title')}
-              >
-                {t('settings.budget.elsewhere')}
-              </button>
-            }
-          >
+          <Field id="imagora-budget" label={t('settings.budget.label')} hint={t('settings.budget.hint')}>
             <input
               id="imagora-budget"
               className="im-field"
