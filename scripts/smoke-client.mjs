@@ -1,7 +1,7 @@
 // 在没有浏览器的情况下验证 client bundle：
 // 模拟 window.__ModuleLoader__ / document / window 事件接口，执行 bundle，
 // 断言导出与「侧边栏 + 主区域」两处插槽注册真的发生。
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -195,6 +195,67 @@ check(
   styleNodes.some(node => String(node.textContent).includes('react-flow')),
   `${styleNodes.length} 个 style`,
 )
+
+/* ---------------- 文案层：中文不许漏回组件里 ----------------
+ *
+ * 这条是「便于维护」的实际抓手。文案集中到 `locales.ts` 之后，最大的退化方式是
+ * **以后图省事又在 JSX 里写一句中文** —— 编译器不会报错（它只是多了一个字面量），
+ * 于是那一句永远停在中文，切语言时留在原地，而且只有把界面切到英文才看得见。
+ *
+ * 判据只看「用户可见位置」：JSX 文本节点、以及 title / aria-label / placeholder /
+ * alt / emptyLabel 这些字面量属性。注释里的中文、console/throw 里的中文不算 ——
+ * 那些是给维护者看的，不随语言变。
+ *
+ * 排除两处：
+ *   - `locales.ts`：它就是词典本身；
+ *   - `lib/`：A 档移植区，不许为 i18n 改写，它的界面文字在消费处换。
+ */
+{
+  const ATTR = /(title|aria-label|placeholder|alt|emptyLabel)\s*=\s*"[^"]*[\u4e00-\u9fff]/
+  const TEXT = />[^<>{}]*[\u4e00-\u9fff][^<>{}]*</
+  const offenders = []
+  const walk = dir => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        if (entry.name === 'lib') continue
+        walk(full)
+        continue
+      }
+      if (!/\.tsx?$/.test(entry.name) || entry.name === 'locales.ts') continue
+      const lines = readFileSync(full, 'utf8').split('\n')
+      lines.forEach((line, index) => {
+        const trimmed = line.trim()
+        // 注释行整行跳过：单行、块注释续行、JSX 注释都一样
+        if (/^(\/\/|\*|\/\*|\{\/\*)/.test(trimmed)) return
+        if (ATTR.test(line) || TEXT.test(line)) {
+          offenders.push(`${full.slice(ROOT.length + 1)}:${index + 1}`)
+        }
+      })
+    }
+  }
+  walk(join(ROOT, 'src', 'client'))
+  check('组件里没有漏回的中文字面量（文案只许在 locales.ts）', offenders.length === 0, offenders.join(', '))
+
+  // 反向：词典里的每个键都真的被用到过。孤儿键是「改了文案却没删旧键」的残渣，
+  // 会让人误以为某句还在生效。允许 `en` 只被类型约束，所以只在源码里找 key。
+  const sources = []
+  const walkKeys = dir => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        walkKeys(full)
+        continue
+      }
+      if (!/\.tsx?$/.test(entry.name) || entry.name === 'locales.ts') continue
+      sources.push(readFileSync(full, 'utf8'))
+    }
+  }
+  walkKeys(join(ROOT, 'src', 'client'))
+  const used = sources.join('\n')
+  const orphans = Object.keys(dict.zh ?? {}).filter(key => !used.includes(`'${key}'`))
+  check('词典没有孤儿键（每个键都被源码引用）', orphans.length === 0, orphans.join(', '))
+}
 
 // 设计层 CSS 的大括号必须平衡。
 // 少一个 `}` 的后果是「它之后的所有规则静默失效」——CSS 不会报错，页面只是变丑，

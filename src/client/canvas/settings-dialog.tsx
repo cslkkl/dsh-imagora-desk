@@ -428,7 +428,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
 
               <Field
                 id="imagora-provider-api-key"
-                label="API Key"
+                label={t('settings.apiKey.label')}
                 hint={
                   provider?.apiKeyConfigured ? t('settings.apiKey.hint.configured') : t('settings.apiKey.hint.plain')
                 }

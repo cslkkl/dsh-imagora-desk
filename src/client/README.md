@@ -6,18 +6,20 @@
 
 ## 文件
 
-| 文件                    | 职责                                                                | 关键导出                                                      |
-| ----------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `index.tsx`             | 入口：注册 `main` 与 `sidebar.panellist` 两个插槽，注入 xyflow 样式 | `apply`、`inject`                                             |
-| `api.ts`                | `/imagora/*` 的浏览器侧封装                                         | `getConfig`、`submitGenerate`、`fetchTask`、`saveWorkflow` 等 |
-| `nodes.tsx`             | 三类节点组件与节点上下文                                            | `ImageNode`、`PromptNode`、`GroupNode`、`NodeActionContext`   |
-| `icons.tsx`             | 内联 SVG 图标，不引图标库                                           | `Icon`                                                        |
-| `select.tsx`            | 自绘下拉框（listbox）：分组 / 搜索 / 键盘导航，浮层 portal 到 body  | `Select`、`SelectOption`                                      |
-| `brand.tsx`             | 品牌区：Imagora 字形与标题                                          | `BrandLogo`、`BrandHeader`                                    |
-| `canvas/zoom-modal.tsx` | 大图预览：缩放 / 平移 / 复制 / 新标签，portal 到 body               | `ZoomModal`                                                   |
-| `styles.ts`             | 设计层（`--im-*` 语义 token 为主，`im-` 前缀类名）                  | `CANVAS_CSS`                                                  |
-| `env.d.ts`              | 声明 `*.css` 走 esbuild 的文本插件                                  | —                                                             |
-| `lib/`                  | 从 Imagora 移植的纯逻辑，见下                                       | —                                                             |
+| 文件                    | 职责                                                                          | 关键导出                                                      |
+| ----------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `index.tsx`             | 入口：注册 `main` 与 `sidebar.panellist` 两个插槽，注入 xyflow 样式与文案词典 | `apply`、`inject`                                             |
+| `locales.ts`            | **全部界面文案**：中英两份词典 + `interpolate`。`zh` 是键集真源               | `NS`、`zh`、`en`、`LocaleKey`、`Translate`、`interpolate`     |
+| `i18n.tsx`              | 文案接线：`LocaleProvider` / `useT()`，无宿主时退回中文兜底                   | `LocaleProvider`、`useT`                                      |
+| `api.ts`                | `/imagora/*` 的浏览器侧封装                                                   | `getConfig`、`submitGenerate`、`fetchTask`、`saveWorkflow` 等 |
+| `nodes.tsx`             | 三类节点组件与节点上下文                                                      | `ImageNode`、`PromptNode`、`GroupNode`、`NodeActionContext`   |
+| `icons.tsx`             | 内联 SVG 图标，不引图标库                                                     | `Icon`                                                        |
+| `select.tsx`            | 自绘下拉框（listbox）：分组 / 搜索 / 键盘导航，浮层 portal 到 body            | `Select`、`SelectOption`                                      |
+| `brand.tsx`             | 品牌区：Imagora 字形与标题                                                    | `BrandLogo`、`BrandHeader`                                    |
+| `canvas/zoom-modal.tsx` | 大图预览：缩放 / 平移 / 复制 / 新标签，portal 到 body                         | `ZoomModal`                                                   |
+| `styles.ts`             | 设计层（`--im-*` 语义 token 为主，`im-` 前缀类名）                            | `CANVAS_CSS`                                                  |
+| `env.d.ts`              | 声明 `*.css` 走 esbuild 的文本插件                                            | —                                                             |
+| `lib/`                  | 从 Imagora 移植的纯逻辑，见下                                                 | —                                                             |
 
 ## canvas/ 子目录
 
@@ -57,6 +59,17 @@
 - 成本看板的显示口径：`cost`（`formatMoney` / `formatRate` / `formatSeconds` / `statRows`）。**金额、百分比、耗时的格式只在这里改**——历史弹窗曾经自己拼 `avgSeconds.toFixed(1)+"s"`，于是同一个数在原版显示 `2m36s`、插件显示 `156.3s`。
 - 大图预览的缩放与平移换算：`previewZoom`；剪贴板写入：`imageCopy`。
 
+## 文案与语言
+
+界面文字**全部**在 [`locales.ts`](locales.ts)，组件里不写中文。
+
+- 语言跟随宿主的设置，本插件不提供自己的开关。宿主注入的 `t` 只到 `CanvasApp` 一层，靠 [`i18n.tsx`](i18n.tsx) 的 Context 送到子组件与 hook。
+- `zh` 是键集真源，`en` 声明成 `Record<LocaleKey, string>`：**漏译、拼错键名都是编译错误**。
+- 两种语言各自写，不做逐字直译；带数量的按钮给「单数 / 复数」两个键，不拼接括号。
+- `lib/` 里**不许**出现 `t()`：它是 A 档移植区，产出的界面文字在消费处换（菜单按 `id`、分组按 `group.id`）。四道缝见 [架构文档](../../docs/ARCHITECTURE.md#a-档移植件与文案层之间只有一道缝)。
+- 冒烟里两条断言守着退化：组件里漏回中文字面量、词典里出现孤儿键。
+- 插件页的标题与说明是**另一条路**（[locale/](../../locale/README.md)，宿主直读 JSON）。
+
 ## 被谁依赖
 
 只有 DSH 宿主加载 `index.tsx`；`api.ts` 被 `canvas/` 下的 hook 使用；`nodes.tsx` 被 `canvas/node-types.tsx` 引用。
@@ -68,6 +81,7 @@
 - 改样式 → 只能新增 `im-` 前缀类；颜色走 `--im-*` 语义 token（它本身由 `--dsw-*` 映射而来）。
 - 加新控件 → 先查 [架构文档的尺寸阶](../../docs/ARCHITECTURE.md)，落不进任何一档就说明在发明新值，停下来确认。
 - 加提示 → 只用原生 `title`，见 [决策](../../.agents/notes/2026-11-07-native-title-only.md)。
+- 改文字 → 只动 [`locales.ts`](locales.ts)，中英两份一起；英文比中文长，改完去验收台看版面是否还放得下。
 - 改 `lib/` → 见上；改完必跑 `pnpm run test` 与 `pnpm run harness`。
 - 改包名 → 见根 [AGENTS.md](../../AGENTS.md) 活跃坑，四处一起改。
 

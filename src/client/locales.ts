@@ -49,9 +49,6 @@ export const zh = {
   'common.saving': '保存中…',
   'common.cancel': '取消',
   'common.close': '关闭',
-  'common.confirm': '确定',
-  'common.reset': '重置',
-  'common.delete': '删除',
 
   // ---------- 侧边栏入口 ----------
   'panel.entry': '自由画布',
@@ -354,7 +351,6 @@ export const zh = {
   'dock.lock.unlock': '解锁画布',
   'dock.help': '帮助',
   'dock.help.title': '操作帮助与快捷键',
-  'dock.omit': '（省略）',
 
   // ---------- 选中操作栏 ----------
   'inspector.runOne': '运行所选',
@@ -585,9 +581,6 @@ export const en: Record<LocaleKey, string> = {
   'common.saving': 'Saving…',
   'common.cancel': 'Cancel',
   'common.close': 'Close',
-  'common.confirm': 'OK',
-  'common.reset': 'Reset',
-  'common.delete': 'Delete',
 
   'panel.entry': 'Freeform canvas',
 
@@ -891,7 +884,6 @@ export const en: Record<LocaleKey, string> = {
   'dock.lock.unlock': 'Unlock the canvas',
   'dock.help': 'Help',
   'dock.help.title': 'How to use this canvas, plus shortcuts',
-  'dock.omit': '…',
 
   'inspector.runOne': 'Run selected',
   'inspector.runMany': 'Run selected ({count})',
