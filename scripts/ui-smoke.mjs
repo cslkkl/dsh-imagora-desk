@@ -104,9 +104,14 @@ try {
 const page = await browser.newPage({ viewport: { width: 1280, height: 860 } })
 /** 收集页面报错：有任何 uncaught / console.error 都算失败 */
 const pageErrors = []
-/** 噪声：验收台没有 favicon.ico，浏览器每次都会记一条 404。
- *  这条与插件无关（任何页面都会），不能让它把「无异常」这条判定拖红。 */
-const isNoise = text => /favicon/i.test(text) || /Failed to load resource.*404/i.test(text)
+/** 「预期内的错误」：验收错误边界时要**故意**抛错，那是这次要验的东西本身。
+ *  不加这条白名单，最后那条「全程无页面异常」会把故意抛的错算成失败 ——
+ *  等于「验了边界反而证明不了别处没坏」。用完即清空，作用域尽量小。 */
+const expectedErrors = []
+const isNoise = text =>
+  /favicon/i.test(text) ||
+  /Failed to load resource.*404/i.test(text) ||
+  expectedErrors.some(pattern => text.includes(pattern))
 page.on('pageerror', error => {
   if (!isNoise(String(error))) pageErrors.push(String(error))
 })
@@ -692,6 +697,89 @@ try {
     await seedSnapshot([{ id: 'manual' }, promptCard('ok-probe', { prompt: '好的一张卡' })], [])
     const mixedNodes = await page.locator('.react-flow__node').count()
     check('一好一坏时只跳过坏的那个（好的照常显示）', mixedNodes === 1, `nodes=${mixedNodes}`)
+  }
+
+  // ---------------- 错误边界：兜住「想不到的」缺陷 ----------------
+  // 数据侧的校验能挡住已知的坏形状，但挡不住**未知**缺陷。这一层的验收不能靠
+  // 「造一份能把画布搞崩的数据」—— 脏数据现在会被跳过，根本走不到渲染异常。
+  // 所以插件把边界本身交了出来（`__dshImagoraBoundary`，与 `__dshImagoraCanvas` 同一性质），
+  // 这里直接挂一个「render 里必定抛错」的子树进去。
+  {
+    // 这两句错误是本段**故意**抛的（见上面 expectedErrors 的说明）
+    expectedErrors.push('模拟渲染失败：卡片数据异常', '模拟画布崩溃')
+    const nodeBoundary = await page.evaluate(() => {
+      const boundary = globalThis.window.__dshImagoraBoundary
+      const el = globalThis.document.createElement('div')
+      el.id = 'smoke-node-boundary'
+      globalThis.document.body.appendChild(el)
+      const Boom = () => {
+        throw new Error('模拟渲染失败：卡片数据异常')
+      }
+      globalThis.window.ReactDOMClient.createRoot(el).render(
+        globalThis.window.React.createElement(
+          boundary.NodeBoundary,
+          { nodeId: 'p1' },
+          globalThis.window.React.createElement(Boom),
+        ),
+      )
+      return true
+    })
+    await page.waitForTimeout(300)
+    const nodeText = (await page.locator('#smoke-node-boundary').innerText()).replace(/\s+/g, ' ')
+    check(
+      '单张卡渲染抛错时，只把那张卡换成「这张卡出错了」',
+      nodeBoundary && nodeText.includes('这张卡出错了') && nodeText.includes('模拟渲染失败'),
+      nodeText.slice(0, 80),
+    )
+    check(
+      '替代卡片里给了「重试」按钮（不是死路）',
+      (await page.locator('#smoke-node-boundary button').count()) === 1,
+      await page.locator('#smoke-node-boundary button').innerText(),
+    )
+
+    await page.evaluate(() => {
+      const boundary = globalThis.window.__dshImagoraBoundary
+      const el = globalThis.document.createElement('div')
+      el.id = 'smoke-canvas-boundary'
+      globalThis.document.body.appendChild(el)
+      globalThis.window.__smokeCleared = 0
+      const Boom = () => {
+        throw new Error('模拟画布崩溃')
+      }
+      globalThis.window.ReactDOMClient.createRoot(el).render(
+        globalThis.window.React.createElement(
+          boundary.CanvasBoundary,
+          {
+            onClear: () => (globalThis.window.__smokeCleared += 1),
+            onCrash: () => (globalThis.window.__smokeCrashed = true),
+          },
+          globalThis.window.React.createElement(Boom),
+        ),
+      )
+    })
+    await page.waitForTimeout(300)
+    const canvasText = (await page.locator('#smoke-canvas-boundary').innerText()).replace(/\s+/g, ' ')
+    check(
+      '画布整体崩溃时给的是「画布渲染出错」+ 出路（重试 / 清空画布）',
+      canvasText.includes('画布渲染出错') &&
+        (await page.locator('#smoke-canvas-boundary button', { hasText: '重试' }).count()) === 1 &&
+        (await page.locator('#smoke-canvas-boundary button', { hasText: '清空画布' }).count()) === 1,
+      canvasText.slice(0, 80),
+    )
+    check(
+      '画布崩溃会通知宿主（用来停掉自动快照）',
+      await page.evaluate(() => globalThis.window.__smokeCrashed === true),
+    )
+    await page.locator('#smoke-canvas-boundary button', { hasText: '清空画布' }).click()
+    await page.waitForTimeout(200)
+    check('「清空画布」真的调到调用方', (await page.evaluate(() => globalThis.window.__smokeCleared)) === 1)
+    // 这个探针是挂在 body 上的，清掉别影响后面的用例
+    await page.evaluate(() => {
+      globalThis.document.getElementById('smoke-node-boundary')?.remove()
+      globalThis.document.getElementById('smoke-canvas-boundary')?.remove()
+    })
+    // 白名单用完即收：后面任何真实报错仍然要算失败
+    expectedErrors.length = 0
   }
 
   // ---------------- 快照不写蒙版涂抹图 ----------------

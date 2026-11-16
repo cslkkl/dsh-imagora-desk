@@ -23,25 +23,26 @@
 
 画布按职责拆分，`index.tsx` 只做装配。
 
-| 文件                         | 职责                                                 |
-| ---------------------------- | ---------------------------------------------------- |
-| `index.tsx`                  | 状态与 refs、派生量、动作装配、ReactFlow 挂载        |
-| `toolbar.tsx`                | 顶栏，只放全局动作；动作全部由 props 上抛            |
-| `inspector.tsx`              | 右上角选中操作栏（选中 ≥1 个节点才出现）             |
-| `node-context-menu.tsx`      | 节点右键菜单：portal 到 body、贴边夹取、Esc 让位浮层 |
-| `dock.tsx`                   | 左下角缩放控件坞（带文字的一列）                     |
-| `overlays.tsx`               | 空态、日志轮播、toast、大图预览、顶部提示条          |
-| `dialogs.tsx`                | 保存 / 加载 / 帮助三个对话框                         |
-| `modal-shell.tsx`            | 弹窗基座：四档宽度、头/身/脚三段、内容区自己滚       |
-| `imagora-root-row.tsx`       | 设置里的 Imagora 目录与输出目录指针                  |
-| `budget-row.tsx`             | 设置里的「本画布预算上限」（硬拦那一层）             |
-| `use-canvas-drop.tsx`        | 拖入建节点：落点胶囊、工具栏拖出、文件拖放           |
-| `use-canvas-context-menu.ts` | 右键手势：单击节点弹菜单 / 拖拽框选 / 屏蔽原生菜单   |
-| `node-types.ts`              | React Flow 的节点类型表                              |
-| `use-canvas-config.ts`       | 配置读取与来源、模型切换                             |
-| `use-canvas-images.ts`       | 上传、换图、大图预览、连线桥                         |
-| `use-canvas-tasks.ts`        | 提交、轮询、结果回流、取消                           |
-| `use-canvas-workflow.ts`     | 保存、加载、自动恢复快照                             |
+| 文件                         | 职责                                                  |
+| ---------------------------- | ----------------------------------------------------- |
+| `index.tsx`                  | 状态与 refs、派生量、动作装配、ReactFlow 挂载         |
+| `toolbar.tsx`                | 顶栏，只放全局动作；动作全部由 props 上抛             |
+| `inspector.tsx`              | 右上角选中操作栏（选中 ≥1 个节点才出现）              |
+| `node-context-menu.tsx`      | 节点右键菜单：portal 到 body、贴边夹取、Esc 让位浮层  |
+| `dock.tsx`                   | 左下角缩放控件坞（带文字的一列）                      |
+| `overlays.tsx`               | 空态、日志轮播、toast、大图预览、顶部提示条           |
+| `dialogs.tsx`                | 保存 / 加载 / 帮助三个对话框                          |
+| `modal-shell.tsx`            | 弹窗基座：四档宽度、头/身/脚三段、内容区自己滚        |
+| `imagora-root-row.tsx`       | 设置里的 Imagora 目录与输出目录指针                   |
+| `budget-row.tsx`             | 设置里的「本画布预算上限」（硬拦那一层）              |
+| `use-canvas-drop.tsx`        | 拖入建节点：落点胶囊、工具栏拖出、文件拖放            |
+| `use-canvas-context-menu.ts` | 右键手势：单击节点弹菜单 / 拖拽框选 / 屏蔽原生菜单    |
+| `node-types.tsx`             | React Flow 的节点类型表（每类外面套一层错误边界）     |
+| `error-boundary.tsx`         | 两层兜底：`NodeBoundary` 单卡 / `CanvasBoundary` 整块 |
+| `use-canvas-config.ts`       | 配置读取与来源、模型切换                              |
+| `use-canvas-images.ts`       | 上传、换图、大图预览、连线桥                          |
+| `use-canvas-tasks.ts`        | 提交、轮询、结果回流、取消                            |
+| `use-canvas-workflow.ts`     | 保存、加载、自动恢复快照                              |
 
 ## lib/ 移植区
 
@@ -58,7 +59,7 @@
 
 ## 被谁依赖
 
-只有 DSH 宿主加载 `index.tsx`；`api.ts` 被 `canvas/` 下的 hook 使用；`nodes.tsx` 被 `canvas/node-types.ts` 引用。
+只有 DSH 宿主加载 `index.tsx`；`api.ts` 被 `canvas/` 下的 hook 使用；`nodes.tsx` 被 `canvas/node-types.tsx` 引用。
 
 ## 变更影响路由
 

@@ -1282,6 +1282,62 @@ body[data-ds-dark-theme] {
   text-align: center;
 }
 
+/* ---------------- 错误边界的替代界面（见 canvas/error-boundary.tsx） ----------------
+ * 两种场景、两种尺寸：
+ *   .im-node-error    单张卡坏掉，替代它自己的卡片（按节点卡的宽度，紧凑三行）
+ *   .im-canvas-error  整块画布坏掉，替代画布区（居中一句话 + 两个按钮）
+ * 都用 danger 色系，但**不是纯红警报**：它表达的是「这块坏了，别处还能用」，
+ * 不该比真正的危险提示（预算超限、参考图丢失）更刺眼。 */
+.im-node-error {
+  width: 260px;
+  padding: 12px;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--im-danger) 28%, var(--im-line));
+  border-radius: var(--im-r-control);
+  background: color-mix(in srgb, var(--im-danger) 6%, var(--im-surface));
+  color: var(--im-ink);
+}
+.im-node-error-title { font-size: 12px; font-weight: 600; color: var(--im-danger); }
+.im-node-error-msg {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--im-ink-2);
+  /* 长错误只留两行：卡片里塞不下整段堆栈，完整内容在 title 与控制台 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.im-node-error-hint { margin: 4px 0 8px; font-size: 10px; color: var(--im-ink-3); }
+
+.im-canvas-error {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+}
+.im-canvas-error-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--im-danger); }
+.im-canvas-error-msg {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--im-ink-2);
+}
+.im-canvas-error-hint {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--im-ink-3);
+}
+.im-canvas-error-actions { display: flex; gap: 8px; margin-top: 4px; }
+
 /* ---------------- 生成历史（照搬 Imagora 的 .history-modal，index.css:869-874 + 928-933） ----------------
  * 三段通栏：标题带（搜索/筛选/关闭钉在顶上）→ 成本条 → 列表（只有它滚）。
  * 原版这套的分段背景读 --surface-float，壳体读 --surface-panel ——

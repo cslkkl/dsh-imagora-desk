@@ -27,6 +27,15 @@ interface Options {
    */
   defaultsRef: MutableRefObject<{ size?: string; quality?: string }>
   /**
+   * 画布是否已经渲染崩过。崩了就不再自动写快照。
+   *
+   * 为什么需要这道闸：崩溃时组件会被卸载，卸载钩子会 flush 一次 —— 它写下去的
+   * 正是那份让页面崩掉的状态。下次打开又读回它，于是「一次事故」变成「每次打开都崩、
+   * 界面里还没法自救」。数据侧已在保存前收敛形状（lib/recovery.ts），
+   * 这一道是从「状态可信吗」的角度再堵一次：不可信就别落盘。
+   */
+  crashedRef: MutableRefObject<boolean>
+  /**
    * 恢复流程走完（无论接到快照、还是本来就没有）后回调一次，参数是**此刻画布上的节点**。
    *
    * 为什么要把节点当参数传、而不是让回调自己读 nodesRef：恢复里刚 `setNodes`，
@@ -50,6 +59,7 @@ export function useCanvasWorkflow({
   flash,
   closeDialog,
   defaultsRef,
+  crashedRef,
   onRestored,
 }: Options) {
   const timerRef = useRef<number | null>(null)
@@ -68,6 +78,8 @@ export function useCanvasWorkflow({
       window.clearTimeout(timerRef.current)
       timerRef.current = null
     }
+    // 崩过就别写：这一次 flush 正是「把坏状态存回去」的那个动作
+    if (crashedRef.current) return
     if (!nodesRef.current.length) return
     void saveRecovery(nodesRef.current, edgesRef.current as WorkflowEdge[]).catch(() => undefined)
   }
@@ -80,9 +92,10 @@ export function useCanvasWorkflow({
     if (timerRef.current) window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(() => {
       timerRef.current = null
+      if (crashedRef.current) return
       void saveRecovery(nodesRef.current, edgesRef.current as WorkflowEdge[]).catch(() => undefined)
     }, RECOVERY_DEBOUNCE)
-  }, [nodes, edges, nodesRef, edgesRef])
+  }, [nodes, edges, nodesRef, edgesRef, crashedRef])
 
   // 离开前落盘：切窗口 / 切标签页（visibilitychange）、页面卸载（pagehide）、
   // 以及组件真的卸载时各兜一次。三个入口都试，因为宿主什么时机拆我们说不准。
