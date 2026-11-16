@@ -39,7 +39,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - 本地钩子（commit 前）：文本卫生、prettier、eslint、tsc、host 冒烟、bundle 冒烟，全绿。
 - CI：`.github/workflows/ci.yml`，只读；末段 `git diff --exit-code -- dist/client.js` 守住产物同步。
 - CI 状态以 Actions 徽章为准，不在这里抄结论；最近一次 main 的 push 为绿。
-- 冒烟数字：host 113 项、client 25 项、UI 68 项（host 侧含预算两层 13 项与账本读写 14 项；UI 侧用真实浏览器跑验收台，`pnpm run test:ui`，其中右键菜单/框选 9 条、自动整理 3 条、缩略图 3 条、快照不写蒙版 4 条、重新认领 4 条、生成历史版面 5 条、坏数据与错误边界 7 条）。
+- 冒烟数字：host 113 项、client 25 项、UI 87 项（host 侧含预算两层 13 项与账本读写 14 项；UI 侧用真实浏览器跑验收台，`pnpm run test:ui`，其中右键菜单/框选 9 条、自动整理 3 条、缩略图 3 条、快照不写蒙版 4 条、重新认领 4 条、生成历史版面 5 条、坏数据与错误边界 7 条、设置弹窗版面 8 条、切分预设/手填 5 条、对齐线坐标系 3 条、图片组操作栏 1 条）。
 - 验收台示例图是仓库里的 `harness/sample.png`（1600×1200）：内嵌兜底只有 64×64，会让所有尺寸相关验收失去意义。
 - 渲染验收台：`scripts/harness-server.mjs` + 真实浏览器，实测建卡→运行→回流、四个对话框、Del 删除、粘贴导入、生成历史、滚轮缩放、左键平移、拖拽吸附与对齐线、锁定画布、成本徽章与预算闸门、裁剪/切分/放大/蒙版四个对话框。
 - 真实出图链路验证过两次（火山 Seedream 5.0 pro，1024x1024，单张 0.20 元）：一次走 imagora 配置，一次走插件内配置。
@@ -47,11 +47,11 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 ## 待办
 
 - [x] 市场可搜索：自托管索引 + GitHub Pages，实测搜到并安装成功。发 npm 只是可选增强（`dsh plugin add dsh-imagora-desk` 直接装）
-- [x] 自动化 UI 测试：`pnpm run test:ui` 用真实浏览器跑 68 条断言；host 侧另有 6 条任务池 TTL 断言（弹窗结构 / 提示词浮层 / 蒙版底图 / 预算输入 / 生成历史版面 / 右键菜单与框选 / 自动整理 / 中文输入法 / 重新认领 / 无页面异常）。浏览器找不到时打 SKIP 退 0，CI 仍只跑 `pnpm run test`
+- [x] 自动化 UI 测试：`pnpm run test:ui` 用真实浏览器跑 87 条断言；host 侧另有 6 条任务池 TTL 断言（弹窗结构 / 提示词浮层 / 蒙版底图 / 预算输入 / 生成历史版面 / 右键菜单与框选 / 自动整理 / 中文输入法 / 重新认领 / 无页面异常）。浏览器找不到时打 SKIP 退 0，CI 仍只跑 `pnpm run test`
 - [x] 生成历史「双源并存」：插件出的图现在按 `core/logging.py` 的格式追加进同一份账本（`src/host/ledger.js`），历史里能看见；写入闸门见下
 - [x] 生成历史成本条的「日预算 / 单次上限」输入框（原版 CostBoard）：落在 `<输出目录>/.budget.json`，与原版共读一份；语义是「超限需确认」，见 [决策](.agents/notes/2026-11-08-budget-two-layers.md)
 - [x] 生成历史里提示词的鼠标悬浮：改用原版 `PromptCell`（2 行截断，真被截断才出跟随鼠标的深色浮层）
-- [x] 设置弹窗改原版结构：两个下拉 +「生效中」只读表（照 `ConfigEditorModal`，未恢复三页签）
+- [x] 设置弹窗改原版结构：两个下拉 +「生效中」只读表（照 `ConfigEditorModal`，未恢复三页签）。2026-11-16 再改一轮：三组一屏、草稿 + footer 一次提交（删掉字段自带的 4 个提交按钮）、两列栅格、接口字段按来源渐进披露；顺带修好「模型下拉初值取到空串」与「切模型保存不了」两个 bug
 - [x] 其余弹窗收口：比例与涂/擦模式用原版 `chip--sm`、粘贴导入换原版预览卡、帮助弹窗照原版文案
 
 功能对照全表 → [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md)
