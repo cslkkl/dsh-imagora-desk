@@ -2,13 +2,23 @@
 // 不提交真实生图任务（不花钱），只验证配置解析、上传、文件服务、错误分支与工作流落盘。
 import { createHash } from 'node:crypto'
 import { createServer } from 'node:http'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { resolveApiPaths } from '../src/host/config.js'
 import { publicErrorBody } from '../src/host/errors.js'
 import { readLedger, summarize } from '../src/host/history.js'
 import { sniffExt } from '../src/host/generate.js'
+import { Store } from '../src/host/store.js'
 import { LEDGER_NAME, appendGeneration, buildRecord, displayPath, ledgerRoot } from '../src/host/ledger.js'
 
 // 用临时目录跑：不往真实画布目录里塞测试资产与恢复快照
@@ -921,6 +931,79 @@ try {
     displayPath('C:\\x', 'D:\\y\\z.png'),
   )
   rmSync(ledgerWriteRoot, { recursive: true, force: true })
+
+  // ---------------- 恢复快照：与原版命名共存 ----------------
+  // 回归（2026-11-16 实测踩中）：共用模式下插件与原版 Imagora 写同一个 `.recovery/`，
+  // 两族文件名不同（`2026-…Z.json` 与 `recovery_<ns>_<seq>.json`）。旧实现按文件名字典序
+  // 排序 —— `'2' < 'r'`，插件刚写的快照排在首位、被「留最近 N 份」删掉；而 `latest`
+  // 取字典序最大者，永远返回原版那几份旧的。症状：保存返回 200 但目录里不新增文件，
+  // 切 tab 回来恢复成很久以前的画布。
+  {
+    const recoveryRoot = mkdtempSync(join(tmpdir(), 'imagora-recovery-'))
+    const recoveryDir = join(recoveryRoot, 'output', 'workflows', '.recovery')
+    mkdirSync(recoveryDir, { recursive: true })
+
+    // 原版命名 5 份，mtime 压到 2026-11-09（旧的）
+    const oldSeconds = 1_762_688_795
+    for (let i = 1; i <= 5; i += 1) {
+      const file = join(recoveryDir, `recovery_179421759573960790${i}_0001.json`)
+      writeFileSync(
+        file,
+        JSON.stringify({
+          version: 2,
+          name: `recovery_old_${i}`,
+          savedAt: '2026-11-09 17:46:35',
+          nodes: [{ id: `old-${i}`, type: 'prompt', position: { x: 0, y: 0 }, data: {} }],
+          edges: [],
+        }),
+        'utf8',
+      )
+      utimesSync(file, oldSeconds, oldSeconds)
+    }
+
+    const store = new Store(recoveryRoot)
+    store.setSharedRoot(recoveryRoot)
+    await store.saveRecovery({
+      nodes: [{ id: 'fresh', type: 'prompt', position: { x: 1, y: 2 }, data: { prompt: '新内容' } }],
+      edges: [],
+    })
+
+    const afterSave = readdirSync(recoveryDir).filter(name => name.endsWith('.json'))
+    check('快照：插件刚写的那份没被轮转删掉', afterSave.length === 6, `${afterSave.length} 个：${afterSave.join(',')}`)
+    check(
+      '快照：原版那 5 份一个没动',
+      afterSave.filter(name => name.startsWith('recovery_')).length === 5,
+      String(afterSave.filter(name => name.startsWith('recovery_')).length),
+    )
+
+    const latest = await store.latestRecovery()
+    check(
+      '快照：latest 返回刚写的那份而不是原版旧文件',
+      latest?.nodes?.[0]?.id === 'fresh',
+      JSON.stringify(latest?.nodes?.[0]?.id),
+    )
+
+    // 最新一份损坏 → 跳过它继续往下找（旧实现直接抛，画布表现为打不开）
+    const mine = afterSave.find(name => !name.startsWith('recovery_'))
+    writeFileSync(join(recoveryDir, mine), '{ 半个 JSON', 'utf8')
+    const afterBroken = await store.latestRecovery()
+    check(
+      '快照：最新一份损坏时跳过，继续找可用的',
+      afterBroken?.ok === true && Boolean(afterBroken.nodes?.length),
+      JSON.stringify(afterBroken?.nodes?.[0]?.id),
+    )
+
+    // 版本不认识也跳过（原版只认 v1/v2）
+    writeFileSync(
+      join(recoveryDir, '2026-11-16T09-99-99-999Z.json'),
+      JSON.stringify({ version: 99, nodes: [], edges: [] }),
+      'utf8',
+    )
+    const afterBadVersion = await store.latestRecovery()
+    check('快照：版本不认识时跳过', afterBadVersion?.version !== 99, String(afterBadVersion?.version))
+
+    rmSync(recoveryRoot, { recursive: true, force: true })
+  }
 
   rmSync(SHARED_ROOT, { recursive: true, force: true })
 } finally {

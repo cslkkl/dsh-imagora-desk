@@ -17,7 +17,7 @@
 // 条目直接存 absPath）。读的时候两种都认，写的时候「跟着当前所处的目录」走 ——
 // 共用模式必须写 v2，否则原版读不到。
 import { createHash, randomUUID } from 'node:crypto'
-import { createReadStream, existsSync, readdirSync } from 'node:fs'
+import { createReadStream, existsSync, readdirSync, statSync } from 'node:fs'
 import { mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { extname, join, relative, resolve, sep } from 'node:path'
 
@@ -345,33 +345,72 @@ export class Store {
     const file = join(this.recoveryDir, `${stamp}.json`)
     const body = JSON.stringify({ version: 1, name: `自动恢复 ${stamp}`, savedAt: stamp, ...payload }, null, 2)
     await writeFile(file, body, 'utf8')
-    // 只留最近 5 份，避免快照堆积（原版是 20；插件这边改动频繁，5 份够回溯）
-    const names = readdirSync(this.recoveryDir)
-      .filter(name => name.endsWith('.json'))
-      .sort()
-    for (const old of names.slice(0, Math.max(0, names.length - 5))) {
+    await this.pruneRecovery()
+    return { ok: true, name: `自动恢复 ${stamp}`, savedAt: stamp }
+  }
+
+  /**
+   * 快照文件按「谁写的」分两族：
+   *   - 插件自己：`2026-11-16T07-04-42-145Z.json`（ISO 时间戳）
+   *   - 原版 Imagora：`recovery_<纳秒>_<序号>.json`（共用模式下同一个目录）
+   * 两族混在一起时，**按文件名字典序排会排错**：`'2' < 'r'`，插件的新快照会被
+   * 排到最前面，于是「留最新 N 份」的逻辑反而把刚写的那份删掉（实测：保存接口
+   * 返回 200，目录里却什么也没多）。排序一律按 mtime，命名规则无关。
+   */
+  recoveryFiles() {
+    let names = []
+    try {
+      names = readdirSync(this.recoveryDir).filter(name => name.endsWith('.json'))
+    } catch {
+      return []
+    }
+    const rows = []
+    for (const name of names) {
+      const path = join(this.recoveryDir, name)
+      let mtime = 0
       try {
-        await unlink(join(this.recoveryDir, old))
+        mtime = statSync(path).mtimeMs
+      } catch {
+        continue
+      }
+      rows.push({ name, path, mtime })
+    }
+    // 新 → 旧
+    return rows.sort((a, b) => b.mtime - a.mtime)
+  }
+
+  /** 只轮转插件自己写的那些（`recovery_*` 归原版自己管，插件不动它的）。 */
+  async pruneRecovery(limit = 5) {
+    const mine = this.recoveryFiles().filter(row => !row.name.startsWith('recovery_'))
+    for (const row of mine.slice(Math.max(0, limit))) {
+      try {
+        await unlink(row.path)
       } catch {
         // 删不掉不影响本次保存
       }
     }
-    return { ok: true, name: `自动恢复 ${stamp}`, savedAt: stamp }
   }
 
+  /**
+   * 最近一份**可用**快照。与 `core/graphstore.py` 的 `recovery_latest()` 同口径：
+   * 按新旧顺序逐个试，损坏 / 版本不认识 / 结构不对的**跳过继续往下找**，
+   * 而不是让整个恢复失败（原来一处 JSON 坏就抛给上层，画布表现为「打不开」）。
+   */
   async latestRecovery() {
-    let names = []
-    try {
-      names = readdirSync(this.recoveryDir)
-        .filter(name => name.endsWith('.json'))
-        .sort()
-    } catch {
-      return { ok: true, empty: true }
+    for (const row of this.recoveryFiles()) {
+      let data
+      try {
+        data = JSON.parse(await readFile(row.path, 'utf8'))
+      } catch {
+        continue
+      }
+      if (!data || typeof data !== 'object') continue
+      // 原版写 v2、插件写 v1，两种都认（与 WORKFLOW_LOAD_VERSIONS = (1, 2) 一致）
+      if (data.version !== 1 && data.version !== 2) continue
+      if (!Array.isArray(data.nodes) || !Array.isArray(data.edges)) continue
+      return { ok: true, ...data }
     }
-    const last = names[names.length - 1]
-    if (!last) return { ok: true, empty: true }
-    const data = JSON.parse(await readFile(join(this.recoveryDir, last), 'utf8'))
-    return { ok: true, ...data }
+    return { ok: true, empty: true }
   }
 
   /**
