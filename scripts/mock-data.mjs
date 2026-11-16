@@ -112,6 +112,8 @@ const live = {
   localBudget: { ...MOCK_BUDGET },
   /** 最近一次 `/recovery/save` 收到的快照；null = 还没存过（用夹具那份）。 */
   recovery: null,
+  /** 由 `__harness` 钩子打开：latest 返回空（用于「重新认领」那组需要干净起点的用例）。 */
+  emptyCanvas: false,
 }
 
 export function defineConfig(path, url, rawBody) {
@@ -292,10 +294,51 @@ export function defineConfig(path, url, rawBody) {
     return 'png'
   }
 
+  // 验收台专用：把画布状态清成「刚装好」——没有快照、没有夹具。
+  // 只给 test:ui 用；真 host 没有这个路由。有了它，「重新认领」这类依赖
+  // 「恢复出来的到底是哪份快照」的用例才能确定性断言，不必和夹具抢时序。
+  if (path === '/imagora/__harness/reset-canvas') {
+    live.recovery = null
+    live.emptyCanvas = true
+    // 之后任何自动保存都当作没发生，直到播种那次带 x-harness-force 的写进来。
+    // 为什么必须这样：reload 会触发旧页面的「卸载前 flush」，它写的是**旧画布**，
+    // 正好盖掉刚播下的种子 —— 实测为此白跑三轮。真 host 上这是正确的行为
+    // （离开就该落盘），只是测试需要一个确定性的起点。
+    live.ignoreSaves = true
+    return { ok: true }
+  }
+
+  // 任务快照：验收台没有真实任务池，这里按 id 回一份固定的「运行中」。
+  // 存在的意义是验「重新认领」——画布重挂载后按节点 data 里的 taskId 回来问一句，
+  // 拿得到 queued/running 就该重新挂上轮询；回了 404 就该清掉 id 回归 idle。
+  if (path === '/imagora/task') {
+    const id = url.searchParams.get('id') || ''
+    if (!id) return { error: 'not found' }
+    if (id === 't_gone') return null // 模拟宿主重启过：任务真的没了
+    return {
+      taskId: id,
+      status: 'running',
+      startedAt: Date.now() - 5000,
+      finishedAt: null,
+      results: [],
+      messages: ['图生图 · 参考图 1 张'],
+      totalCost: 0,
+      error: null,
+      cancelRequested: false,
+    }
+  }
+
+  if (path === '/imagora/task/cancel') {
+    return { ok: true, status: 'running' }
+  }
+
   // 快照保存：真 host 写 output/workflows/.recovery/*.json；验收台只记在内存里，
   // 之后 `/recovery/latest` 优先返回这一份。有了它才能验收「离开画布前把改动
   // flush 下去」这条（不实现的话保存静默 404，恢复永远读夹具，回归测不出来）。
   if (path === '/imagora/recovery/save') {
+    if (live.ignoreSaves) {
+      return { ok: true, name: '（验收台忽略的自动保存）', savedAt: new Date().toISOString() }
+    }
     live.recovery = {
       name: '验收台快照',
       savedAt: new Date().toISOString(),
@@ -305,10 +348,34 @@ export function defineConfig(path, url, rawBody) {
     return { ok: true, name: live.recovery.name, savedAt: live.recovery.savedAt }
   }
 
+  /**
+   * 播种：直接给出「重启后该看到的那份快照」。
+   *
+   * 注意 `ignoreSaves` 保持开启 —— 播种之后 reload 会触发旧页面卸载前的 flush，
+   * 那一次写的是**旧画布**，必须继续被忽略，否则刚播的种子当场被盖掉（实测三轮）。
+   * 本块用例只关心「挂载时读到什么」，不需要后续自动保存生效。
+   */
+  if (path === '/imagora/__harness/seed-canvas') {
+    live.recovery = {
+      name: '验收台种子快照',
+      savedAt: new Date().toISOString(),
+      nodes: Array.isArray(patch.nodes) ? patch.nodes : [],
+      edges: Array.isArray(patch.edges) ? patch.edges : [],
+    }
+    live.emptyCanvas = false
+    return { ok: true, nodes: live.recovery.nodes.length }
+  }
+
   if (path === '/imagora/recovery/latest') {
     // 存过快照就返回它，语义与真 host 一致：latest = 最近一次自动保存
     if (live.recovery) {
       return { ok: true, empty: false, ...live.recovery }
+    }
+    // 空白模式（由下面的 __harness 钩子打开）：给「重新认领」那组用例一个干净起点。
+    // 默认夹具 5 个节点会让它分不清恢复出来的到底是夹具还是探针快照 —— 实测为此
+    // 白跑了两轮排查。
+    if (live.emptyCanvas) {
+      return { ok: true, empty: true }
     }
     // ⚠️ 这里的 edges **故意照抄原版 Imagora 真实存档的形态**：
     // 每条边都带 `style.stroke: "var(--edge-stroke-idle)"` 与 `animated: true`。
