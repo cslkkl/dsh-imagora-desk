@@ -455,14 +455,9 @@ body[data-ds-dark-theme] {
   margin-bottom: 5px;
 }
 /* 字段级说明小字：与原版配置弹窗同一档（11px / 三级文字色） */
-/* 一组同类字段的容器：参数说明里成组出现（接口三项、目录两项） */
-.im-fieldset {
-  display: grid;
-  gap: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--im-line);
-}
-/* 字段下面那排按钮：按钮多时自动换行，不挤成一条 */
+/* 字段下面那排按钮：按钮多时自动换行，不挤成一条。
+ * 设置弹窗改造后已无调用点（它从「每个字段自带提交按钮」改成「footer 一次提交」），
+ * 保留是因为节点卡与后续表单仍可能需要；真不需要时再删。 */
 .im-field-actions {
   display: flex;
   gap: 8px;
@@ -482,6 +477,162 @@ body[data-ds-dark-theme] {
 }
 .im-field-state.is-ok { color: var(--im-ok); }
 .im-field-state.is-warn { color: var(--im-warn); }
+
+/* ---------------- 设置弹窗（canvas/settings-dialog.tsx） ----------------
+ *
+ * 这一块是 2026-11-16 重写的。旧版把六个块平铺（两个下拉 / 插件内接口 / 生效中规格表 /
+ * 目录 / 输出目录 / 预算），七个字段全竖排，内容高 1080px 而可视区只有 622px；
+ * 组标题与字段 label 的**字号、字重、颜色完全相同**（只有 margin 差 3px），
+ * 四条一模一样的 1px 分隔线不表达任何层级。
+ *
+ * 现在：两列栅格（左 label / 右控件）+ 三级层级（组标题 13/600/主文字色、
+ * 字段 label 12/500/二级色、提示 11.5/三级色）+ 分隔只出现在组之间。
+ *
+ * 为什么 label 走左列而不是在控件上方：七个字段各省约 20px，叠加「生效中」从三行表
+ * 收成一行状态句省掉的约 175px，整屏才进得了可视区（不用滚 458px 才看到预算）。 */
+.im-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+/* 「生效中」：一行事实。它回答「现在实际在用什么」，只在保存后变 ——
+   做成输入框会让人以为能在那儿改（上游同一判断）。 */
+.im-settings-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--im-ink-3);
+}
+.im-settings-status b {
+  font-weight: 600;
+  color: var(--im-ink-2);
+}
+.im-settings-chip {
+  margin-left: 2px;
+}
+/* 一组决定：组标题比字段 label 大一档，靠字重与颜色再拉开一次 */
+.im-settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--im-line);
+}
+.im-settings-group-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--im-ink);
+}
+/* 两列栅格：label 右对齐、与输入框首行对齐（输入框 40px 高、14px 字，
+   首行中点约 12px，故 padding-top 取 9px 视觉最齐）。
+   列宽 9.5rem 是量出来的：「图片输出目录」7 个汉字在 12px 下约 84px，
+   8.5rem(=136px) 时它被折成两行、把行高撑高一倍。 */
+.im-field-row {
+  display: grid;
+  grid-template-columns: 9.5rem minmax(0, 1fr);
+  column-gap: 16px;
+  align-items: start;
+}
+.im-field-label {
+  padding-top: 9px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--im-ink-2);
+  text-align: right;
+  line-height: 1.4;
+}
+.im-field-main {
+  min-width: 0;
+}
+/* 控件 + 它右侧的动作按钮（选择… / 测试连通 / 打开）。按钮在这一行而**不在**
+   label 列：label 列只有 9.5rem，塞进去会把「API Key」挤成两行。 */
+.im-field-control {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.im-field-control > .im-field,
+.im-field-control > .im-select-root {
+  flex: 1;
+  min-width: 0;
+}
+.im-field-control > .im-btn-ghost {
+  flex: none;
+}
+/* 窄屏（宿主侧栏拉宽、或面板被挤到很窄时）栅格塌成一列：
+   label 回到控件上方、左对齐。8.5rem 的固定列在 360px 以下会吃掉三分之一宽度。 */
+@media (max-width: 620px) {
+  .im-field-row {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 4px;
+  }
+  .im-field-label {
+    padding-top: 0;
+    text-align: left;
+  }
+}
+/* 「这组字段收起时」那一行说明：与 hint 同档，但整行缩进对齐到控件列，
+   读起来像「这一栏的补充」，而不是一个新的字段标题。 */
+.im-settings-hint-line {
+  margin: 0;
+  padding-left: calc(9.5rem + 16px);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--im-ink-3);
+}
+@media (max-width: 620px) {
+  .im-settings-hint-line {
+    padding-left: 0;
+  }
+}
+.im-settings-probe {
+  margin-top: -4px;}
+.im-settings-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: -4px;
+}
+/* 危险动作（清空插件内配置）：放在组内、二次确认后才出现按钮。
+   旧版它是 footer 的第一个按钮，紧挨「取消」，ghost 样式、点了立刻写盘关窗。 */
+.im-settings-danger {
+  padding: 10px 12px;
+  border-radius: var(--im-r-sm);
+  background: color-mix(in srgb, var(--im-danger) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--im-danger) 24%, transparent);
+}
+.im-settings-danger-text {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--im-ink-2);
+}
+.im-settings-danger-actions {
+  display: flex;
+  gap: 8px;
+}
+.im-settings-danger-link {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--im-danger);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.im-settings-danger-link:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 
 /* 只读「键 → 值」规格表：照搬原版 .spec-list（index.css:1226）。
    用在设置弹窗的「生效中」一段 —— 那几条是**事实**不是输入项（改文件才能动它），
