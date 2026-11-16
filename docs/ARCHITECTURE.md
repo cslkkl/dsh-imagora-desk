@@ -363,7 +363,7 @@ try/except 静默），所以 `appendGeneration` 只回 `boolean`，不抛错。
   `toBlob` 返回 null）都返回原图地址，绝不让图变成空白。
 
 为什么在浏览器里缩、而不是让 host 出缩略图：host 要缩图就得引入图像库，而插件有一条
-「运行期零依赖」的既有决策（[决策](../../.agents/notes/2026-11-06-self-owned-build-deps.md)），
+「运行期零依赖」的既有决策（[决策](../.agents/notes/2026-11-06-self-owned-build-deps.md)），
 为缩图破例不划算；且这是显示层问题，不该压给存储层。
 
 ## 恢复快照要过的筛子
