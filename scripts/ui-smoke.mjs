@@ -369,6 +369,64 @@ try {
   await page.keyboard.press('Escape')
   await mask.waitFor({ state: 'detached' })
 
+  // ---------------- 切分：走 lib/imageSplit 的预设 + 手填 + 文件名预览 ----------------
+  // 回归：这一版之前组件里手写了一个 splitImage()（Math.floor 逐格 drawImage），
+  // 行列上限硬编码 6、没有预设、没有文件名预览，而确认按钮还写了 `|| !size` ——
+  // 正好是上游明令禁止的那条（读尺寸慢一点按钮就点不动）。现在切图算法来自
+  // lib/imageSplit.ts（与上游逐字相同的那份），这里验三件事：预设能点、手填夹紧、
+  // 文件名按上游规则生成。
+  {
+    const imageNode = page
+      .locator('.react-flow__node')
+      .filter({ has: page.locator('.im-thumb') })
+      .first()
+    await imageNode.click()
+    await page.waitForTimeout(150)
+    await page.locator('button[aria-label="切分图片"]').first().click()
+    const split = page.getByRole('dialog')
+    await split.waitFor()
+    await page.waitForTimeout(300)
+
+    const presets = await split.locator('.im-split-presets button').allInnerTexts()
+    check('切分弹窗有上游那套网格预设', presets.length === 5, presets.join(' | '))
+
+    // 点 3 × 3 预设 → 汇总跟着变
+    await split.locator('.im-split-presets button', { hasText: '3 × 3' }).first().click()
+    await page.waitForTimeout(200)
+    check(
+      '点预设后汇总显示 9 张',
+      (await split.locator('.im-split-summary').innerText()).startsWith('9 张'),
+      await split.locator('.im-split-summary').innerText(),
+    )
+
+    // 手填超出上限（99）→ 失焦后夹到 8（上游 SPLIT_MAX_COLS / ROWS）
+    const colsInput = split.locator('#split-cols')
+    await colsInput.fill('99')
+    await colsInput.blur()
+    await page.waitForTimeout(200)
+    check('手填列数超上限被夹到 8', (await colsInput.inputValue()) === '8', await colsInput.inputValue())
+
+    // 文件名预览按 splitOutputName 的规则：<stem>-<行>x<列>-<序号>.png
+    // 注意顺序是「行 x 列」：上一步把列夹到 8（列数超限），行仍是 3，所以是 -3x8-。
+    const names = await split.locator('.im-split-name').allInnerTexts()
+    check(
+      '输出文件名预览符合上游规则（stem-行x列-序号.png）',
+      names.length > 0 && /-3x8-1\.png$/.test(names[0] ?? ''),
+      names.join(' | '),
+    )
+
+    // 1 × 1 = 不切：确认按钮禁用并给出提示（上游同一判断）
+    await colsInput.fill('1')
+    await colsInput.blur()
+    await split.locator('#split-rows').fill('1')
+    await split.locator('#split-rows').blur()
+    await page.waitForTimeout(200)
+    check('1 × 1 时确认按钮禁用', await split.locator('.im-modal-footer .im-btn-primary').isDisabled(), '')
+
+    await page.keyboard.press('Escape')
+    await split.waitFor({ state: 'detached' })
+  }
+
   // ---------------- 粘贴导入：预览卡与问题条 ----------------
   await page.getByRole('button', { name: '粘贴导入' }).click()
   const importer = page.getByRole('dialog')

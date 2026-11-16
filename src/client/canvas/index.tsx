@@ -393,6 +393,8 @@ export function CanvasApp() {
       if (kind === 'prompt') addPromptNode(point)
       else addGroupNode(point)
     },
+    // 拖进来的东西里没有图片：必须说一句。上游同一处 pushLog，静默等于「点了没反应」。
+    onRejectFiles: () => flash('没有可用的图片文件：支持 png / jpg / webp / gif / bmp'),
   })
 
   useEffect(() => {
@@ -938,6 +940,7 @@ export function CanvasApp() {
         {dialog?.kind === 'split' && dialog.target ? (
           <SplitDialog
             src={dialog.target.src}
+            name={dialog.target.name}
             onClose={() => setDialog(null)}
             onConfirm={async parts => {
               history.record()
