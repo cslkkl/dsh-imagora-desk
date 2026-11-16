@@ -138,7 +138,11 @@ try {
   const dialog = page.getByRole('dialog')
   await dialog.waitFor()
   const labels = await dialog.locator('.im-field-label, .im-settings-group-title').allInnerTexts()
-  check('设置弹窗有「配置来源」下拉', labels.some(t => t.includes('配置来源')), labels.join(' | '))
+  check(
+    '设置弹窗有「配置来源」下拉',
+    labels.some(t => t.includes('配置来源')),
+    labels.join(' | '),
+  )
   check(
     '设置弹窗有「默认模型」下拉',
     labels.some(t => t.includes('默认模型')),
@@ -146,8 +150,7 @@ try {
   )
   check(
     '「生效中」收成一行状态句（不再是三行只读表）',
-    (await dialog.locator('.im-settings-status').count()) === 1 &&
-      (await dialog.locator('.im-spec-row').count()) === 0,
+    (await dialog.locator('.im-settings-status').count()) === 1 && (await dialog.locator('.im-spec-row').count()) === 0,
     `status=${await dialog.locator('.im-settings-status').count()} specRow=${await dialog.locator('.im-spec-row').count()}`,
   )
   check(
@@ -192,11 +195,7 @@ try {
       const body = el.querySelector('.im-modal-body')
       return body ? { content: body.scrollHeight, visible: body.clientHeight } : null
     })
-    check(
-      '设置内容一屏放得下（无需滚动）',
-      !!fits && fits.content <= fits.visible + 2,
-      JSON.stringify(fits),
-    )
+    check('设置内容一屏放得下（无需滚动）', !!fits && fits.content <= fits.visible + 2, JSON.stringify(fits))
   }
 
   // 切到「插件内配置」→ 接口字段出现（progressive disclosure 的另一半）
