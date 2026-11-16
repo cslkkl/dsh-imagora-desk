@@ -18,6 +18,14 @@ interface Options {
   log: (line: string) => void
   flash: (line: string) => void
   closeDialog: () => void
+  /**
+   * 恢复流程走完（无论接到快照、还是本来就没有）后回调一次，参数是**此刻画布上的节点**。
+   *
+   * 为什么要把节点当参数传、而不是让回调自己读 nodesRef：恢复里刚 `setNodes`，
+   * React 还没重渲染，`nodesRef` 要到下一次渲染才更新。回调里读 ref 会读到空数组，
+   * 任务认领就静默失效（实测踩中过）。这里直接把即将生效的节点交出去，时序上无歧义。
+   */
+  onRestored?: (nodes: WorkflowNode[]) => void
 }
 
 const RECOVERY_DEBOUNCE = 2500
@@ -33,6 +41,7 @@ export function useCanvasWorkflow({
   log,
   flash,
   closeDialog,
+  onRestored,
 }: Options) {
   const timerRef = useRef<number | null>(null)
 
@@ -88,23 +97,29 @@ export function useCanvasWorkflow({
   useEffect(() => {
     let cancelled = false
     const restore = async () => {
+      let effective = nodesRef.current
       try {
         const snapshot = await latestRecovery()
-        if (cancelled || snapshot.empty || !snapshot.nodes?.length) return
-        if (nodesRef.current.length) return
-        const canvas = workflowToCanvas(snapshot.nodes, (snapshot.edges ?? []) as WorkflowEdge[], [])
-        setNodes(canvas.nodes)
-        setEdges(canvas.edges as Edge[])
-        log(`已恢复上次的画布（${snapshot.name ?? '自动恢复'}）`)
+        if (cancelled) return
+        if (!snapshot.empty && snapshot.nodes?.length && !nodesRef.current.length) {
+          const canvas = workflowToCanvas(snapshot.nodes, (snapshot.edges ?? []) as WorkflowEdge[], [])
+          setNodes(canvas.nodes)
+          setEdges(canvas.edges as Edge[])
+          effective = canvas.nodes
+          log(`已恢复上次的画布（${snapshot.name ?? '自动恢复'}）`)
+        }
       } catch {
         // 没有快照或接口不可用，保持空画布
       }
+      // 不管有没有接到快照都要通知一次：没有快照时画布上也可能已经有节点
+      // （宿主保留了组件状态），这些节点的任务照样得认领回来。
+      if (!cancelled) onRestored?.(effective)
     }
     void restore()
     return () => {
       cancelled = true
     }
-  }, [setNodes, setEdges, log, nodesRef])
+  }, [setNodes, setEdges, log, nodesRef, onRestored])
 
   const doSave = useCallback(
     async (name: string) => {

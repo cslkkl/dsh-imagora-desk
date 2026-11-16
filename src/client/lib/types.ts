@@ -314,6 +314,16 @@ export interface CanvasPromptNodeData {
   message?: string | undefined;
   /** 已请求取消、还在等它落地（运行中的任务要等当前这张完成才停）：卡片按钮显示「取消中…」并禁用 */
   cancelRequested?: boolean | undefined;
+  /**
+   * 这张卡当前那次生成的任务 id（宿主任务池里的编号）。
+   *
+   * 为什么它必须进节点 data：任务活在宿主进程里，浏览器只是观察者。切走 tab /
+   * 换窗口会让画布组件卸载，内存里的 taskId 表随之清空 —— 回来后卡片显示「就绪」，
+   * 任务还在跑却再没人问它。存进节点 data，快照就把它一起带上了，回来时据此
+   * **重新认领**（见 use-canvas-tasks 的 resume）。它同时是恢复「切走期间跑完的
+   * 结果」的唯一线索。
+   */
+  taskId?: string | undefined;
   /** 这张卡累计花掉的钱（元）。每完成一次就累加，用于画布成本看板 */
   cost?: number | undefined;
   [key: string]: unknown;

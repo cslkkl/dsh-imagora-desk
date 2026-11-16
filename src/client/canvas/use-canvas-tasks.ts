@@ -3,7 +3,7 @@
 import { useCallback, useEffect, type MutableRefObject } from 'react'
 import type { Edge } from '@xyflow/react'
 import { cancelTask, fetchTask, submitGenerate, type TaskSnapshot } from '../api'
-import { buildImageNode, collectPromptRefImages, updatePromptNode } from '../lib/workflow'
+import { buildImageNode, collectPromptRefImages, pendingTaskRefs, updatePromptNode } from '../lib/workflow'
 import { nodeSize } from '../lib/layout'
 import type { WorkflowEdge, WorkflowNode } from '../lib/types'
 import { errMessage } from '../lib/format'
@@ -86,13 +86,19 @@ export function useGeneratedTasks({
         })
       }
       setNodes(current => {
-        const merged = [...current, ...created]
+        // 去重：重新认领时可能重复收尾（例如两个窗口同时挂着同一个任务），
+        // 而结果节点的 id 就是资产 id，已经存在就不再加一遍。
+        const existing = new Set(current.map(node => node.id))
+        const fresh = created.filter(node => !existing.has(node.id))
+        const merged = fresh.length ? [...current, ...fresh] : current
         return updatePromptNode(merged, nodeId, {
           status: snapshot.status === 'done' ? 'done' : snapshot.status === 'cancelled' ? 'idle' : 'failed',
           resultCount: okResults.length,
           message: snapshot.error ?? undefined,
           startedAtMs: undefined,
           cancelRequested: false,
+          // 收尾了就不再挂着 id，免得下次挂载去问一个已经结束的任务
+          taskId: undefined,
         })
       })
       if (created.length) {
@@ -214,6 +220,9 @@ export function useGeneratedTasks({
         setNodes(current =>
           updatePromptNode(current, nodeId, {
             status: 'queued',
+            // taskId 进节点 data：切走 tab 后画布组件会卸载，内存表随之清空，
+            // 靠这个字段才能在回来时重新认领（见下方 resumeTasks）
+            taskId: submitted.taskId,
             startedAtMs: Date.now(),
             message: undefined,
             resultCount: undefined,
@@ -252,6 +261,27 @@ export function useGeneratedTasks({
     [runPrompt],
   )
 
+  /**
+   * 重新认领：画布重新挂载后，把节点 data 里还挂着的 taskId 逐一问一遍宿主。
+   *
+   * 任务活在宿主进程里，切走 tab 只是让浏览器丢了观察者。所以这里不是「恢复运行态」，
+   * 而是**重新连上还活着的任务**：
+   *   - 排队/运行中 → 挂回轮询，卡片继续显示排队/生成中；
+   *   - 已经跑完（切走期间完成的）→ 走正常收尾，结果图补回画布；
+   *   - 404 → 宿主重启过或任务已淘汰，清掉 id 回到 idle（不假装在跑）。
+   *
+   * 必须等快照恢复完成后再调：恢复会 setNodes 重建整张画布，早于它的认领会被覆盖。
+   */
+  const resumeTasks = useCallback(
+    (canvasNodes: WorkflowNode[]) => {
+      for (const { nodeId, taskId } of pendingTaskRefs(canvasNodes)) {
+        taskIdsRef.current.set(nodeId, taskId)
+        pollTask(nodeId, taskId)
+      }
+    },
+    [taskIdsRef, pollTask],
+  )
+
   // 卸载时清掉所有轮询定时器，避免面板关掉后还在打接口
   useEffect(() => {
     const timers = timersRef.current
@@ -261,5 +291,5 @@ export function useGeneratedTasks({
     }
   }, [timersRef])
 
-  return { runPrompt, cancelPrompt, runMany }
+  return { runPrompt, cancelPrompt, runMany, resumeTasks }
 }

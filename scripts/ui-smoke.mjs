@@ -352,6 +352,68 @@ try {
   })
   check('切走窗口时快照里已有最新内容', saved.hasProbe === true, JSON.stringify(saved))
 
+  // ---------------- 重新认领：切走 tab 再回来，任务还在跑 ----------------
+  // 回归：任务活在宿主进程里，浏览器切走只是丢了观察者。旧实现重挂载后卡片显示
+  // 「就绪」、任务再没人问 —— 白跑一次还烧钱。现在按节点 data 里的 taskId 回来问一句。
+  //
+  // 用验收台的重置钩子拿到干净起点：不做「清空夹具」那套 UI 操作 —— 点和 Delete 的
+  // 时序跟防抖写入纠缠在一起，实测反复误判。
+  {
+    const probeId = 't_resume_smoke'
+    const taskCalls = []
+    page.on('request', r => {
+      if (r.url().includes('/imagora/task?')) taskCalls.push(r.url().split('task?')[1])
+    })
+
+    // 用 page.request 播种（不执行页面脚本），且走 __harness 专用路由：
+    // reload 会触发旧页面的「卸载前 flush」写回旧画布，普通 save 会被它盖掉。
+    const seedSnapshot = async (nodes, edges = []) => {
+      await page.request.post(`${BASE}imagora/__harness/reset-canvas`)
+      await page.request.post(`${BASE}imagora/__harness/seed-canvas`, { data: { nodes, edges } })
+      await page.reload({ waitUntil: 'networkidle' })
+      await page.waitForTimeout(1800)
+    }
+
+    const promptCard = (id, data) => ({
+      id,
+      type: 'prompt',
+      position: { x: 80, y: 80 },
+      data: {
+        prompt: data.prompt,
+        size: '1024x1024',
+        quality: 'high',
+        outputDir: '',
+        status: 'idle',
+        taskId: data.taskId,
+      },
+    })
+
+    taskCalls.length = 0
+    await seedSnapshot([promptCard('resume-probe', { prompt: 'resume probe', taskId: probeId })])
+    const dotClass = await page
+      .locator('.react-flow__node .im-dot')
+      .first()
+      .getAttribute('class')
+      .catch(() => '')
+    check(
+      '重新认领：卡片回到「生成中」而不是「就绪」',
+      Boolean(dotClass && dotClass.includes('is-running')),
+      `dot=${dotClass} nodes=${await page.locator('.react-flow__node').count()} taskCalls=${taskCalls.length}`,
+    )
+    check('重新认领：确实回去问了宿主任务状态', taskCalls.length > 0, taskCalls.slice(0, 2).join(','))
+
+    // 任务真的没了（宿主重启过）时不许假装在跑
+    taskCalls.length = 0
+    await seedSnapshot([promptCard('gone-probe', { prompt: 'gone probe', taskId: 't_gone' })])
+    const goneClass = await page
+      .locator('.react-flow__node .im-dot')
+      .first()
+      .getAttribute('class')
+      .catch(() => '')
+    check('重新认领：任务已不存在时不假装运行中', !String(goneClass).includes('is-running'), String(goneClass))
+    check('重新认领：任务不存在后停止轮询', taskCalls.length <= 2, String(taskCalls.length))
+  }
+
   // ---------------- 全程无 JS 报错 ----------------
   check('全程没有页面异常', pageErrors.length === 0, pageErrors.slice(0, 2).join(' | '))
 } catch (error) {

@@ -237,8 +237,22 @@ export function workflowToCanvas(
   return { nodes: marked, edges: sanitizeEdges(edges) };
 }
 
-/** 更新单个提示词节点的 data（纯函数：不匹配/非提示词节点原样返回，避免无谓新引用）。
- *  幂等：patch 各键与现状一致时不产生新数组（任务轮询重复推送 running 快照时零重渲染）。 */
+/**
+ * 画布上还挂着任务 id 的提示词卡：`[{ nodeId, taskId }]`。
+ *
+ * 画布重新挂载（切走 tab 再回来、换窗口）后，内存里的 taskId 表已经没了，
+ * 但节点 data 里的 taskId 跟着快照活了下来。拿它去问宿主 `GET /task?id=`：
+ * 还在排队/运行就重新挂上轮询，已经跑完就把结果补回画布，404 就说明宿主重启过、
+ * 这个任务真的没了（清掉 id 回归 idle）。纯函数，便于单测。
+ */
+export function pendingTaskRefs(nodes: WorkflowNode[]): { nodeId: string; taskId: string }[] {
+  return nodes
+    .filter((node): node is Extract<WorkflowNode, { type: 'prompt' }> => node.type === 'prompt')
+    .map(node => ({ nodeId: node.id, taskId: String(node.data.taskId ?? '') }))
+    .filter(row => Boolean(row.taskId))
+}
+
+/** 更新单个提示词节点的 data（纯函数：不匹配/非提示词节点原样返回，避免无谓新引用）。 *  幂等：patch 各键与现状一致时不产生新数组（任务轮询重复推送 running 快照时零重渲染）。 */
 export function updatePromptNode(
   nodes: WorkflowNode[],
   nodeId: string,

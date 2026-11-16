@@ -135,7 +135,7 @@ export function CanvasApp() {
     setPreview,
     record: history.record,
   })
-  const { runPrompt, cancelPrompt, runMany } = useGeneratedTasks({
+  const { runPrompt, cancelPrompt, runMany, resumeTasks } = useGeneratedTasks({
     nodesRef,
     edgesRef,
     setNodes,
@@ -156,6 +156,8 @@ export function CanvasApp() {
     log,
     flash,
     closeDialog: () => setDialog(null),
+    // 快照恢复完成后认领还活着的任务（切走 tab 再回来时要接着跑）
+    onRestored: resumeTasks,
   })
 
   /* ---------------- 撤销 / 重做 ---------------- */
