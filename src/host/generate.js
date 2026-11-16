@@ -45,6 +45,25 @@ function fail(status, detail) {
 }
 
 /**
+ * 按文件头判定扩展名。
+ *
+ * 为什么需要：同一个模型可能回静态 PNG，也可能回**多帧动画 GIF**（提示词里点明
+ * 帧数时）。响应里没有可靠的格式字段，写死 `.png` 会让 GIF 落地成 `.png` ——
+ * 磁盘上双击打不开，图床按扩展名发错的 Content-Type，动图直接变成一张静帧。
+ * 认不出的（非图片 / 字节太短）一律按 `.png` 处理，不猜。
+ */
+export function sniffExt(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 12) return '.png'
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) return '.png'
+  if (buffer[0] === 0xff && buffer[1] === 0xd8) return '.jpg'
+  const head6 = buffer.toString('latin1', 0, 6)
+  if (head6 === 'GIF87a' || head6 === 'GIF89a') return '.gif'
+  if (buffer.toString('latin1', 0, 4) === 'RIFF' && buffer.toString('latin1', 8, 12) === 'WEBP') return '.webp'
+  if (buffer[0] === 0x42 && buffer[1] === 0x4d) return '.bmp'
+  return '.png'
+}
+
+/**
  * 生成一张图并返回二进制内容。
  * @param {object} config - loadImagoraConfig() 的结果
  * @param {{prompt: string, size: string, quality: string, refs: string[], mask?: Buffer|null}} input
@@ -114,20 +133,22 @@ export async function generateImage(config, input) {
   if (!item) throw new Error(`接口响应没有图片数据：${JSON.stringify(body).slice(0, 240)}`)
 
   if (item.b64_json) {
+    // 扩展名按真实字节定，不信「模型只会回 PNG」这个假设（2.6 会回多帧 GIF）。
+    const buffer = Buffer.from(item.b64_json, 'base64')
     return {
-      buffer: Buffer.from(item.b64_json, 'base64'),
-      ext: '.png',
+      buffer,
+      ext: sniffExt(buffer),
       meta: { mode: refs.length ? 'img2img' : 'txt2img' },
     }
   }
   if (item.url) {
     const file = await fetch(item.url, { signal: AbortSignal.timeout(300_000) })
     if (!file.ok) throw new Error(`下载结果图失败（HTTP ${file.status}）`)
-    const type = file.headers.get('content-type') || 'image/png'
-    const ext = type.includes('jpeg') ? '.jpg' : type.includes('webp') ? '.webp' : '.png'
+    const buffer = Buffer.from(await file.arrayBuffer())
+    // 同样以字节为准：中转站的 content-type 常写成 image/png 而实际是 GIF。
     return {
-      buffer: Buffer.from(await file.arrayBuffer()),
-      ext,
+      buffer,
+      ext: sniffExt(buffer),
       meta: { mode: refs.length ? 'img2img' : 'txt2img', upstreamUrl: item.url },
     }
   }

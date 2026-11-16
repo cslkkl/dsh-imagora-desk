@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import { resolveApiPaths } from '../src/host/config.js'
 import { publicErrorBody } from '../src/host/errors.js'
 import { readLedger, summarize } from '../src/host/history.js'
+import { sniffExt } from '../src/host/generate.js'
 import { LEDGER_NAME, appendGeneration, buildRecord, displayPath, ledgerRoot } from '../src/host/ledger.js'
 
 // 用临时目录跑：不往真实画布目录里塞测试资产与恢复快照
@@ -242,6 +243,14 @@ try {
   check('地址含版本段时路径不重复加 v1', versioned.generations === '/images/generations', versioned.generations)
   const bare = resolveApiPaths('https://api.example.com')
   check('地址无版本段时补 /v1', bare.generations === '/v1/images/generations', bare.generations)
+  // 扩展名按真实字节定：上游可能回 JPEG，也可能回多帧 GIF，不能一律写死 .png
+  check('sniffExt 按文件头认 GIF', sniffExt(Buffer.from('GIF89a\x10\x00\x10\x00\x00\x00\x00\x00', 'latin1')) === '.gif')
+  check(
+    'sniffExt 按文件头认 PNG',
+    sniffExt(Buffer.from([0x89, 0x50, 0x4e, 0x47, 13, 10, 26, 10, 0, 0, 0, 0])) === '.png',
+  )
+  check('sniffExt 按文件头认 JPEG', sniffExt(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0])) === '.jpg')
+  check('sniffExt 认不出时按 .png 兜底', sniffExt(Buffer.from('generated', 'utf8')) === '.png')
   check('POST /provider 去尾斜杠并生效', withProvider.provider?.baseUrl === 'https://example.invalid/v1')
   check('POST /provider 密钥只报已配置', withProvider.provider?.apiKeyConfigured === true)
   check('POST /provider 响应不含密钥明文', !JSON.stringify(withProvider).includes('sk-smoke-secret'))
