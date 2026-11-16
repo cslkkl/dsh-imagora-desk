@@ -53,6 +53,7 @@
 - 右键菜单的内容与位置算术：`contextMenu`（`buildNodeMenu` 按节点类型排项、`clampMenuPosition` 贴边夹取、`menuHeight` 推高度；纯函数，渲染在 `canvas/node-context-menu.tsx`）。
 - 下拉框相关：`optionGroups`（分组）、`popupLayer`（浮层栈，Esc 让位）、`rankByName`（搜索排序）、`apiCatalog`、`customValue`（自由输入归一化）。
 - 画布卡片的缩略图：`thumbnails`（长边 512、模块级会话缓存、LRU + `revokeObjectURL`）与 `useThumbnail`（取数 hook）。**卡片只用缩略图，原图留给预览 / 裁剪 / 放大 / 蒙版**——原图 12 MP，摊开一次约 48 MB，而卡片只显示 128×160。
+- 成本看板的显示口径：`cost`（`formatMoney` / `formatRate` / `formatSeconds` / `statRows`）。**金额、百分比、耗时的格式只在这里改**——历史弹窗曾经自己拼 `avgSeconds.toFixed(1)+"s"`，于是同一个数在原版显示 `2m36s`、插件显示 `156.3s`。
 - 大图预览的缩放与平移换算：`previewZoom`；剪贴板写入：`imageCopy`。
 
 ## 被谁依赖

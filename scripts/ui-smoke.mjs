@@ -182,6 +182,77 @@ try {
     String(await budgetInputs.count()),
   )
 
+  // ---------------- 生成历史：成本条与原版同构 ----------------
+  // 三段版面：指标 5 格 + 预算设置同一排 → 按尺寸独立一行 → 列表。
+  // 「按尺寸」早先被塞进指标网格的第 6 格，于是整行换行、预算被顶到第二排，
+  // 成本条因此高 130px；指标格里也放不下金额，只剩「尺寸 ×数量」。
+  check(
+    '成本条：指标与预算设置在同一排（按尺寸没占指标格）',
+    await history.evaluate(el => {
+      const grid = el.querySelector('.im-history-stat-grid')
+      const budget = el.querySelector('.im-history-budget')
+      if (!grid || !budget) return false
+      if (grid.children.length !== 5) return false
+      return Math.abs(grid.getBoundingClientRect().top - budget.getBoundingClientRect().top) < 40
+    }),
+    `指标格=${await history.locator('.im-history-stat-grid > *').count()}`,
+  )
+  check(
+    '成本条：按尺寸独立一行，并带出金额',
+    await history.evaluate(el => {
+      const sizes = el.querySelector('.im-history-sizes')
+      if (!sizes) return false
+      const grid = el.querySelector('.im-history-stat-grid')
+      if (grid && grid.contains(sizes)) return false
+      return /元/.test(sizes.textContent || '')
+    }),
+    (
+      await history
+        .locator('.im-history-sizes')
+        .innerText()
+        .catch(() => '')
+    ).replace(/\s+/g, ' '),
+  )
+
+  // 一行控件同高：搜索框 / 状态下拉 / 按钮 / 金额框都读同一个 --im-row-h。
+  // 早先是四档：.im-field 38、搜索框 31、金额框 26、按钮 22。
+  const rowHeights = await history.evaluate(el => {
+    const h = n => (n ? Math.round(n.getBoundingClientRect().height) : null)
+    return {
+      search: h(el.querySelector('.im-history-search')),
+      status: h(el.querySelector('.im-history-status .im-select-trigger')),
+      searchBtn: h([...el.querySelectorAll('.im-history-bar button')].find(n => n.textContent.trim() === '搜索')),
+      budget: h(el.querySelector('.im-history-budget-input')),
+      budgetBtn: h(el.querySelector('.im-history-budget button')),
+      rowH: Number(
+        el.ownerDocument.defaultView
+          .getComputedStyle(el.querySelector('.im-history-bar'))
+          .getPropertyValue('--im-row-h')
+          .replace('px', ''),
+      ),
+    }
+  })
+  check(
+    '一行控件同高（搜索框 / 下拉 / 按钮 / 金额框）',
+    new Set([rowHeights.search, rowHeights.status, rowHeights.searchBtn, rowHeights.budget, rowHeights.budgetBtn])
+      .size === 1,
+    JSON.stringify(rowHeights),
+  )
+
+  // 状态下拉必须是自绘 Select（原版 Select.tsx），不是原生 <select>：
+  // 原生那版的圆角、字号、箭头全由浏览器决定，跟旁边的输入框永远不同高。
+  check(
+    '状态筛选是自绘下拉（不是原生 select）',
+    (await history.locator('select').count()) === 0 &&
+      (await history.locator('.im-history-status .im-select-trigger').count()) === 1,
+    `原生=${await history.locator('select').count()}`,
+  )
+  check(
+    '状态下拉放得下「全部状态」四字（不被省略号截断）',
+    await history.locator('.im-history-status .im-select-label').evaluate(el => el.scrollWidth <= el.clientWidth),
+    await history.locator('.im-history-status .im-select-label').innerText(),
+  )
+
   // 逐字输入小数：中间态 "0." 必须能留住
   const daily = budgetInputs.first()
   await daily.fill('')

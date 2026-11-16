@@ -21,6 +21,7 @@ src/client/lib/snapGuide.ts
 src/client/lib/snapDrag.ts
 src/client/lib/customValue.ts
 src/client/lib/contextMenu.ts
+src/client/lib/cost.ts
 src/client/lib/thumbnails.ts
 src/client/lib/useThumbnail.ts
 ```

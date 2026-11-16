@@ -1292,6 +1292,31 @@ body[data-ds-dark-theme] {
   min-height: 0;
   height: 100%;
 }
+/* 两条带子（标题带 / 成本条）里的控件**同高、同字号**：高度由带子定死，
+ * 子控件填满，而不是让每个控件带着自己的 padding 各自算。
+ *
+ * 各写各的必然参差，实测就是这么四档挤在一行里：
+ *   .im-field 默认 padding 8px 20px + 14px → 38、
+ *   搜索框自己写 4px → 31、金额框写死 26、.im-btn-sm → 22。
+ * 统一取 --im-h-ctl（顶栏那一档，与 .im-header 里那排同一套写法）。
+ * 见 .agents/notes/2026-11-16-history-row-controls.md */
+.im-history-bar,
+.im-history-budget {
+  --im-row-h: var(--im-h-ctl);
+}
+.im-history-bar .im-field,
+.im-history-bar .im-select-trigger,
+.im-history-bar .im-btn-ghost,
+.im-history-bar .im-btn-primary,
+.im-history-stats .im-field,
+.im-history-stats .im-btn-ghost,
+.im-history-stats .im-btn-primary {
+  height: var(--im-row-h, var(--im-h-ctl));
+  padding-block: 0;
+  box-sizing: border-box;
+  font-size: 12px;
+}
+
 .im-history-bar {
   display: flex;
   flex: none;
@@ -1312,44 +1337,61 @@ body[data-ds-dark-theme] {
   color: var(--im-ink);
   white-space: nowrap;
 }
-/* 搜索框：比表单里的 .im-field 紧凑一档（原版 !w-72 !py-1），圆角 9（原版 928-933 那条） */
+/* 搜索框：宽一档（原版 !w-72），高度与圆角都并入上面那条「标题带控件同高」。 */
 .im-history-search {
   width: 18rem;
   max-width: 100%;
-  padding: 4px 12px;
+  padding-inline: 12px;
   border-radius: 9px;
-  font-size: 13px;
 }
-.im-history-status { flex: none; width: 7rem; }
+/* 状态筛选：与原版 w-28 不同 —— 那个宽度会把「全部状态」省略成「全部…」，
+   9rem 才放得下四字标签（原版 640px 那档也是收到 9rem）。 */
+.im-history-status { flex: none; width: 9rem; max-width: none; }
+.im-history-status .im-select-trigger { width: 100%; }
 .im-history-bar-end { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .im-history-warn {
   font-size: 11px;
   color: var(--im-warn);
   white-space: nowrap;
 }
-/* 成本条：指标等宽成列（标签在上、数值在下），右边接预算设置，与原版 CostBoard 同构。
- * 原版的排法是「指标 flex-1 | 竖线 | 预算设置 shrink-0」：指标随宽度摊开，
- * 设置固定靠右；窄屏时设置换行到下一排（gap-y 负责间距）。 */
+/* 成本条：上排「指标 | 预算设置」，下面「按尺寸」独立一条 —— 与原版 CostBoard 同构：
+ *   <section>
+ *     <div flex>  <div grid 指标 5 格>  <div compact-controls 预算>  </div>
+ *     <div 按尺寸>
+ *   </section>
+ * 「按尺寸」**必须**独立成行，不能挤进指标网格：
+ * 原版指标正好 5 格（2/3/5 列三档），多塞一格会让整行换行 ——
+ * 预算设置就被顶到第二排去了（插件此前正是这样，成本条因此高 130px）。
+ * 网格外这一行还带得下金额，指标格里只放得下 "尺寸 ×数量"。 */
 .im-history-stats {
   display: flex;
   flex: none;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: 8px 16px;
+  flex-direction: column;
+  gap: 8px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--im-line);
   background: var(--im-surface-float);
 }
-/* 指标网格：2 列 / 窄屏，3 列 / 中屏，5 列 / 宽屏（原版 sm:3 lg:5） */
+/* 第一排：指标随宽度摊开，预算设置固定靠右（原版 flex-1 | 竖线 | shrink-0） */
+.im-history-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+/* 指标网格：2 列 / 窄屏，3 列 / 中屏，5 列 / 宽屏（原版 sm:3 lg:5）。
+ * 列宽 minmax(max-content, 1fr)：等宽列只有在每格都装得下时才成立，
+ * 成功率带括号（549/649）是五格里最长的一格，按等宽分会差 2px 被截成
+ * 「84.6%（549/64…」。max-content 保证每列放得下自己的字，富余宽度均分。 */
 .im-history-stat-grid {
   display: grid;
   flex: 1 1 auto;
   min-width: 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(max-content, 1fr));
   gap: 8px 16px;
 }
-@media (min-width: 720px) { .im-history-stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (min-width: 1040px) { .im-history-stat-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (min-width: 720px) { .im-history-stat-grid { grid-template-columns: repeat(3, minmax(max-content, 1fr)); } }
+@media (min-width: 1040px) { .im-history-stat-grid { grid-template-columns: repeat(5, minmax(max-content, 1fr)); } }
 .im-history-stat { min-width: 0; }
 .im-history-stat-label {
   font-size: 10px;
@@ -1377,17 +1419,28 @@ body[data-ds-dark-theme] {
 }
 .im-history-budget-field { display: flex; align-items: center; gap: 4px; }
 .im-history-budget-label { font-size: 11px; color: var(--im-ink-3); white-space: nowrap; }
-/* 输入框收窄并右对齐数字：金额列不用宽，右对齐才好横向比较 */
+/* 输入框收窄并右对齐数字：金额列不用宽，右对齐才好横向比较。
+ * 高度不在这里写死 —— 归上面那条「成本条控件同高」，否则又会比旁边的按钮矮一截。 */
 .im-history-budget-input {
   width: 80px;
-  height: 26px;
-  padding: 0 6px;
-  box-sizing: border-box;
-  font-size: 12px;
+  padding-inline: 6px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 .im-history-budget-tip { font-size: 11px; color: var(--im-ink-3); }
+/* 按尺寸：次要信息，独立一行、与指标同一色阶（原版 mt-2 border-t pt-2 text-[11px]） */
+.im-history-sizes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  padding-top: 8px;
+  border-top: 1px solid var(--im-line);
+  font-size: 11px;
+  color: var(--im-ink-2);
+}
+.im-history-sizes-label { font-size: 10px; color: var(--im-ink-3); }
+.im-history-sizes-row { white-space: nowrap; }
 @media (max-width: 719px) {
   /* 窄屏：设置区换行后不再拉一条竖线（左边没有内容可分隔了） */
   .im-history-budget { padding-left: 0; border-left: 0; }
