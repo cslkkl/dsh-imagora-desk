@@ -1,11 +1,19 @@
 // 生成任务池：画布上每张提示词卡提交一次，排队跑，前端轮询快照。
+// 终态（done / failed / cancelled）的保留策略与上游一致：超 TTL 即清、超上限再清。
 // 语义与 Imagora 一致：排队中的可以就地取消；跑起来的要等当前这张结束才作废。
 import { join } from 'node:path'
 import { costOfSize } from './config.js'
 import { generateImage, humanizeError } from './generate.js'
 import { appendGeneration, buildRecord } from './ledger.js'
 
-const MAX_KEEP = 200
+// 与上游 core/tasks.py 对齐：MAX_TASKS = 500、TERMINAL_TTL_SECONDS = 600。
+// 插件早期的版本只有数量上限、没有 TTL —— 跑完的任务连同它的蒙版 Buffer（原图尺寸
+// 的 PNG，MB 级）一直挂在内存里，直到被下一次提交挤掉。
+/** 终态：这些状态的任务会在 TTL 后被清掉（排队中 / 运行中的永远不动） */
+const TERMINAL = new Set(['done', 'failed', 'cancelled'])
+
+const MAX_TASKS = 500
+const TERMINAL_TTL_MS = 600 * 1000
 
 export class TaskPool {
   /**
@@ -14,10 +22,12 @@ export class TaskPool {
    * @param {import('./store.js').Store} options.store
    * @param {number} [options.concurrency]
    */
-  constructor({ getConfig, store, concurrency = 3 }) {
+  constructor({ getConfig, store, concurrency = 3, maxTasks = MAX_TASKS, terminalTtlMs = TERMINAL_TTL_MS }) {
     this.getConfig = getConfig
     this.store = store
     this.concurrency = concurrency
+    this.maxTasks = maxTasks
+    this.terminalTtlMs = terminalTtlMs
     this.tasks = new Map()
     this.queue = []
     this.active = 0
@@ -51,12 +61,42 @@ export class TaskPool {
     return { taskId: id, status: task.status }
   }
 
-  trim() {
-    if (this.tasks.size <= MAX_KEEP) return
-    const done = [...this.tasks.values()]
-      .filter(task => task.status === 'done' || task.status === 'failed' || task.status === 'cancelled')
+  /** 终态任务的存活时长（从结束时刻算；没结束时间的按创建时间兜底） */
+  expired(task, now = Date.now()) {
+    if (!TERMINAL.has(task.status)) return false
+    return now - (task.finishedAt ?? task.createdAt) > this.terminalTtlMs
+  }
+
+  /**
+   * 清理：**先按 TTL 清过期终态，仍超上限再清最旧的终态**（顺序与上游一致）。
+   *
+   * 为什么两段：只看数量的话，跑得慢的用户攒到 500 条才清；只看 TTL 的话，
+   * 一次提交几百个任务的上限形同虚设。两者叠加才既不涨、也不早清。
+   *
+   * 删任务时顺手把 `mask` 置空 —— 那是 MB 级 Buffer，进程里唯一还引用它的
+   * 就是这个任务对象，不显式断开就要等 GC 兜底。
+   */
+  trim(now = Date.now()) {
+    const overflow = () => this.tasks.size - this.maxTasks
+    let dropped = 0
+    for (const task of this.tasks.values()) {
+      if (this.expired(task, now)) {
+        this.tasks.delete(task.id)
+        task.mask = null
+        dropped += 1
+      }
+    }
+    if (overflow() <= 0) return dropped
+    const finished = [...this.tasks.values()]
+      .filter(task => TERMINAL.has(task.status))
       .sort((a, b) => a.createdAt - b.createdAt)
-    for (const task of done.slice(0, this.tasks.size - MAX_KEEP)) this.tasks.delete(task.id)
+    for (const task of finished) {
+      if (overflow() <= 0) break
+      this.tasks.delete(task.id)
+      task.mask = null
+      dropped += 1
+    }
+    return dropped
   }
 
   pump() {
@@ -181,9 +221,16 @@ export class TaskPool {
     return { ok: true, status: task.status }
   }
 
+  /** 取任务快照（前端轮询用）。终态超 TTL 的惰性清理后返回 null —— 与上游一致：
+   *  轮询是唯一的高频入口，在这里顺手清一次，就不需要后台定时器。 */
   snapshot(id) {
     const task = this.tasks.get(id)
     if (!task) return null
+    if (this.expired(task)) {
+      this.tasks.delete(id)
+      task.mask = null
+      return null
+    }
     return {
       taskId: task.id,
       status: task.status,

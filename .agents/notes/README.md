@@ -18,6 +18,7 @@
 - [2026-11-08-budget-two-layers.md](2026-11-08-budget-two-layers.md)：本画布上限（硬拦）与本机日预算（需确认）为什么分两层
 - [2026-11-16-drop-generation-pending-card.md](2026-11-16-drop-generation-pending-card.md)：生成中占位卡为什么整块删掉、运行中的秒数为什么只留一处
 - [2026-11-16-thumbnail-and-recovery-parity.md](2026-11-16-thumbnail-and-recovery-parity.md)：缩略图为什么交给浏览器生成、恢复快照为什么不写蒙版
+- [2026-11-16-task-pool-ttl.md](2026-11-16-task-pool-ttl.md)：任务池为什么补终态 TTL、为什么用惰性清理而不是后台定时器
 
 ## 回引
 

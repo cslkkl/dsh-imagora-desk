@@ -1006,6 +1006,52 @@ try {
   }
 
   rmSync(SHARED_ROOT, { recursive: true, force: true })
+
+  // ---------------- 任务池：终态 TTL + 上限 ----------------
+  // 回归：插件早期只有数量上限（200）、没有 TTL，跑完的任务连同它的蒙版 Buffer
+  // （原图尺寸的 PNG，MB 级）一直挂在内存里，直到被下一次提交挤掉。上游是
+  // 「超 TTL 即清 + 超 500 条再清最旧终态」，这里逐条对齐。
+  {
+    const { TaskPool } = await import('../src/host/tasks.js')
+    const mk = (id, status, ageMs, mask = null) => ({
+      id,
+      status,
+      createdAt: Date.now() - ageMs,
+      finishedAt: Date.now() - ageMs,
+      mask,
+    })
+
+    // 1) 终态过期即清，且 mask 被显式断开
+    const expiryPool = new TaskPool({ getConfig: () => ({}), store: {}, terminalTtlMs: 1000 })
+    const stale = mk('t_stale', 'done', 5000, Buffer.from('mask-bytes'))
+    expiryPool.tasks.set(stale.id, stale)
+    check('任务池：终态超 TTL 被清掉', expiryPool.trim() === 1, String(expiryPool.tasks.size))
+    check('任务池：清任务时释放蒙版 Buffer', stale.mask === null, String(stale.mask?.length ?? 0))
+
+    // 2) 运行中 / 排队中的任务永远不会被 TTL 清掉
+    const livePool = new TaskPool({ getConfig: () => ({}), store: {}, terminalTtlMs: 1 })
+    livePool.tasks.set('t_run', { ...mk('t_run', 'running', 99_999), finishedAt: null })
+    livePool.tasks.set('t_queued', { ...mk('t_queued', 'queued', 99_999), finishedAt: null })
+    check('任务池：运行中/排队中不受 TTL 影响', livePool.trim() === 0, String(livePool.tasks.size))
+
+    // 3) 未过期时按数量清最旧的终态（上限与上游一致，默认 500）
+    const capped = new TaskPool({ getConfig: () => ({}), store: {}, maxTasks: 2 })
+    // age 越大越旧：让 c_0 最旧、c_3 最新，则超出上限时应删掉 c_0 / c_1
+    for (let i = 0; i < 4; i += 1) capped.tasks.set(`c_${i}`, mk(`c_${i}`, 'done', 400 - i * 100))
+    capped.trim()
+    check(
+      '任务池：超上限清最旧的终态（保留最新的）',
+      [...capped.tasks.keys()].join(',') === 'c_2,c_3',
+      [...capped.tasks.keys()].join(','),
+    )
+
+    // 4) 轮询入口惰性清理：过期的任务查不到（前端据此收尾，与 404 同义）
+    const pollPool = new TaskPool({ getConfig: () => ({}), store: {}, terminalTtlMs: 10 })
+    const gone = mk('t_gone', 'done', 5000, Buffer.from('mask-bytes'))
+    pollPool.tasks.set(gone.id, gone)
+    check('任务池：轮询到过期任务返回 null', pollPool.snapshot('t_gone') === null)
+    check('任务池：惰性清理也释放蒙版', gone.mask === null, String(gone.mask?.length ?? 0))
+  }
 } finally {
   server.close()
   for (const dir of [SANDBOX, FIXTURE_ROOT]) {

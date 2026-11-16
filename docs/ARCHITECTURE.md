@@ -409,6 +409,26 @@ try/except 静默），所以 `appendGeneration` 只回 `boolean`，不抛错。
 > 通则在 `AGENTS.md` 的活跃坑里：**CSS 里任何 `var()` 都必须有兜底值或保证存在**。
 > 它失效时是静默的，与「少一个花括号」是同一类事故。
 
+## 账本从尾部读，任务池有终态 TTL
+
+两处都是「随使用时间线性增长」的东西。
+
+**账本**（`logs/generation.jsonl`，与上游 Imagora 共用同一份）早先是
+`readFile(utf8)` 整体 `split` + `reverse`：文件多大就吃多大内存，每次打开历史都把历史
+全解析一遍。现在 `history.js:ledgerLinesReversed` 从文件尾部按 64KB 块往回读，块边界切开
+的行留作 carry 拼回去（切的是 `Buffer` 而不是字符串，多字节字符跨块不会被切坏）；
+`readLedger(root, { query, status, rawLimit })` 把**过滤与上限下沉到读取层**，凑够
+`RAW_LIMIT`（500）条匹配就停，不再碰文件更早的部分。统计（`/history/stats`）要全量原始行，
+走同一个迭代器但不给 `rawLimit` —— 内存只与块大小有关。
+
+`source: 'none'` 的判据是**文件在不在**（`ledgerExists`），不是「有没有记录」：
+搜索无结果时文件明明在，报「没有账本」是撒谎。
+
+**任务池**（`tasks.js`）补齐上游的保留策略：`MAX_TASKS = 500` + `TERMINAL_TTL_MS = 600s`。
+`trim()` 先清超 TTL 的终态、仍超上限再清最旧的终态；`snapshot()` 里做一次惰性清理
+（轮询是唯一高频入口，因此不需要后台定时器）。删任务时显式 `task.mask = null` ——
+那个 MB 级 Buffer 在进程里只有任务对象引用它。
+
 ## 缩远抽象（LOD）
 
 `canvas/lod.ts` 是纯函数状态机，`LOD_IN_ZOOM = 0.1` / `LOD_OUT_ZOOM = 0.2`（照抄原版）。
