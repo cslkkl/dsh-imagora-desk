@@ -17,6 +17,7 @@ import { Icon } from '../icons'
 import { Select } from '../select'
 import { CostBadge, type CostSummary } from './cost'
 import type { ImagoraConfig } from '../api'
+import { useT } from '../i18n'
 
 export interface ToolbarProps {
   config: ImagoraConfig | null
@@ -51,6 +52,7 @@ export interface ToolbarProps {
 
 export function CanvasToolbar(props: ToolbarProps) {
   const { config, promptCount, runnableIds, busyIds, canUndo, canRestore } = props
+  const t = useT()
 
   /** 次要行动：原版的 .btn-ghost（胶囊 + 主体色文字 + hover 涟漪反白） */
   /**
@@ -85,10 +87,10 @@ export function CanvasToolbar(props: ToolbarProps) {
             options={[
               ...(config.profiles ?? []).map(row => ({ value: row.name, label: row.label })),
               // 空值选项 = 不覆盖，跟随 imagora 的 .env。放在最后，与原生 select 里的位置一致。
-              { value: '', label: '跟随 imagora 的 .env' },
+              { value: '', label: t('toolbar.profile.follow') },
             ]}
             value={config.profile}
-            title="来源（profile）：决定接口地址与密钥"
+            title={t('toolbar.profile.title')}
             onChange={value => props.onSwitchProfile(value)}
           />
         ) : null}
@@ -98,7 +100,7 @@ export function CanvasToolbar(props: ToolbarProps) {
             className="im-select-model"
             options={config.models.map(row => ({ value: row.id, label: row.label }))}
             value={config.model}
-            title={`${config.profileLabel || config.profile} · 当前模型`}
+            title={t('toolbar.model.title', { profile: config.profileLabel || config.profile })}
             onChange={value => props.onSwitchModel(value)}
           />
         ) : null}
@@ -107,7 +109,7 @@ export function CanvasToolbar(props: ToolbarProps) {
 
         <span className="im-spacer" />
 
-        {tool('设置', props.onOpenSettings, { title: '接口地址、API Key、模型与目录设置' })}
+        {tool(t('toolbar.settings'), props.onOpenSettings, { title: t('toolbar.settings.title') })}
       </div>
 
       {/* ---------- 第二行：画布工具栏（左创建 / 右工作流，与 Imagora 同序） ---------- */}
@@ -115,11 +117,11 @@ export function CanvasToolbar(props: ToolbarProps) {
         <div className="im-toolbar-group">
           {/* 原版这里只有「上传图片」是主行动（btn-primary），其余都是次要的 ghost。
               之前把它做成 ghost、反而把「全部运行」做成 primary，视觉重心落在了错误的一侧。 */}
-          {tool('上传图片', props.onPickFiles, {
-            title: '从本机选图片放上画布（也可直接拖入或粘贴）',
+          {tool(t('toolbar.upload'), props.onPickFiles, {
+            title: t('toolbar.upload.title'),
             primary: true,
           })}
-          {tool('粘贴导入', props.onPasteImport, { title: '粘贴模型回复，按行解析成多张提示词卡片' })}
+          {tool(t('toolbar.paste'), props.onPasteImport, { title: t('toolbar.paste.title') })}
           {/* 这两个可以拖进画布：松开的位置就是新节点的位置。
               右侧那枚圆形徽标是原版 `.btn-drag-grip` 的完整形态（16px 圆 + 品牌色描边 +
               白色底 + 6 点抓手），只是常态透明、hover 才 `drag-grip-in` 浮上来。
@@ -127,12 +129,12 @@ export function CanvasToolbar(props: ToolbarProps) {
           <button
             type="button"
             className="im-btn-ghost im-btn-sm nodrag im-drag-source"
-            title="新建提示词卡片（也可拖到画布上，松开处即新卡位置）"
+            title={t('toolbar.newPrompt.title')}
             draggable
             onDragStart={event => props.onDragCreateNode(event, 'prompt')}
             onClick={props.onAddPrompt}
           >
-            新建提示词卡片
+            {t('toolbar.newPrompt')}
             <span className="im-drag-grip">
               <Icon name="grip" size={10} strokeWidth={2.5} />
             </span>
@@ -140,12 +142,12 @@ export function CanvasToolbar(props: ToolbarProps) {
           <button
             type="button"
             className="im-btn-ghost im-btn-sm nodrag im-drag-source"
-            title="新建图片组（也可拖到画布上，松开处即新组位置）"
+            title={t('toolbar.newGroup.title')}
             draggable
             onDragStart={event => props.onDragCreateNode(event, 'group')}
             onClick={props.onAddGroup}
           >
-            新建图片组
+            {t('toolbar.newGroup')}
             <span className="im-drag-grip">
               <Icon name="grip" size={10} strokeWidth={2.5} />
             </span>
@@ -153,32 +155,32 @@ export function CanvasToolbar(props: ToolbarProps) {
         </div>
 
         <div className="im-toolbar-group im-toolbar-group--end">
-          {tool('保存工作流', props.onOpenSave, { title: '给这个画布起个名字存下来，之后可以再加载' })}
-          {tool('加载工作流', props.onOpenLoad, { title: '选一份已保存的画布继续工作' })}
-          {tool('生成历史', props.onOpenHistory, { title: '磁盘上真实存在的图片，删掉画布节点也能找回' })}
-          {tool('默认输出路径', props.onOpenDefaultOutputDir, {
-            title: `默认输出路径（新建卡片用这个值）：${config?.defaultOutputDir || '（未设置）'}`,
+          {tool(t('toolbar.save'), props.onOpenSave, { title: t('toolbar.save.title') })}
+          {tool(t('toolbar.load'), props.onOpenLoad, { title: t('toolbar.load.title') })}
+          {tool(t('toolbar.history'), props.onOpenHistory, { title: t('toolbar.history.title') })}
+          {tool(t('toolbar.outputDir'), props.onOpenDefaultOutputDir, {
+            title: t('toolbar.outputDir.title', { dir: config?.defaultOutputDir || t('common.notSet') }),
           })}
-          {tool('撤销', props.onUndo, { disabled: !canUndo, title: '撤销上一步（Ctrl+Z）' })}
-          {tool('恢复', props.onRestore, { disabled: !canRestore, title: '恢复被撤销的一步（Ctrl+Y）' })}
-          {tool('自动连线', props.onAutoConnect, {
-            title: '按位置补齐明显的连线：图片/图片组 → 提示词，提示词 → 图片',
+          {tool(t('toolbar.undo'), props.onUndo, { disabled: !canUndo, title: t('toolbar.undo.title') })}
+          {tool(t('toolbar.redo'), props.onRestore, { disabled: !canRestore, title: t('toolbar.redo.title') })}
+          {tool(t('toolbar.autoConnect'), props.onAutoConnect, {
+            title: t('toolbar.autoConnect.title'),
           })}
 
           {/* 全部运行是次要行动（原版走 ToolbarButton = btn-ghost btn-sm）：
               主行动的位置留给「上传图片」，否则工具栏的重心会落在错误的一侧。 */}
-          {tool('全部运行', () => props.onRun(runnableIds), {
-            title: '运行所有提示词卡片',
+          {tool(t('toolbar.runAll'), () => props.onRun(runnableIds), {
+            title: t('toolbar.runAll.title'),
             disabled: !promptCount,
           })}
           {busyIds > 0 ? (
             <button
               type="button"
               className="im-btn-ghost im-btn-sm nodrag"
-              title="取消所有在跑的任务：排队中的不再发出去；生成中的等当前这张完成后作废（图仍落盘并计费）"
+              title={t('toolbar.cancelAll.title')}
               onClick={props.onCancelAll}
             >
-              取消全部 ({busyIds})
+              {t('toolbar.cancelAll', { count: busyIds })}
             </button>
           ) : null}
         </div>

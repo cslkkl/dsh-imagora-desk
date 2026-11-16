@@ -1,7 +1,7 @@
 // 在没有浏览器的情况下验证 client bundle：
 // 模拟 window.__ModuleLoader__ / document / window 事件接口，执行 bundle，
 // 断言导出与「侧边栏 + 主区域」两处插槽注册真的发生。
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -125,6 +125,9 @@ check(
 const injections = []
 const registrations = []
 const effects = []
+// locale 桩：与真宿主同语义 —— `register` 存词典，`bind` 返回按当前语言查表的函数。
+// 语言固定 zh：冒烟断言的是「中文这一版对不对」，英文版面的验收在 ui-smoke 里。
+const dictionaries = {}
 const ctx = {
   slots: {
     inject(name, fn) {
@@ -137,6 +140,22 @@ const ctx = {
       return { dispose() {} }
     },
   },
+  locale: {
+    register(ns, dicts) {
+      dictionaries[ns] = dicts
+      return () => {}
+    },
+    bind(ns) {
+      return (key, params) => {
+        const table = (dictionaries[ns] ?? {}).zh ?? {}
+        const template = table[key] ?? key
+        if (!params) return template
+        return template.replace(/\{(\w+)\}/g, (whole, name) =>
+          Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : whole,
+        )
+      }
+    },
+  },
   effect(fn, label) {
     effects.push(label)
     const dispose = fn()
@@ -146,19 +165,97 @@ const ctx = {
 
 exportsObject.apply(ctx)
 
+check(
+  'inject 含 locale（文案层依赖宿主语言服务）',
+  exportsObject.inject.includes('locale'),
+  JSON.stringify(exportsObject.inject),
+)
+check('注册了文案词典', Object.keys(dictionaries).length > 0, JSON.stringify(Object.keys(dictionaries)))
+const dict = dictionaries.imagora ?? {}
+check('词典有 zh 与 en 两份', Boolean(dict.zh && dict.en), JSON.stringify(Object.keys(dict)))
+check(
+  '中英词典键集一致',
+  JSON.stringify(Object.keys(dict.zh ?? {}).sort()) === JSON.stringify(Object.keys(dict.en ?? {}).sort()),
+)
 check('注入了 main 插槽', injections.includes('main'), injections.join(','))
 check('注入了 sidebar.panellist 插槽', injections.includes('sidebar.panellist'))
 const mainReg = registrations.find(row => row.options.name === 'main')
 check('main 注册 key=imagora', mainReg?.options?.key === 'imagora', JSON.stringify(mainReg?.options))
 check('main 注册了组件', typeof mainReg?.component === 'function')
+check('main 声明了 locale 座位', mainReg?.options?.locale === 'imagora', String(mainReg?.options?.locale))
 const sidebarReg = registrations.find(row => row.options.name === 'sidebar.panellist')
 check('侧边栏注册 id=imagora', sidebarReg?.options?.id === 'imagora', JSON.stringify(sidebarReg?.options))
-check('侧边栏有 label', typeof sidebarReg?.options?.label === 'function' && sidebarReg.options.label() === '自由画布')
+check(
+  '侧边栏有 label（thunk，切语言时由宿主重取）',
+  typeof sidebarReg?.options?.label === 'function' && sidebarReg.options.label() === '自由画布',
+  String(sidebarReg?.options?.label?.()),
+)
 check(
   'xyflow 样式注入到 head',
   styleNodes.some(node => String(node.textContent).includes('react-flow')),
   `${styleNodes.length} 个 style`,
 )
+
+/* ---------------- 文案层：中文不许漏回组件里 ----------------
+ *
+ * 这条是「便于维护」的实际抓手。文案集中到 `locales.ts` 之后，最大的退化方式是
+ * **以后图省事又在 JSX 里写一句中文** —— 编译器不会报错（它只是多了一个字面量），
+ * 于是那一句永远停在中文，切语言时留在原地，而且只有把界面切到英文才看得见。
+ *
+ * 判据只看「用户可见位置」：JSX 文本节点、以及 title / aria-label / placeholder /
+ * alt / emptyLabel 这些字面量属性。注释里的中文、console/throw 里的中文不算 ——
+ * 那些是给维护者看的，不随语言变。
+ *
+ * 排除两处：
+ *   - `locales.ts`：它就是词典本身；
+ *   - `lib/`：A 档移植区，不许为 i18n 改写，它的界面文字在消费处换。
+ */
+{
+  const ATTR = /(title|aria-label|placeholder|alt|emptyLabel)\s*=\s*"[^"]*[\u4e00-\u9fff]/
+  const TEXT = />[^<>{}]*[\u4e00-\u9fff][^<>{}]*</
+  const offenders = []
+  const walk = dir => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        if (entry.name === 'lib') continue
+        walk(full)
+        continue
+      }
+      if (!/\.tsx?$/.test(entry.name) || entry.name === 'locales.ts') continue
+      const lines = readFileSync(full, 'utf8').split('\n')
+      lines.forEach((line, index) => {
+        const trimmed = line.trim()
+        // 注释行整行跳过：单行、块注释续行、JSX 注释都一样
+        if (/^(\/\/|\*|\/\*|\{\/\*)/.test(trimmed)) return
+        if (ATTR.test(line) || TEXT.test(line)) {
+          offenders.push(`${full.slice(ROOT.length + 1)}:${index + 1}`)
+        }
+      })
+    }
+  }
+  walk(join(ROOT, 'src', 'client'))
+  check('组件里没有漏回的中文字面量（文案只许在 locales.ts）', offenders.length === 0, offenders.join(', '))
+
+  // 反向：词典里的每个键都真的被用到过。孤儿键是「改了文案却没删旧键」的残渣，
+  // 会让人误以为某句还在生效。允许 `en` 只被类型约束，所以只在源码里找 key。
+  const sources = []
+  const walkKeys = dir => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        walkKeys(full)
+        continue
+      }
+      if (!/\.tsx?$/.test(entry.name) || entry.name === 'locales.ts') continue
+      sources.push(readFileSync(full, 'utf8'))
+    }
+  }
+  walkKeys(join(ROOT, 'src', 'client'))
+  const used = sources.join('\n')
+  const orphans = Object.keys(dict.zh ?? {}).filter(key => !used.includes(`'${key}'`))
+  check('词典没有孤儿键（每个键都被源码引用）', orphans.length === 0, orphans.join(', '))
+}
 
 // 设计层 CSS 的大括号必须平衡。
 // 少一个 `}` 的后果是「它之后的所有规则静默失效」——CSS 不会报错，页面只是变丑，

@@ -13,6 +13,8 @@
 // 一条硬规矩：**边界把错误吞掉了，控制台必须留完整堆栈**。否则以后排查只剩
 // 「界面说这张卡出错了」，不知道哪里错 —— 那比白屏更难查。
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { useT } from '../i18n'
+import type { Translate } from '../locales'
 
 interface BoundaryProps {
   children: ReactNode
@@ -54,22 +56,23 @@ export class ErrorBoundary extends Component<BoundaryProps, BoundaryState> {
 }
 
 /** 错误消息压成一行：边界里的替代界面很小，多行长堆栈会把卡片撑爆 */
-function briefMessage(error: Error): string {
-  const text = String(error?.message ?? error ?? '未知错误').split('\n')[0] ?? ''
+function briefMessage(error: Error, t: Translate): string {
+  const text = String(error?.message ?? error ?? t('error.unknown')).split('\n')[0] ?? ''
   return text.length > 140 ? `${text.slice(0, 140)}…` : text
 }
 
 /** 单张卡片的边界：坏一张只坏一张，其余照常可用 */
 export function NodeBoundary({ nodeId, children }: { nodeId?: string; children: ReactNode }) {
+  const t = useT()
   return (
     <ErrorBoundary
       fallback={(error, reset) => (
         <div className="im-node-error" data-node-id={nodeId} title={String(error?.stack ?? error)}>
-          <div className="im-node-error-title">这张卡出错了</div>
-          <p className="im-node-error-msg">{briefMessage(error)}</p>
-          <p className="im-node-error-hint">选中它按 Delete 删掉即可，其余卡片不受影响</p>
+          <div className="im-node-error-title">{t('error.nodeTitle')}</div>
+          <p className="im-node-error-msg">{briefMessage(error, t)}</p>
+          <p className="im-node-error-hint">{t('error.nodeHint')}</p>
           <button type="button" className="im-btn-ghost im-btn-xs nodrag" onClick={reset}>
-            重试
+            {t('error.retry')}
           </button>
         </div>
       )}
@@ -98,19 +101,18 @@ export function CanvasBoundary({
   /** 清空画布：由调用方实现（它才知道怎么重置节点与边） */
   onClear: () => void
 }) {
+  const t = useT()
   return (
     <ErrorBoundary
       onError={error => onCrash?.(error)}
       fallback={(error, reset) => (
         <div className="im-canvas-error" role="alert">
-          <h3 className="im-canvas-error-title">画布渲染出错</h3>
-          <p className="im-canvas-error-msg">{briefMessage(error)}</p>
-          <p className="im-canvas-error-hint">
-            你的工作流文件还在磁盘上，没有丢。可以先重试；如果还是不行，清空画布再从 工作流里重新加载。
-          </p>
+          <h3 className="im-canvas-error-title">{t('error.canvasTitle')}</h3>
+          <p className="im-canvas-error-msg">{briefMessage(error, t)}</p>
+          <p className="im-canvas-error-hint">{t('error.canvasBody')}</p>
           <div className="im-canvas-error-actions">
             <button type="button" className="im-btn-primary im-btn-sm" onClick={reset}>
-              重试
+              {t('error.retry')}
             </button>
             <button
               type="button"
@@ -120,7 +122,7 @@ export function CanvasBoundary({
                 reset()
               }}
             >
-              清空画布
+              {t('error.clearCanvas')}
             </button>
           </div>
         </div>

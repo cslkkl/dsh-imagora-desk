@@ -24,6 +24,8 @@ import {
 } from '../lib/imageOps'
 import { errMessage } from '../lib/format'
 import { ModalShell } from './modal-shell'
+import { useT } from '../i18n'
+import type { LocaleKey } from '../locales'
 
 export interface CropDialogProps {
   src: string
@@ -32,9 +34,14 @@ export interface CropDialogProps {
   onConfirm: (dataUrl: string, note: string) => void | Promise<void>
 }
 
-/** 比例预设：null = 自由 */
-const RATIOS: { label: string; ratio: number | null }[] = [
-  { label: '自由', ratio: null },
+/**
+ * 比例预设：null = 自由。
+ *
+ * `label` 为 null 表示「这一项的文字要走词典」——「自由」是唯一有译法的一项，
+ * 其余是数字比例，两种语言里都照原样显示。
+ */
+const RATIOS: { label: string | null; ratio: number | null }[] = [
+  { label: null, ratio: null },
   { label: '1:1', ratio: 1 },
   { label: '4:3', ratio: 4 / 3 },
   { label: '3:2', ratio: 3 / 2 },
@@ -42,6 +49,11 @@ const RATIOS: { label: string; ratio: number | null }[] = [
   { label: '2:3', ratio: 2 / 3 },
   { label: '9:16', ratio: 9 / 16 },
 ]
+
+/** 一条比例预设的文案：数字比例原样显示，「自由」走词典。 */
+function ratioLabel(row: { label: string | null }, t: (key: LocaleKey) => string): string {
+  return row.label ?? t('crop.ratio.free')
+}
 
 const HANDLES: CropHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
 
@@ -57,6 +69,7 @@ const HANDLE_POS: Record<CropHandle, { left: string; top: string; cursor: string
 }
 
 export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
+  const t = useT()
   const stageRef = useRef<HTMLDivElement | null>(null)
   const [size, setSize] = useState<ImageSize | null>(null)
   const [crop, setCrop] = useState<CropRect>({ x: 0.08, y: 0.08, width: 0.84, height: 0.84 })
@@ -74,11 +87,12 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
         setCrop(clampCrop({ x: 0.06, y: 0.06, width: 0.88, height: 0.88 }))
       })
       .catch(err => {
-        if (alive) setError(`读不到这张图：${errMessage(err)}`)
+        if (alive) setError(t('dialog.readImageFailed', { reason: errMessage(err) }))
       })
     return () => {
       alive = false
     }
+    // t 不进依赖：它读调用时刻的语言，引用稳定（见 i18n.tsx）
   }, [src])
 
   const applyRatio = (next: number | null) => {
@@ -124,9 +138,20 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
       const dataUrl = await cropDataUrl(src, crop)
       const px = Math.round(crop.width * (size?.width ?? 0))
       const py = Math.round(crop.height * (size?.height ?? 0))
-      await onConfirm(dataUrl, `裁剪 ${px}×${py}${ratio ? ` · ${RATIOS.find(r => r.ratio === ratio)?.label}` : ''}`)
+      const ratioText = ratio
+        ? ratioLabel(
+            RATIOS.find(r => r.ratio === ratio)!,
+            t,
+          )
+        : null
+      await onConfirm(
+        dataUrl,
+        ratioText
+          ? t('crop.resultName.ratio', { width: px, height: py, ratio: ratioText })
+          : t('crop.resultName', { width: px, height: py }),
+      )
     } catch (err) {
-      setError(`裁剪失败：${errMessage(err)}`)
+      setError(t('crop.failed', { reason: errMessage(err) }))
     } finally {
       setBusy(false)
     }
@@ -137,8 +162,8 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
 
   return (
     <ModalShell
-      title="裁剪图片"
-      subtitle="拖框内平移、拖八个手柄改尺寸，确认后放入画布。"
+      title={t('crop.title')}
+      subtitle={t('crop.subtitle')}
       size="lg"
       onClose={onClose}
       footer={
@@ -146,14 +171,14 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
           {/* 信息行跟确认按钮同处 footer：它描述的是「这次产出什么」，
               留在 body 里会被滚走，滚到下面按钮时就看不到尺寸了（原版也是这么排） */}
           <span className="im-modal-note">
-            裁剪后 {pxW} × {pxH}
-            {size ? ` · 原图 ${size.width} × ${size.height}` : ''}
-            {size ? ` · 原比例 ${gcdRatio(size.width, size.height)}` : ''}
+            {t('crop.note', { width: pxW, height: pxH })}
+            {size ? ` · ${t('crop.note.original', { width: size.width, height: size.height })}` : ''}
+            {size ? ` · ${t('crop.note.gcd', { ratio: gcdRatio(size.width, size.height) })}` : ''}
             <br />
-            拖框内平移 · 拖八个手柄改尺寸 · 最小 {Math.round(CROP_MIN_SIZE * 100)}%
+            {t('crop.note.hint', { min: Math.round(CROP_MIN_SIZE * 100) })}
           </span>
           <button type="button" className="im-btn-ghost im-btn-sm" onClick={onClose}>
-            取消
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -161,7 +186,7 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
             disabled={busy || !size || pxW < 8 || pxH < 8}
             onClick={() => void confirm()}
           >
-            {busy ? '处理中…' : '裁剪并放入画布'}
+            {busy ? t('crop.busy') : t('crop.confirm')}
           </button>
         </>
       }
@@ -170,22 +195,22 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
         <div
           style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}
           role="group"
-          aria-label="裁剪比例"
+          aria-label={t('crop.ratio.group')}
         >
-          <span style={{ fontSize: 12, color: 'var(--im-ink-3)' }}>比例</span>
+          <span style={{ fontSize: 12, color: 'var(--im-ink-3)' }}>{t('crop.ratio')}</span>
           {/* 比例是**参数**不是行动：原版用 chip chip--sm（18px 小胶囊），
               用 btn 档会把一排比例做成按钮，视觉上比确认按钮还抢。 */}
           {RATIOS.map(row => {
             const active = row.ratio === ratio
             return (
               <button
-                key={row.label}
+                key={row.label ?? 'free'}
                 type="button"
                 aria-pressed={active}
                 className={`im-chip im-chip--sm im-chip--action${active ? ' is-brand' : ''}`}
                 onClick={() => applyRatio(row.ratio)}
               >
-                {row.label}
+                {ratioLabel(row, t)}
               </button>
             )
           })}
@@ -213,7 +238,11 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
             userSelect: 'none',
           }}
         >
-          <img src={src} alt={name ?? '待裁剪'} style={{ maxWidth: '100%', maxHeight: '100%', display: 'block' }} />
+          <img
+            src={src}
+            alt={name ?? t('crop.alt')}
+            style={{ maxWidth: '100%', maxHeight: '100%', display: 'block' }}
+          />
           <div
             onPointerDown={event => beginDrag(event, 'move')}
             style={{

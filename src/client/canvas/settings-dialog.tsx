@@ -51,6 +51,7 @@ import {
 import { errMessage } from '../lib/format'
 import { Select } from '../select'
 import { ModalShell } from './modal-shell'
+import { useT } from '../i18n'
 
 export interface SettingsDialogProps {
   config: ImagoraConfig | null
@@ -118,6 +119,7 @@ interface Draft {
 }
 
 export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDialogProps) {
+  const t = useT()
   const provider = config?.provider
   const usingPlugin = config?.source === 'plugin'
   const activeProfile = usingPlugin ? 'plugin' : (config?.profile ?? '')
@@ -159,7 +161,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
   const showProviderFields = isPluginDraft || Boolean(provider?.baseUrl)
   const profileOptions = [
     // 「插件内配置」永远可选：它是本插件自己的那一层，填好地址与密钥就接管
-    { value: 'plugin', label: '插件内配置' },
+    { value: 'plugin', label: t('settings.profile.plugin') },
     ...profiles.map(row => ({ value: row.name, label: row.label || row.name })),
   ]
   /** 草稿选的是 imagora 来源，但插件内接口正压着它 —— 保存也不会生效，得先说清楚 */
@@ -211,11 +213,11 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
       const result = await probeProvider({ baseUrl: draft.baseUrl.trim(), apiKey: draft.apiKey.trim() })
       setProbeModels(result.models ?? [])
       setProbeResult(
-        result.models?.length ? `连通，读到 ${result.models.length} 个模型` : '连通，但这个地址没报模型清单（可手填）',
+        result.models?.length ? t('settings.probe.ok', { count: result.models.length }) : t('settings.probe.okNoList'),
       )
     } catch (error) {
       setProbeModels([])
-      setProbeResult(`连不通：${errMessage(error)}`)
+      setProbeResult(t('settings.probe.fail', { reason: errMessage(error) }))
     } finally {
       setBusy(false)
     }
@@ -225,15 +227,15 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
     setBusy(true)
     try {
       const picked = await pickFolder({
-        title: kind === 'root' ? '选择 Imagora 目录（含 config.json）' : '选择图片输出目录',
+        title: kind === 'root' ? t('settings.pick.root') : t('settings.pick.output'),
         startAt: kind === 'root' ? draft.imagoraRoot.trim() : draft.outputDir.trim() || config?.defaultOutputDir || '',
       })
       if (!picked.ok) {
         if (picked.reason === 'cancelled') return
         onFlash(
           picked.reason === 'unsupported'
-            ? '这台机器不支持弹目录对话框，直接填路径'
-            : `没弹出目录对话框：${picked.reason || '未知原因'}`,
+            ? t('settings.pick.unsupported')
+            : t('settings.pick.failed', { reason: picked.reason || t('settings.pick.unknown') }),
         )
         return
       }
@@ -292,9 +294,9 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
       // 关窗会让「改一处、看一眼、再改一处」变成三次开关弹窗。
       setJustSaved(true)
       window.setTimeout(() => setJustSaved(false), 2000)
-      onFlash('已保存，立即生效')
+      onFlash(t('settings.save.done'))
     } catch (error) {
-      onFlash(`保存失败：${errMessage(error)}`)
+      onFlash(t('settings.save.failed', { reason: errMessage(error) }))
     } finally {
       setBusy(false)
     }
@@ -308,30 +310,34 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
       const next = await saveProvider({ reset: true })
       onSaved(next)
       setConfirmReset(false)
-      onFlash('已清空插件内配置，回到本机 Imagora 的配置')
+      onFlash(t('settings.reset.done'))
     } catch (error) {
-      onFlash(`操作失败：${errMessage(error)}`)
+      onFlash(t('settings.reset.failed', { reason: errMessage(error) }))
     } finally {
       setBusy(false)
     }
   }
 
-  const sourceLabel = usingPlugin ? '插件内配置' : config?.profileLabel || config?.profile || '—'
-  const keyLabel = provider?.apiKeyConfigured ? '密钥已配置' : '密钥未配置'
+  const sourceLabel = usingPlugin ? t('settings.profile.plugin') : config?.profileLabel || config?.profile || '—'
+  const keyLabel = provider?.apiKeyConfigured ? t('settings.keyConfigured') : t('settings.keyMissing')
 
   return (
     <ModalShell
-      title="画布设置"
-      subtitle="选一套来源与模型；地址与密钥只留在本机，不上屏、也不进日志。"
+      title={t('settings.title')}
+      subtitle={t('settings.subtitle')}
       size="lg"
       onClose={onClose}
       footer={
         <>
           <p className="im-modal-note">
-            {justSaved ? '已保存，立即生效' : hasChanges ? '有未保存的改动' : '所有改动已保存'}
+            {justSaved
+              ? t('settings.status.saved')
+              : hasChanges
+                ? t('settings.status.dirty')
+                : t('settings.status.clean')}
           </p>
           <button type="button" className="im-btn-ghost im-btn-sm" disabled={busy} onClick={onClose}>
-            取消
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -339,7 +345,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
             disabled={busy || !hasChanges}
             onClick={() => void save()}
           >
-            {busy ? '保存中…' : justSaved ? '✓ 已保存' : '保存'}
+            {busy ? t('common.saving') : justSaved ? t('settings.status.savedTick') : t('common.save')}
           </button>
         </>
       }
@@ -348,18 +354,20 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
         {/* 生效中：一行事实，不是三行表。它回答「现在实际在用什么」，
             只在保存后才变；做成输入框会让人以为能在那儿改。 */}
         <p className="im-settings-status">
-          当前生效：<b>{sourceLabel}</b> · {config?.modelLabel || config?.model || '—'} · {keyLabel}
-          {blockedByProvider ? <span className="im-chip is-brand im-settings-chip">被插件内配置接管</span> : null}
+          {t('settings.status')} <b>{sourceLabel}</b> · {config?.modelLabel || config?.model || '—'} · {keyLabel}
+          {blockedByProvider ? (
+            <span className="im-chip is-brand im-settings-chip">{t('settings.status.takenOver')}</span>
+          ) : null}
         </p>
 
         {/* ---------- 一、用哪套接口 ---------- */}
         <section className="im-settings-group">
-          <h3 className="im-settings-group-title">用哪套接口</h3>
+          <h3 className="im-settings-group-title">{t('settings.group.endpoint')}</h3>
 
           <Field
             id="imagora-profile"
-            label="配置来源"
-            hint={isPluginDraft ? '用插件自己的接口与密钥。' : '换来源 = 换地址、模型与价目表。'}
+            label={t('settings.profile.label')}
+            hint={isPluginDraft ? t('settings.profile.hint.plugin') : t('settings.profile.hint.imagora')}
           >
             <Select
               id="imagora-profile"
@@ -368,14 +376,14 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
               value={draft.source}
               searchable="auto"
               onChange={pickProfile}
-              title="换来源 = 换接口地址、模型与尺寸价目表"
+              title={t('settings.profile.title')}
             />
           </Field>
 
           <Field
             id="imagora-model-select"
-            label="默认模型"
-            hint={isPluginDraft ? '填上游要求的模型 id。' : '清单外的 id 也可以手填。'}
+            label={t('settings.model.label')}
+            hint={isPluginDraft ? t('settings.model.hint.plugin') : t('settings.model.hint.imagora')}
           >
             <Select
               id="imagora-model-select"
@@ -384,10 +392,10 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
               value={draft.model}
               searchable
               allowCustom
-              emptyLabel="这个来源没报模型清单，直接打字填模型 id"
+              emptyLabel={t('settings.model.empty')}
               onChange={value => patch({ model: value })}
               onCreateCustom={value => patch({ model: value })}
-              title="上游要求的模型 id，例如 gpt-image-2.5-flare"
+              title={t('settings.model.title')}
             />
           </Field>
 
@@ -402,31 +410,37 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
            * 与上游的 progressive disclosure 同一取向：复杂的、少用的选项后置。 */}
           {showProviderFields ? (
             <>
-              <Field id="imagora-provider-base-url" label="接口地址" hint="OpenAI 兼容地址，通常以 /v1 结尾。">
+              <Field
+                id="imagora-provider-base-url"
+                label={t('settings.baseUrl.label')}
+                hint={t('settings.baseUrl.hint')}
+              >
                 <input
                   id="imagora-provider-base-url"
                   className="im-field"
                   value={draft.baseUrl}
                   placeholder="https://api.example.com/v1"
                   disabled={busy}
-                  title="填了它就优先于上面的 Imagora 来源"
+                  title={t('settings.baseUrl.title')}
                   onChange={event => patch({ baseUrl: event.target.value })}
                 />
               </Field>
 
               <Field
                 id="imagora-provider-api-key"
-                label="API Key"
-                hint={provider?.apiKeyConfigured ? '已配置；留空则保持不变。' : '只存在本机 settings.json。'}
+                label={t('settings.apiKey.label')}
+                hint={
+                  provider?.apiKeyConfigured ? t('settings.apiKey.hint.configured') : t('settings.apiKey.hint.plain')
+                }
                 action={
                   <button
                     type="button"
                     className="im-btn-ghost im-btn-sm"
                     disabled={busy || !draft.baseUrl.trim()}
                     onClick={() => void probe()}
-                    title={draft.baseUrl.trim() ? '只读一次模型清单，不生成图、不花钱' : '先填接口地址'}
+                    title={draft.baseUrl.trim() ? t('settings.probe.title.ready') : t('settings.probe.title.needUrl')}
                   >
-                    测试连通
+                    {t('settings.probe.run')}
                   </button>
                 }
               >
@@ -436,16 +450,18 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
                   type="password"
                   value={draft.apiKey}
                   autoComplete="off"
-                  placeholder={provider?.apiKeyConfigured ? '留空则不修改' : '粘贴 API Key'}
+                  placeholder={
+                    provider?.apiKeyConfigured
+                      ? t('settings.apiKey.placeholder.keep')
+                      : t('settings.apiKey.placeholder.paste')
+                  }
                   disabled={busy}
                   onChange={event => patch({ apiKey: event.target.value })}
                 />
               </Field>
             </>
           ) : (
-            <p className="im-settings-hint-line">
-              这一栏的地址与密钥沿用本机 Imagora 的那一份。要用插件自己的接口，把上面的「配置来源」改成 「插件内配置」。
-            </p>
+            <p className="im-settings-hint-line">{t('settings.inheritHint')}</p>
           )}
 
           {probeResult ? (
@@ -465,17 +481,19 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
                   {id}
                 </button>
               ))}
-              {probeModels.length > 24 ? <span className="im-muted">…还有 {probeModels.length - 24} 个</span> : null}
+              {probeModels.length > 24 ? (
+                <span className="im-muted">{t('settings.probe.more', { count: probeModels.length - 24 })}</span>
+              ) : null}
             </div>
           ) : null}
 
           {usingPlugin ? (
             confirmReset ? (
               <div className="im-settings-danger">
-                <p className="im-settings-danger-text">清空插件内配置？之后回到本机 Imagora 的来源。</p>
+                <p className="im-settings-danger-text">{t('settings.reset.confirm')}</p>
                 <div className="im-settings-danger-actions">
                   <button type="button" className="im-btn-ghost im-btn-sm" onClick={() => setConfirmReset(false)}>
-                    取消
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="button"
@@ -483,7 +501,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
                     disabled={busy}
                     onClick={() => void reset()}
                   >
-                    确认清空
+                    {t('settings.reset.confirmAction')}
                   </button>
                 </div>
               </div>
@@ -494,7 +512,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
                 disabled={busy}
                 onClick={() => setConfirmReset(true)}
               >
-                清空插件内配置
+                {t('settings.reset.link')}
               </button>
             )
           ) : null}
@@ -502,12 +520,12 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
 
         {/* ---------- 二、文件落在哪 ---------- */}
         <section className="im-settings-group">
-          <h3 className="im-settings-group-title">文件落在哪</h3>
+          <h3 className="im-settings-group-title">{t('settings.group.files')}</h3>
 
           <Field
             id="imagora-root"
-            label="Imagora 目录"
-            hint="指向后工作流与生成历史直接读那一份，不复制。留空 = 只用插件自己的数据目录。"
+            label={t('settings.root.label')}
+            hint={t('settings.root.hint')}
             action={
               <button
                 type="button"
@@ -515,7 +533,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
                 disabled={busy}
                 onClick={() => void chooseFolder('root')}
               >
-                选择…
+                {t('settings.pick')}
               </button>
             }
           >
@@ -523,7 +541,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
               id="imagora-root"
               className="im-field"
               value={draft.imagoraRoot}
-              placeholder="例如 D:\imagora（含 config.json 与 .env）"
+              placeholder={t('settings.root.placeholder')}
               disabled={busy}
               onChange={event => patch({ imagoraRoot: event.target.value })}
             />
@@ -531,8 +549,8 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
 
           <Field
             id="imagora-output-override"
-            label="图片输出目录"
-            hint={`当前生效：${config?.defaultOutputDir || '（未确定）'}`}
+            label={t('settings.outputDir.label')}
+            hint={t('settings.outputDir.hint', { dir: config?.defaultOutputDir || t('common.notSet') })}
             action={
               <>
                 <button
@@ -541,7 +559,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
                   disabled={busy}
                   onClick={() => void chooseFolder('output')}
                 >
-                  选择…
+                  {t('settings.pick')}
                 </button>
                 <button
                   type="button"
@@ -549,7 +567,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
                   disabled={busy || !config?.defaultOutputDir}
                   onClick={() => void revealPath(config?.defaultOutputDir ?? '')}
                 >
-                  打开
+                  {t('settings.open')}
                 </button>
               </>
             }
@@ -558,7 +576,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
               id="imagora-output-override"
               className="im-field"
               value={draft.outputDir}
-              placeholder="留空 = 跟随上面的 Imagora 目录"
+              placeholder={t('settings.outputDir.placeholder')}
               disabled={busy}
               onChange={event => patch({ outputDir: event.target.value })}
             />
@@ -567,19 +585,19 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
 
         {/* ---------- 三、花钱上限 ---------- */}
         <section className="im-settings-group">
-          <h3 className="im-settings-group-title">花钱上限</h3>
+          <h3 className="im-settings-group-title">{t('settings.group.budget')}</h3>
           <Field
             id="imagora-budget"
-            label="本画布累计上限"
-            hint="花到上限即拒绝新任务（硬拦）。"
+            label={t('settings.budget.label')}
+            hint={t('settings.budget.hint')}
             action={
               <button
                 type="button"
                 className="im-btn-ghost im-btn-sm"
-                onClick={() => onFlash('日预算 / 单次上限在「生成历史」顶部的成本条里设')}
-                title="日预算 / 单次上限是另一层（超限需确认），在生成历史的成本条里设"
+                onClick={() => onFlash(t('settings.budget.elsewhere.flash'))}
+                title={t('settings.budget.elsewhere.title')}
               >
-                日预算在哪设
+                {t('settings.budget.elsewhere')}
               </button>
             }
           >
@@ -588,7 +606,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
               className="im-field"
               inputMode="decimal"
               value={draft.budget}
-              placeholder="留空 = 不设上限"
+              placeholder={t('settings.budget.placeholder')}
               disabled={busy}
               onChange={event => patch({ budget: event.target.value })}
             />

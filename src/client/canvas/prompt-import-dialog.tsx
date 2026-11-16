@@ -10,6 +10,7 @@ import { useMemo, useRef, useState } from 'react'
 import { parsePromptImportFormat, resolveCardSize, type PromptCardSpec } from '../lib/promptImportFormat'
 import type { SizeOption } from '../lib/types'
 import { ModalShell } from './modal-shell'
+import { useT } from '../i18n'
 
 export interface PromptImportDialogProps {
   sizes: SizeOption[]
@@ -18,6 +19,7 @@ export interface PromptImportDialogProps {
 }
 
 export function PromptImportDialog({ sizes, onCancel, onConfirm }: PromptImportDialogProps) {
+  const t = useT()
   const [text, setText] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const parsed = useMemo(() => parsePromptImportFormat(text), [text])
@@ -27,15 +29,15 @@ export function PromptImportDialog({ sizes, onCancel, onConfirm }: PromptImportD
 
   return (
     <ModalShell
-      title="粘贴导入提示词卡片"
-      subtitle="粘贴模型回复。每张卡片由标题、文本围栏与首行比例组成。"
+      title={t('import.title')}
+      subtitle={t('import.subtitle')}
       size="lg"
       onClose={onCancel}
       initialFocusRef={inputRef}
       footer={
         <>
           <button type="button" className="im-btn-ghost im-btn-sm" onClick={onCancel}>
-            取消
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -43,7 +45,7 @@ export function PromptImportDialog({ sizes, onCancel, onConfirm }: PromptImportD
             disabled={!cards.length || issues.length > 0}
             onClick={() => onConfirm(cards)}
           >
-            确认建卡（{cards.length}）
+            {t('import.confirm', { count: cards.length })}
           </button>
         </>
       }
@@ -55,20 +57,20 @@ export function PromptImportDialog({ sizes, onCancel, onConfirm }: PromptImportD
           onChange={event => setText(event.target.value)}
           rows={10}
           spellCheck={false}
-          aria-label="待导入的提示词文本"
+          aria-label={t('import.aria')}
           className="im-field nodrag nowheel"
           style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12 }}
-          placeholder={
-            '=== 秋日通勤包 ===\n```text\nratio: 3:2\n\nlinen tote bag on warm concrete, soft top light\n```\n\n=== 冬日围巾 ===\n```text\nratio: 2:3\n\nwool scarf on linen, morning window light\n```'
-          }
+          placeholder={t('import.placeholder')}
         />
 
         <div className="im-import-preview" role="status" aria-live="polite">
           {hasInput ? (
             <>
               <div className="im-import-summary">
-                <span>识别 {cards.length} 张卡片</span>
-                {issues.length ? <span className="im-import-summary-error">发现 {issues.length} 个问题</span> : null}
+                <span>{t('import.summary', { count: cards.length })}</span>
+                {issues.length ? (
+                  <span className="im-import-summary-error">{t('import.summaryIssues', { count: issues.length })}</span>
+                ) : null}
               </div>
               {cards.map((card, index) => {
                 // 与建卡时同一套解析：预览里显示的就是这张卡最终会拿到的尺寸
@@ -76,13 +78,15 @@ export function PromptImportDialog({ sizes, onCancel, onConfirm }: PromptImportD
                 return (
                   <article key={`${index}-${card.title ?? ''}`} className="im-import-card">
                     <div className="im-import-card-meta">
-                      <strong>{card.title || `第 ${index + 1} 张`}</strong>
-                      <span>{card.ratio ? card.ratio : '默认比例'}</span>
+                      <strong>{card.title || t('import.card.untitled', { index: index + 1 })}</strong>
+                      <span>{card.ratio ? card.ratio : t('import.card.defaultRatio')}</span>
                       <span>{size.value}</span>
-                      {size.fallback ? <span className="im-import-card-fallback">尺寸回退</span> : null}
+                      {size.fallback ? (
+                        <span className="im-import-card-fallback">{t('import.card.fallback')}</span>
+                      ) : null}
                     </div>
                     <p className="im-import-card-text" title={card.prompt || ''}>
-                      {card.prompt || '（提示词为空）'}
+                      {card.prompt || t('import.card.empty')}
                     </p>
                   </article>
                 )
@@ -96,14 +100,11 @@ export function PromptImportDialog({ sizes, onCancel, onConfirm }: PromptImportD
               ))}
             </>
           ) : (
-            <div className="im-import-summary">粘贴内容后将在这里实时预览</div>
+            <div className="im-import-summary">{t('import.waiting')}</div>
           )}
         </div>
 
-        <p className="im-field-hint">
-          一张卡一块：标题行 <code>=== 名字 ===</code>，围栏里第一行写 <code>ratio: 3:2</code>，空行之后是提示词正文。
-          尺寸表来自当前配置（{sizes.length} 档）；解析不出比例时用第一档。
-        </p>
+        <p className="im-field-hint">{t('import.hint', { count: sizes.length })}</p>
       </div>
     </ModalShell>
   )

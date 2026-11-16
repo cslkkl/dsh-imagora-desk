@@ -24,6 +24,7 @@ import {
   type MenuSize,
 } from '../lib/contextMenu'
 import { popPopup, pushPopup } from '../lib/popupLayer'
+import { useT } from '../i18n'
 
 export interface NodeContextMenuProps {
   /** 右键落点（视口坐标） */
@@ -45,6 +46,7 @@ function initialPosition(x: number, y: number, items: readonly ContextMenuItem[]
 }
 
 export function NodeContextMenu({ x, y, items, onPick, onClose }: NodeContextMenuProps) {
+  const t = useT()
   const menuRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<MenuPoint>(() => initialPosition(x, y, items))
   /** 悬停高亮：复用 `.im-select-option.is-active`，不新造 CSS 类 */
@@ -95,7 +97,7 @@ export function NodeContextMenu({ x, y, items, onPick, onClose }: NodeContextMen
     <div
       ref={menuRef}
       role="menu"
-      aria-label="节点操作"
+      aria-label={t('menu.aria')}
       data-testid="node-context-menu"
       className="im-select-list"
       style={{ left: position.x, top: position.y, width: MENU_WIDTH, zIndex: 72, userSelect: 'none' }}

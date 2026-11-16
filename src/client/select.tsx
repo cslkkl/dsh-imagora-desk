@@ -13,6 +13,7 @@ import { validateCustomValue } from './lib/customValue'
 import { groupOptions, type GroupedOption } from './lib/optionGroups'
 import { popPopup, pushPopup } from './lib/popupLayer'
 import { rankByName } from './lib/rankByName'
+import { useT } from './i18n'
 
 /** 选项数超过这个值才自动出搜索框（`searchable="auto"` 的判据）。 */
 export const SELECT_SEARCH_THRESHOLD = 4
@@ -75,7 +76,7 @@ export function Select({
   className = '',
   id,
   searchable,
-  emptyLabel = '没有匹配项',
+  emptyLabel,
   allowCustom = false,
   onCreateCustom,
   'aria-describedby': describedBy,
@@ -83,6 +84,7 @@ export function Select({
   renderOption,
   title,
 }: SelectProps) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const [query, setQuery] = useState('')
@@ -352,7 +354,7 @@ export function Select({
             <span className="im-select-label">{current.label}</span>
           </span>
         ) : (
-          <span className="im-select-label">{current?.label ?? '请选择'}</span>
+          <span className="im-select-label">{current?.label ?? t('select.placeholder')}</span>
         )}
         <svg
           width="16"
@@ -389,9 +391,9 @@ export function Select({
                   value={query}
                   onChange={event => setQuery(event.target.value)}
                   onKeyDown={event => handleKeyDown(event, true)}
-                  placeholder="输入关键词筛选"
+                  placeholder={t('select.searchPlaceholder')}
                   autoComplete="off"
-                  aria-label="筛选选项"
+                  aria-label={t('select.searchAria')}
                   aria-controls={listboxId}
                   aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
                 />
@@ -400,14 +402,16 @@ export function Select({
             <ul role="listbox" aria-labelledby={searchEnabled ? searchId : undefined} className="im-select-rows">
               {visible.length === 0 && (
                 <li role="presentation" className="im-select-empty">
-                  {emptyLabel}
+                  {emptyLabel ?? t('select.empty')}
                 </li>
               )}
               {groups.map(group => (
                 <li key={group.id || '__ungrouped'} role="presentation" className="im-select-group">
                   {group.label !== '' && (
                     <div className="im-select-group-title" role="presentation">
-                      {group.label}
+                      {/* lib/customValue 造的「自定义」组按 id 换文案（A 档移植件不动），
+                          其余分组标题来自业务数据，原样显示 */}
+                      {group.id === '__custom' ? t('select.customGroup') : group.label}
                     </div>
                   )}
                   <ul role="presentation" className="im-select-group-rows">
@@ -473,7 +477,7 @@ export function Select({
                   onMouseDown={event => event.preventDefault()}
                   onClick={() => createCustom(customCandidate)}
                 >
-                  <span className="im-select-label">使用 “{customCandidate}”</span>
+                  <span className="im-select-label">{t('select.use', { value: customCandidate })}</span>
                 </button>
               </div>
             )}

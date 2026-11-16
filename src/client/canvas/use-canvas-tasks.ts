@@ -7,6 +7,7 @@ import { buildImageNode, collectPromptRefImages, pendingTaskRefs, updatePromptNo
 import { nodeSize } from '../lib/layout'
 import type { WorkflowEdge, WorkflowNode } from '../lib/types'
 import { errMessage } from '../lib/format'
+import { useT } from '../i18n'
 
 interface Options {
   nodesRef: MutableRefObject<WorkflowNode[]>
@@ -29,6 +30,7 @@ export function useGeneratedTasks({
   taskIdsRef,
   timersRef,
 }: Options) {
+  const t = useT()
   /**
    * 提交一次生成，并把「超预算需确认」这一道走完。
    *
@@ -46,9 +48,9 @@ export function useGeneratedTasks({
         const over = (error as { body?: { overBudget?: { reason?: string } } }).body?.overBudget
         if (!over) throw error
         const reason = over.reason || errMessage(error)
-        const ok = window.confirm(`${reason}\n\n仍然要提交这一次吗？`)
-        if (!ok) throw new Error(`已按预算取消：${reason}`)
-        log(`超预算已确认，继续提交：${reason}`)
+        const ok = window.confirm(t('task.budget.confirm', { reason }))
+        if (!ok) throw new Error(t('task.budget.cancelled', { reason }))
+        log(t('task.budget.overridden', { reason }))
         return await submitGenerate({ ...input, allowOverBudget: true })
       }
     },
@@ -125,8 +127,13 @@ export function useGeneratedTasks({
       }
       log(
         snapshot.status === 'done'
-          ? `完成 · ${okResults.length} 张${cost ? ` · ${cost.toFixed(2)} 元` : ''}`
-          : `${snapshot.status === 'cancelled' ? '已取消' : '失败'} · ${snapshot.error ?? '见日志'}`,
+          ? cost
+            ? t('task.done.cost', { count: okResults.length, cost: cost.toFixed(2) })
+            : t('task.done', { count: okResults.length })
+          : t('task.failed.withReason', {
+              status: snapshot.status === 'cancelled' ? t('task.cancelled') : t('task.failed'),
+              reason: snapshot.error ?? t('task.seeLog'),
+            }),
       )
     },
     [nodesRef, setNodes, setEdges, log, taskIdsRef, timersRef],
@@ -163,15 +170,15 @@ export function useGeneratedTasks({
             setNodes(current =>
               updatePromptNode(current, nodeId, {
                 status: 'failed',
-                message: '任务已丢失（宿主重启或任务过期），重新运行即可',
+                message: t('task.lost'),
                 startedAtMs: undefined,
                 cancelRequested: false,
               }),
             )
-            log('任务已丢失：停止轮询')
+            log(t('task.lostLog'))
             return
           }
-          log(`轮询失败：${errMessage(error)}`)
+          log(t('task.pollFailed', { reason: errMessage(error) }))
         }
         timersRef.current.set(nodeId, window.setTimeout(tick, 1200))
       }
@@ -185,7 +192,7 @@ export function useGeneratedTasks({
       const node = nodesRef.current.find(row => row.id === nodeId)
       if (!node || node.type !== 'prompt') return
       if (!(node.data.prompt ?? '').trim()) {
-        flash('提示词是空的')
+        flash(t('task.emptyPrompt'))
         return
       }
       const resolved = collectPromptRefImages(
@@ -199,7 +206,7 @@ export function useGeneratedTasks({
         setNodes(current =>
           updatePromptNode(current, nodeId, {
             status: 'failed',
-            message: `提示词里引用了画布上没有的图：${names}`,
+            message: t('task.missingRefs', { names }),
           }),
         )
         return
@@ -229,12 +236,12 @@ export function useGeneratedTasks({
             cancelRequested: false,
           }),
         )
-        log(`提交 · 参考图 ${resolved.images.length} 张 · ${node.data.size}`)
+        log(t('task.submit', { count: resolved.images.length, size: node.data.size }))
         pollTask(nodeId, submitted.taskId)
       } catch (error) {
         const message = errMessage(error)
         setNodes(current => updatePromptNode(current, nodeId, { status: 'failed', message }))
-        log(`提交失败：${message}`)
+        log(t('task.submitFailed', { reason: message }))
       }
     },
     [nodesRef, edgesRef, setNodes, flash, log, pollTask, taskIdsRef],
@@ -248,7 +255,7 @@ export function useGeneratedTasks({
       try {
         await cancelTask(taskId)
       } catch (error) {
-        log(`取消失败：${errMessage(error)}`)
+        log(t('task.cancelFailed', { reason: errMessage(error) }))
       }
     },
     [setNodes, log, taskIdsRef],

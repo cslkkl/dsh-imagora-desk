@@ -57,6 +57,7 @@ import { useCanvasDrop } from './use-canvas-drop'
 import { useCanvasContextMenu } from './use-canvas-context-menu'
 import { NodeContextMenu } from './node-context-menu'
 import { buildNodeMenu } from '../lib/contextMenu'
+import { menuLabel } from './menu-labels'
 import { readMinimapVisible, saveMinimapVisible } from '../lib/canvasPrefs'
 import { SelectionInspector } from './inspector'
 import { Banner, EmptyState, LogPanel, Toast } from './overlays'
@@ -78,6 +79,8 @@ import { useCanvasHistory } from './use-canvas-history'
 import { useCanvasKeys } from './use-canvas-keys'
 import { useCanvasWorkflow } from './use-canvas-workflow'
 import { CanvasBoundary } from './error-boundary'
+import { LocaleProvider, useT } from '../i18n'
+import type { Translate } from '../locales'
 
 type DialogState = {
   kind: 'save' | 'load' | 'help' | 'settings' | 'import' | 'history' | 'crop' | 'split' | 'upscale' | 'mask'
@@ -86,7 +89,25 @@ type DialogState = {
   target?: { nodeId: string; src: string; name: string }
 }
 
-export function CanvasApp() {
+/**
+ * 画布组件。
+ *
+ * `t` 由宿主按注册时声明的 `locale: NS` 注入（`src/client/index.tsx`）。
+ * 缺省时（验收台与冒烟直接挂本组件）退回兜底中文翻译，见 `i18n.tsx`。
+ */
+export function CanvasApp({ t }: { t?: Translate } = {}) {
+  // 整棵画布只在这里包一次 Provider，下面所有子组件与 hook 用 `useT()` 取。
+  // 包在最外层而不是各处分别接：hook 里（提示条、错误文案）没有 props 可透传。
+  return (
+    <LocaleProvider translate={t}>
+      <CanvasSurface />
+    </LocaleProvider>
+  )
+}
+
+/** 画布本体。与 `CanvasApp` 分开只为让 Provider 位于所有 hook 之上。 */
+function CanvasSurface() {
+  const t = useT()
   const [nodes, setNodes, onNodesChangeBase] = useNodesState<WorkflowNode>([])
   const [edges, setEdges, onEdgesChangeBase] = useEdgesState<Edge>([])
   const [logs, setLogs] = useState<string[]>([])
@@ -313,19 +334,19 @@ export function CanvasApp() {
   /* ---------------- 组织 ---------------- */
   const autoConnectAll = useCallback(() => {
     setEdges(autoConnect(nodesRef.current, edgesRef.current as WorkflowEdge[]) as Edge[])
-    flash('已按位置补齐明显的连线')
+    flash(t('flash.autoConnect.done'))
   }, [setEdges, flash])
 
   /** 只补选中节点之间的边（选中栏的「自动连线」，与顶栏那个全局的不一样）。 */
   const autoConnectSelected = useCallback(() => {
     const ids = new Set(selectedIds)
     if (!ids.size) {
-      flash('先选中要连线的节点')
+      flash(t('flash.autoConnect.noneSelected'))
       return
     }
     history.record()
     setEdges(autoConnectSelection(nodesRef.current, edgesRef.current as WorkflowEdge[], ids) as Edge[])
-    flash('已补齐选中节点间的连线')
+    flash(t('flash.autoConnect.selection'))
   }, [selectedIds, setEdges, flash, history])
 
   /** 把选中的提示词卡片统一设为默认输出路径。
@@ -341,7 +362,7 @@ export function CanvasApp() {
         node.type === 'prompt' && ids.has(node.id) ? { ...node, data: { ...node.data, outputDir: target } } : node,
       ),
     )
-    flash(target ? `已把选中的卡片输出路径设为 ${target}` : '已把选中的卡片改回「只留在画布」')
+    flash(target ? t('flash.outputDir.set', { dir: target }) : t('flash.outputDir.cleared'))
   }, [selectedIds, setNodes, flash, history])
 
   /** 聚焦：有选中就只看选中的，否则看全图（原版 Controls 里那一行）。 */
@@ -351,7 +372,7 @@ export function CanvasApp() {
     const selected = nodesRef.current.filter(node => selectedIds.includes(node.id))
     const targets = selected.length ? selected : nodesRef.current
     if (!targets.length) {
-      flash('画布上还没有节点')
+      flash(t('flash.noNodes'))
       return
     }
     void instance.fitView({ nodes: targets, padding: FOCUS_PADDING, duration: FIT_ANIM_MS, maxZoom: FOCUS_MAX_ZOOM })
@@ -360,7 +381,7 @@ export function CanvasApp() {
   const arrangeSelected = useCallback(() => {
     const ids = new Set(selectedIds)
     if (!ids.size) {
-      flash('先选中要整理的节点')
+      flash(t('flash.layout.noneSelected'))
       return
     }
     // 派生重算（只改布局、不改用户意图）：不清重做栈，与 Imagora 的
@@ -394,7 +415,7 @@ export function CanvasApp() {
       else addGroupNode(point)
     },
     // 拖进来的东西里没有图片：必须说一句。上游同一处 pushLog，静默等于「点了没反应」。
-    onRejectFiles: () => flash('没有可用的图片文件：支持 png / jpg / webp / gif / bmp'),
+    onRejectFiles: () => flash(t('flash.drop.noImage')),
   })
 
   useEffect(() => {
@@ -438,7 +459,7 @@ export function CanvasApp() {
     (kind: 'crop' | 'split' | 'upscale' | 'mask') => (nodeId: string) => {
       const node = nodesRef.current.find(row => row.id === nodeId)
       if (!node || node.type !== 'image' || !node.data.url) {
-        flash('这张图还没有可用的文件')
+        flash(t('flash.image.noFile'))
         return
       }
       setDialog({ kind, target: { nodeId, src: node.data.url, name: node.data.name } })
@@ -469,7 +490,7 @@ export function CanvasApp() {
             : node,
         ),
       )
-      flash('已清除这张图的蒙版')
+      flash(t('flash.mask.cleared'))
     },
     [setNodes, history, flash],
   )
@@ -485,13 +506,22 @@ export function CanvasApp() {
   })
 
   /** 菜单内容：按目标节点类型 + 当前选中数 + 图片是否已就绪现算。
-   *  不缓存 —— 缓存会让「图片上传完成后菜单仍显示禁用」这类问题只有关掉重开才刷新。 */
+   *  不缓存 —— 缓存会让「图片上传完成后菜单仍显示禁用」这类问题只有关掉重开才刷新。
+   *
+   *  **文案在这里换掉，不动 lib/**：上游 `contextMenu.ts` 是 A 档移植文件，它产出的
+   *  `label` 是中文写死的。上游自己在文件头写明了「接线方按 id 分派，不要按 label 匹配
+   * —— label 是给人看的，会改」，所以按 `id` 换文案正是它留的那个缝。
+   *  `menuHeight()` 只按条数算、不看 label，替换后高度不变。 */
   const menuNode = nodeMenu ? nodes.find(node => node.id === nodeMenu.nodeId) : undefined
   const menuItems = menuNode
     ? buildNodeMenu(menuNode.type ?? 'image', {
         hasUrl: menuNode.type === 'image' ? Boolean(menuNode.data.url) : false,
         selectedCount: selectedIds.length,
-      })
+      }).map(item =>
+        item.kind === 'action'
+          ? { ...item, action: { ...item.action, label: menuLabel(item.action.id, selectedIds.length, t) } }
+          : item,
+      )
     : []
 
   /** 菜单动作分派：按 action id（不是 label —— label 是给人看的，随时会改文案）。 */
@@ -532,8 +562,8 @@ export function CanvasApp() {
           if (node?.type !== 'prompt') break
           void navigator.clipboard
             .writeText(node.data.prompt)
-            .then(() => flash('已复制提示词'))
-            .catch(() => flash('复制失败：浏览器拒绝了剪贴板访问'))
+            .then(() => flash(t('flash.prompt.copied')))
+            .catch(() => flash(t('flash.prompt.copyFailed')))
           break
         }
         case 'delete':
@@ -622,7 +652,7 @@ export function CanvasApp() {
               const data = await listWorkflows()
               setDialog({ kind: 'load', workflows: data.workflows })
             } catch (error) {
-              flash(`读取失败：${errMessage(error)}`)
+              flash(t('flash.readFailed', { reason: errMessage(error) }))
             }
           }}
           onOpenSettings={() => setDialog({ kind: 'settings' })}
@@ -635,7 +665,7 @@ export function CanvasApp() {
             tone="error"
             action={
               <button type="button" className="im-btn-ghost im-btn-xs" onClick={() => setDialog({ kind: 'settings' })}>
-                去设置
+                {t('canvas.goSettings')}
               </button>
             }
           >
@@ -681,7 +711,7 @@ export function CanvasApp() {
             <CanvasBoundary
               onCrash={error => {
                 crashedRef.current = true
-                log(`画布渲染出错：${error.message}`)
+                log(t('flash.renderError', { reason: error.message }))
               }}
               onClear={() => {
                 setNodes([])
@@ -794,7 +824,7 @@ export function CanvasApp() {
                 被小地图压住就读不到了；左下角是缩放控件栈，右上角是选中操作栏。 */}
                 {minimapOpen ? (
                   <MiniMap
-                    ariaLabel="画布小地图"
+                    ariaLabel={t('canvas.minimap')}
                     pannable
                     zoomable
                     position="top-left"
@@ -829,14 +859,14 @@ export function CanvasApp() {
                 const next = !value
                 saveSnapEnabled(next)
                 if (!next) setGuides([])
-                flash(next ? '吸附已开：拖动时会贴齐邻居' : '吸附已关：自由摆放')
+                flash(next ? t('flash.snap.on') : t('flash.snap.off'))
                 return next
               })
             }
             onToggleLock={() =>
               setCanvasLocked(value => {
                 const next = !value
-                flash(next ? '画布已锁：只可缩放，拖动/连线/选中/平移都停了' : '画布已解锁')
+                flash(next ? t('flash.lock.on') : t('flash.lock.off'))
                 return next
               })
             }
@@ -953,7 +983,7 @@ export function CanvasApp() {
                 })
               }
               setDialog(null)
-              flash(`已切出 ${parts.length} 张`)
+              flash(t('flash.split.done', { count: parts.length }))
             }}
           />
         ) : null}
@@ -1006,7 +1036,7 @@ export function CanvasApp() {
               setNodes(current => [...current, ...created])
               // **不关窗**：原版导入后历史继续开着，方便接着挑下一张；
               // 关掉会让「挑图-导入-再挑」变成反复重开弹窗、每次重拉一遍账本。
-              flash(`已放入 ${created.length} 张图`)
+              flash(t('flash.drop.images', { count: created.length }))
             }}
           />
         ) : null}
@@ -1028,7 +1058,7 @@ export function CanvasApp() {
               )
               setNodes(current => [...current, ...created])
               setDialog(null)
-              flash(`已建 ${created.length} 张提示词卡`)
+              flash(t('flash.import.prompts', { count: created.length }))
             }}
           />
         ) : null}

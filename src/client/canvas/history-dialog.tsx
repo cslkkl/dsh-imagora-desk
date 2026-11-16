@@ -31,11 +31,41 @@ import {
   type LocalBudget,
 } from '../api'
 import { errMessage } from '../lib/format'
-import { formatMoney, statRows } from '../lib/cost'
+import { formatRate, formatSeconds } from '../lib/cost'
+import { useT } from '../i18n'
+import type { Translate } from '../locales'
 import { ModalShell } from './modal-shell'
 import { PromptCell } from './prompt-cell'
 import { ZoomModal } from './zoom-modal'
 import { Select } from '../select'
+
+/**
+ * 金额文案。中文「12.34 元」、英文「¥12.34」。
+ *
+ * 不用 lib/cost.ts 的 formatMoney：它把「元」烘在返回值里，英文界面会冒出中文单位。
+ * formatRate / formatSeconds 是语言无关的（百分比与 2m36s），继续用移植区那份。
+ */
+function money(t: Translate, value: number): string {
+  return t('cost.money', { value: value.toFixed(2) })
+}
+
+/** 看板主指标行。数值格式化走 lib/cost，标签与组合句式走词典。 */
+function statRows(t: Translate, stats: HistoryStats): { label: string; value: string }[] {
+  return [
+    { label: t('history.stat.todayCost'), value: money(t, stats.todayCost) },
+    { label: t('history.stat.cost'), value: money(t, stats.cost) },
+    {
+      label: t('history.stat.successRate'),
+      value: t('history.stat.successRate.value', {
+        rate: formatRate(stats.successRate),
+        ok: stats.ok,
+        total: stats.total,
+      }),
+    },
+    { label: t('history.stat.error'), value: String(stats.error) },
+    { label: t('history.stat.avgSeconds'), value: formatSeconds(stats.avgSeconds) },
+  ]
+}
 
 export interface HistoryDialogProps {
   onClose: () => void
@@ -54,6 +84,7 @@ function parentDirectory(path: string): string {
 }
 
 export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogProps) {
+  const t = useT()
   const [items, setItems] = useState<GenerationHistoryItem[]>([])
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('')
@@ -195,9 +226,9 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
       setStats(next)
       // 保存成功：交还控制权，下一次回读的值可以覆盖草稿
       budgetDirtyRef.current = false
-      setBudgetTip('预算已保存')
+      setBudgetTip(t('history.budget.saved'))
     } catch (err) {
-      setBudgetTip(`保存失败：${errMessage(err)}`)
+      setBudgetTip(t('history.budget.saveFailed', { reason: errMessage(err) }))
     } finally {
       setSavingBudget(false)
     }
@@ -217,23 +248,23 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
     [items],
   )
 
-  const rows = stats ? statRows(stats) : []
+  const rows = stats ? statRows(t, stats) : []
   const topSizes = stats?.bySize.slice(0, 3) ?? []
 
-  const where = ledgerPath || (imagoraRoot ? `${imagoraRoot}\\logs\\generation.jsonl` : '（未设置 imagora 目录）')
+  const where = ledgerPath || (imagoraRoot ? `${imagoraRoot}\\logs\\generation.jsonl` : t('history.where.fallback'))
 
   return (
     <>
-      <ModalShell title="生成历史" size="wide" headerless onClose={onClose}>
+      <ModalShell title={t('history.title')} size="wide" headerless onClose={onClose}>
         <div className="im-history">
           {/* 标题带：标题 / 搜索 / 状态筛选 / 关闭 —— 原版全在一条通栏 header 里 */}
           <div className="im-history-bar">
-            <h2 className="im-history-title">生成历史</h2>
+            <h2 className="im-history-title">{t('history.title')}</h2>
             <input
               className="im-field im-history-search"
               value={query}
-              placeholder="搜索提示词、质量或文件名"
-              aria-label="搜索提示词、质量或文件名"
+              placeholder={t('history.search.placeholder')}
+              aria-label={t('history.search.placeholder')}
               onChange={event => setQuery(event.target.value)}
               onKeyDown={event => {
                 if (event.key === 'Enter') void load()
@@ -242,11 +273,11 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
             <Select
               className="im-history-status"
               value={status}
-              title="按状态筛选"
+              title={t('history.filter.title')}
               options={[
-                { value: '', label: '全部状态' },
-                { value: 'ok', label: '成功' },
-                { value: 'error', label: '失败' },
+                { value: '', label: t('history.filter.all') },
+                { value: 'ok', label: t('history.filter.ok') },
+                { value: 'error', label: t('history.filter.error') },
               ]}
               onChange={next => {
                 setStatus(next)
@@ -254,16 +285,16 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
               }}
             />
             <button type="button" className="im-btn-ghost im-btn-sm" onClick={() => void load()}>
-              搜索
+              {t('history.search')}
             </button>
             <div className="im-history-bar-end">
               {lostRefCount > 0 ? (
-                <span className="im-history-warn" title="图生图记录但参考图已从资产库找不回，无法还原">
-                  {lostRefCount} 条参考图已丢失
+                <span className="im-history-warn" title={t('history.lostRefs.title')}>
+                  {t('history.lostRefs', { count: lostRefCount })}
                 </span>
               ) : null}
               <button type="button" className="im-btn-ghost im-btn-sm" onClick={onClose}>
-                关闭
+                {t('common.close')}
               </button>
             </div>
           </div>
@@ -288,7 +319,7 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
                     语义是「超限需确认」不是硬拦（见 src/host/budget.js 文件头）。 */}
                 <div className="im-history-budget">
                   <label className="im-history-budget-field">
-                    <span className="im-history-budget-label">日预算</span>
+                    <span className="im-history-budget-label">{t('history.budget.daily')}</span>
                     {/* type="text" + inputMode="decimal"，**不是** type="number"：
                         后者在用户打「0.」这种中间态时 `.value` 直接返回空串（Chromium 判 badInput），
                         受控组件拿不到用户真正敲的字，小数点永远打不进去、也清不空。
@@ -298,18 +329,18 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
                       inputMode="decimal"
                       className="im-field im-history-budget-input"
                       value={draftBudget.dailyLimit}
-                      title="当日累计费用上限（元），0 = 不限；超限提交前会要求确认"
+                      title={t('history.budget.daily.title')}
                       onChange={event => editBudget({ dailyLimit: event.target.value })}
                     />
                   </label>
                   <label className="im-history-budget-field">
-                    <span className="im-history-budget-label">单次上限</span>
+                    <span className="im-history-budget-label">{t('history.budget.single')}</span>
                     <input
                       type="text"
                       inputMode="decimal"
                       className="im-field im-history-budget-input"
                       value={draftBudget.singleRunLimit}
-                      title="单次提交的预估上限（元），0 = 不限"
+                      title={t('history.budget.single.title')}
                       onChange={event => editBudget({ singleRunLimit: event.target.value })}
                     />
                   </label>
@@ -319,7 +350,7 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
                     disabled={savingBudget || loading}
                     onClick={() => void saveLocalBudget()}
                   >
-                    {savingBudget ? '保存中…' : '保存预算'}
+                    {savingBudget ? t('common.saving') : t('history.budget.save')}
                   </button>
                   <button
                     type="button"
@@ -331,7 +362,7 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
                         .catch(() => undefined)
                     }
                   >
-                    刷新
+                    {t('history.refresh')}
                   </button>
                   {budgetTip ? <span className="im-history-budget-tip">{budgetTip}</span> : null}
                 </div>
@@ -341,10 +372,13 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
                   而原版这一行本来就带「×数量 · 金额」。 */}
               {topSizes.length ? (
                 <div className="im-history-sizes">
-                  <span className="im-history-sizes-label">按尺寸</span>
+                  <span className="im-history-sizes-label">{t('history.bySize')}</span>
                   {topSizes.map(row => (
                     <span key={row.size} className="im-history-sizes-row">
-                      {row.size} <span className="im-history-sizes-label">×{row.count}</span> · {formatMoney(row.cost)}
+                      {row.size}{' '}
+                      <span className="im-history-sizes-label">
+                        {t('history.bySize.row', { count: row.count, cost: money(t, row.cost) })}
+                      </span>
                     </span>
                   ))}
                 </div>
@@ -356,7 +390,7 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
             {error ? <div className="im-history-error">{error}</div> : null}
 
             {loading ? (
-              <div className="im-history-empty">正在读取历史…</div>
+              <div className="im-history-empty">{t('history.reading')}</div>
             ) : items.length ? (
               <>
                 <ul className="im-history-rows">
@@ -369,31 +403,31 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
                           {item.url ? (
                             <img
                               src={item.url}
-                              alt={item.prompt || '生成结果'}
+                              alt={item.prompt || t('history.imageAlt')}
                               loading="lazy"
                               decoding="async"
                               style={{ cursor: 'zoom-in' }}
-                              title="双击放大预览"
+                              title={t('history.zoom.title')}
                               onDoubleClick={() => setZoomed({ url: item.url, path: item.path })}
                             />
                           ) : (
                             <span className="im-history-thumb-empty">
-                              {item.status === 'error' ? '生成失败' : '文件已移动'}
+                              {item.status === 'error' ? t('history.failed') : t('history.moved')}
                             </span>
                           )}
                         </div>
                         <div className="im-history-main">
-                          <PromptCell text={item.prompt || '无提示词'} />
+                          <PromptCell text={item.prompt || t('history.noPrompt')} />
                           <p className="im-history-meta">
                             {item.time || '-'} · {item.quality || '-'} · {item.size || '-'}
                           </p>
                           {item.inputRefs.length ? (
                             <div className="im-history-refs">
                               {item.inputRefs.map(ref => (
-                                <div key={ref.id} className="im-history-ref" title="参考图 · 双击放大">
+                                <div key={ref.id} className="im-history-ref" title={t('history.ref.title')}>
                                   <img
                                     src={ref.url}
-                                    alt="参考图"
+                                    alt={t('history.ref.alt')}
                                     loading="lazy"
                                     decoding="async"
                                     style={{ cursor: 'zoom-in' }}
@@ -403,7 +437,9 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
                               ))}
                             </div>
                           ) : null}
-                          {item.inputRefMissing ? <span className="im-history-ref-missing">参考图缺失</span> : null}
+                          {item.inputRefMissing ? (
+                            <span className="im-history-ref-missing">{t('history.refMissing')}</span>
+                          ) : null}
                           <div className="im-history-actions">
                             <button
                               type="button"
@@ -411,7 +447,7 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
                               disabled={!item.prompt}
                               onClick={() => void navigator.clipboard.writeText(item.prompt || '')}
                             >
-                              复制提示词
+                              {t('history.copyPrompt')}
                             </button>
                             <button
                               type="button"
@@ -419,7 +455,7 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
                               disabled={!item.path}
                               onClick={() => void revealPath(parentDirectory(item.path))}
                             >
-                              打开目录
+                              {t('history.openDir')}
                             </button>
                             <button
                               type="button"
@@ -427,13 +463,13 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
                               disabled={!canImport}
                               // 只有路径没有资产副本的行导不进画布：画布节点只存 registryId，
                               // 没有 id 就建不了档（硬导会在下次打开时变成「缺失」）
-                              title={canImport ? '作为图片节点放进画布' : '这条只有路径、没有资产副本，导入会失去引用'}
+                              title={canImport ? t('history.import.title') : t('history.import.noAsset')}
                               onClick={() => {
                                 if (!entry) return
                                 onImport([entry])
                               }}
                             >
-                              导入画布
+                              {t('history.import')}
                             </button>
                           </div>
                         </div>
@@ -443,13 +479,13 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
                 </ul>
                 <div className="im-history-pager">
                   {loadingMore ? (
-                    '正在加载更多…'
+                    t('history.loadingMore')
                   ) : hasMore ? (
                     <button type="button" className="im-btn-ghost im-btn-sm" onClick={() => void loadMore()}>
-                      加载更多（已显示 {items.length} / {total}）
+                      {t('history.loadMore', { shown: items.length, total })}
                     </button>
                   ) : (
-                    `已显示全部 ${total} 条记录`
+                    t('history.allShown', { total })
                   )}
                 </div>
               </>
@@ -457,14 +493,14 @@ export function HistoryDialog({ onClose, onImport, imagoraRoot }: HistoryDialogP
               // 没有账本：说清读的是哪儿。用户报过「点开里面什么都没有」，
               // 真正原因往往是没设 imagora 目录 —— 把位置印出来就不用猜。
               <>
-                <div className="im-history-empty">还没有生成历史</div>
+                <div className="im-history-empty">{t('history.empty')}</div>
                 <p className="im-history-note">
-                  历史读的是 Imagora 的账本 <code>{where}</code>。 在「设置」里填上本机 Imagora 目录就能读到它那份；
-                  插件自己出的图记在资产库里，不写这个账本。
+                  {t('history.empty.noteBefore')} <code>{where}</code>
+                  {t('history.empty.noteAfter')}
                 </p>
               </>
             ) : (
-              <div className="im-history-empty">没有匹配的生成记录</div>
+              <div className="im-history-empty">{t('history.noMatch')}</div>
             )}
           </div>
         </div>

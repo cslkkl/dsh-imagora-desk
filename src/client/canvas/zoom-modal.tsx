@@ -19,6 +19,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { copyImageToClipboard, copyTextToClipboard } from '../lib/imageCopy'
 import { actualZoomPercent, clampPreviewPan, clampZoom, zoomForActualPixels } from '../lib/previewZoom'
+import { useT } from '../i18n'
 
 /** 滚轮缩放步进 */
 const ZOOM_STEP = 1.2
@@ -41,6 +42,7 @@ export interface ZoomModalProps {
 }
 
 export function ZoomModal({ imageUrl, name, copyPath, onClose }: ZoomModalProps) {
+  const t = useT()
   const [view, setView] = useState<PreviewView>({ zoom: 1, pan: { x: 0, y: 0 } })
   /** 拖拽平移进行中：驱动光标样式与过渡开关 */
   const [dragging, setDragging] = useState(false)
@@ -171,12 +173,12 @@ export function ZoomModal({ imageUrl, name, copyPath, onClose }: ZoomModalProps)
   const runCopy = async (action: () => Promise<void>, done: string) => {
     if (copyingRef.current) return
     copyingRef.current = true
-    showCopyState('copying', '复制中…')
+    showCopyState('copying', t('zoom.copying'))
     try {
       await action()
       showCopyState('copied', done)
     } catch (err) {
-      showCopyState('failed', err instanceof Error ? err.message : '复制失败')
+      showCopyState('failed', err instanceof Error ? err.message : t('zoom.copyFailed'))
     } finally {
       copyingRef.current = false
     }
@@ -257,7 +259,7 @@ export function ZoomModal({ imageUrl, name, copyPath, onClose }: ZoomModalProps)
           ref={imageRef}
           data-zoom-image
           src={imageUrl}
-          alt={name ?? '预览'}
+          alt={name ?? t('zoom.alt')}
           draggable={false}
           onLoad={() => {
             const img = imageRef.current
@@ -286,7 +288,13 @@ export function ZoomModal({ imageUrl, name, copyPath, onClose }: ZoomModalProps)
           // 占位保持「关闭按钮贴右」的布局，不因为少了左侧而让按钮漂到中间
           <div aria-hidden />
         )}
-        <button type="button" className="im-zoom-close" aria-label="关闭预览" title="关闭（Esc）" onClick={onClose}>
+        <button
+          type="button"
+          className="im-zoom-close"
+          aria-label={t('zoom.close')}
+          title={t('zoom.close.title')}
+          onClick={onClose}
+        >
           <svg
             viewBox="0 0 16 16"
             aria-hidden
@@ -303,13 +311,13 @@ export function ZoomModal({ imageUrl, name, copyPath, onClose }: ZoomModalProps)
       {/* 底部控制坞：单行三组（缩放 / 视图 / 动作），组间一条细分隔线。
           提示语不常驻显示（四段说明挤在灰字里最乱），改挂 title —— 交互本身一用就会。 */}
       <div className="im-zoom-dock-wrap" data-zoom-controls>
-        <div className="im-zoom-dock" title="滚轮缩放 · 放大后拖拽平移 · 双击回到适应窗口 · 点击空白处或 Esc 关闭">
+        <div className="im-zoom-dock" title={t('zoom.dock.title')}>
           <div className="im-zoom-group">
             <button
               type="button"
               className="im-zoom-btn im-zoom-btn--icon"
-              aria-label="缩小"
-              title="缩小"
+              aria-label={t('zoom.out')}
+              title={t('zoom.out')}
               onClick={() => zoomBy(1 / ZOOM_STEP)}
             >
               <svg
@@ -326,15 +334,19 @@ export function ZoomModal({ imageUrl, name, copyPath, onClose }: ZoomModalProps)
             {/* 读数按**原始像素**算（zoom × 布局缩放比），不是 zoom 本身 */}
             <span
               className="im-zoom-readout"
-              title={`${natural ? `${natural.width}×${natural.height} · ` : ''}相对原图的实际显示比例`}
+              title={
+                natural
+                  ? t('zoom.scale.natural', { width: natural.width, height: natural.height })
+                  : t('zoom.scale.title')
+              }
             >
               {actualZoomPercent(view.zoom, natural, imageBoxRef.current)}%
             </span>
             <button
               type="button"
               className="im-zoom-btn im-zoom-btn--icon"
-              aria-label="放大"
-              title="放大"
+              aria-label={t('zoom.in')}
+              title={t('zoom.in')}
               onClick={() => zoomBy(ZOOM_STEP)}
             >
               <svg
@@ -354,15 +366,10 @@ export function ZoomModal({ imageUrl, name, copyPath, onClose }: ZoomModalProps)
 
           <div className="im-zoom-group">
             <button type="button" className="im-zoom-btn" onClick={fitToWindow}>
-              适应窗口
+              {t('zoom.fit')}
             </button>
-            <button
-              type="button"
-              className="im-zoom-btn"
-              onClick={actualSize}
-              title="实际大小：1 个图像像素 = 1 个屏幕像素（大图会超出窗口，可拖拽查看）"
-            >
-              实际大小
+            <button type="button" className="im-zoom-btn" onClick={actualSize} title={t('zoom.actual.title')}>
+              {t('zoom.actual')}
             </button>
           </div>
 
@@ -375,9 +382,9 @@ export function ZoomModal({ imageUrl, name, copyPath, onClose }: ZoomModalProps)
               type="button"
               className="im-zoom-btn"
               disabled={copying}
-              onClick={() => void runCopy(() => copyImageToClipboard(imageUrl), '已复制图片')}
+              onClick={() => void runCopy(() => copyImageToClipboard(imageUrl), t('zoom.copied'))}
             >
-              复制图片
+              {t('zoom.copyImage')}
             </button>
             {copyPath ? (
               <button
@@ -385,13 +392,13 @@ export function ZoomModal({ imageUrl, name, copyPath, onClose }: ZoomModalProps)
                 className="im-zoom-btn"
                 title={copyPath}
                 disabled={copying}
-                onClick={() => void runCopy(() => copyTextToClipboard(copyPath), '已复制路径')}
+                onClick={() => void runCopy(() => copyTextToClipboard(copyPath), t('zoom.copiedPath'))}
               >
-                复制路径
+                {t('zoom.copyPath')}
               </button>
             ) : null}
             <a href={imageUrl} target="_blank" rel="noreferrer" className="im-zoom-btn">
-              新标签打开
+              {t('zoom.openTab')}
             </a>
           </div>
 

@@ -6,6 +6,7 @@ import { uploadImage } from '../api'
 import { buildImageNode, isImageFile } from '../lib/workflow'
 import type { WorkflowNode } from '../lib/types'
 import { errMessage } from '../lib/format'
+import { useT } from '../i18n'
 
 interface Options {
   nodesRef: MutableRefObject<WorkflowNode[]>
@@ -19,19 +20,20 @@ interface Options {
 }
 
 export function useCanvasImages({ nodesRef, setNodes, createPosition, log, flash, setPreview, record }: Options) {
+  const t = useT()
   /** 批量落图：一张一张上传，失败只记日志不中断其余文件。 */
   const addImages = useCallback(
     async (files: File[], position: { x: number; y: number }) => {
       const images = files.filter(isImageFile)
       if (!images.length) {
-        flash('只认图片文件')
+        flash(t('images.onlyImage'))
         return
       }
       // 记在循环前一次：撤销一次收掉这一批，而不是撤一张留一张
       record?.()
       for (const [index, file] of images.entries()) {
         try {
-          log(`上传 ${file.name || '剪贴板图片'} …`)
+          log(t('images.uploading', { name: file.name || t('images.clipboard') }))
           const entry = await uploadImage(file, file.name || `pasted-${Date.now()}.png`)
           const node = buildImageNode(
             {
@@ -42,9 +44,9 @@ export function useCanvasImages({ nodesRef, setNodes, createPosition, log, flash
             { x: position.x + index * 172, y: position.y },
           )
           setNodes(current => [...current, node])
-          log(`已添加 ${entry.name}`)
+          log(t('images.added', { name: entry.name }))
         } catch (error) {
-          log(`上传失败：${errMessage(error)}`)
+          log(t('images.uploadFailed', { reason: errMessage(error) }))
         }
       }
     },
@@ -94,9 +96,9 @@ export function useCanvasImages({ nodesRef, setNodes, createPosition, log, flash
                 : node,
             ),
           )
-          log(`已替换为 ${entry.name}`)
+          log(t('images.replaced', { name: entry.name }))
         } catch (error) {
-          log(`替换失败：${errMessage(error)}`)
+          log(t('images.replaceFailed', { reason: errMessage(error) }))
         }
       }
       input.click()
@@ -130,7 +132,7 @@ export function useCanvasImages({ nodesRef, setNodes, createPosition, log, flash
         at,
       )
       setNodes(current => [...current, node])
-      log(`已添加 ${entry.name}`)
+      log(t('images.added', { name: entry.name }))
       return entry
     },
     [setNodes, log, createPosition],

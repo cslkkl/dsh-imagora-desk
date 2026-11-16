@@ -24,6 +24,7 @@ import { clampGrid, splitCellCount, splitDataUrl, splitOutputName, SPLIT_PRESETS
 import { readImageSize, type ImageSize } from '../lib/imageOps'
 import { errMessage } from '../lib/format'
 import { ModalShell } from './modal-shell'
+import { useT } from '../i18n'
 
 export interface SplitDialogProps {
   src: string
@@ -74,6 +75,7 @@ function GridInput({
 }
 
 export function SplitDialog({ src, name, onClose, onConfirm }: SplitDialogProps) {
+  const t = useT()
   const [size, setSize] = useState<ImageSize | null>(null)
   /** 行列存字符串：允许打字的中间态（空、超出上限的「9」） */
   const [colsDraft, setColsDraft] = useState('2')
@@ -88,11 +90,12 @@ export function SplitDialog({ src, name, onClose, onConfirm }: SplitDialogProps)
         if (alive) setSize(next)
       })
       .catch(err => {
-        if (alive) setError(`读不到这张图：${errMessage(err)}`)
+        if (alive) setError(t('dialog.readImageFailed', { reason: errMessage(err) }))
       })
     return () => {
       alive = false
     }
+    // t 不进依赖：它读调用时刻的语言，引用稳定（见 i18n.tsx），加进去只会让 effect 重跑
   }, [src])
 
   /** 归一化后的网格：所有算术都以它为准（输入框里的原始字符串只在打字时存在） */
@@ -120,9 +123,14 @@ export function SplitDialog({ src, name, onClose, onConfirm }: SplitDialogProps)
     setError(null)
     try {
       const parts = await splitDataUrl(src, grid)
-      await onConfirm(parts.map((dataUrl, index) => ({ dataUrl, note: `切分 ${index + 1}/${parts.length}` })))
+      await onConfirm(
+        parts.map((dataUrl, index) => ({
+          dataUrl,
+          note: t('split.resultName', { index: index + 1, total: parts.length }),
+        })),
+      )
     } catch (err) {
-      setError(`切分失败：${errMessage(err)}`)
+      setError(t('split.failed', { reason: errMessage(err) }))
     } finally {
       setBusy(false)
     }
@@ -130,16 +138,18 @@ export function SplitDialog({ src, name, onClose, onConfirm }: SplitDialogProps)
 
   return (
     <ModalShell
-      title="切分图片"
-      subtitle="按行 × 列把这张图切成多张，每块单独放进画布。"
+      title={t('split.title')}
+      subtitle={t('split.subtitle')}
       size="lg"
       onClose={onClose}
       footer={
         <>
           {/* 原图尺寸 / 比例放在 footer 左侧：它属于「这次操作的参数」，与确认按钮同一条带 */}
-          <p className="im-modal-note">{size ? `原图 ${size.width} × ${size.height}` : '正在读取原图尺寸…'}</p>
+          <p className="im-modal-note">
+            {size ? t('split.original', { width: size.width, height: size.height }) : t('split.readingOriginal')}
+          </p>
           <button type="button" className="im-btn-ghost im-btn-sm" onClick={onClose}>
-            取消
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -147,7 +157,7 @@ export function SplitDialog({ src, name, onClose, onConfirm }: SplitDialogProps)
             disabled={busy || !canSplit}
             onClick={() => void confirm()}
           >
-            {busy ? '处理中…' : canSplit ? `确认切分（${total} 张）` : '至少 2 张'}
+            {busy ? t('split.busy') : canSplit ? t('split.confirm', { count: total }) : t('split.needTwo')}
           </button>
         </>
       }
@@ -173,10 +183,12 @@ export function SplitDialog({ src, name, onClose, onConfirm }: SplitDialogProps)
         </div>
 
         <div className="im-split-controls">
-          <GridInput id="split-cols" label="列" value={colsDraft} max={8} onChange={setColsDraft} />
-          <GridInput id="split-rows" label="行" value={rowsDraft} max={8} onChange={setRowsDraft} />
+          <GridInput id="split-cols" label={t('split.cols')} value={colsDraft} max={8} onChange={setColsDraft} />
+          <GridInput id="split-rows" label={t('split.rows')} value={rowsDraft} max={8} onChange={setRowsDraft} />
           <span className="im-split-summary">
-            {total} 张{cell.w > 0 ? ` · 每张 ${cell.w} × ${cell.h}` : ''}
+            {cell.w > 0
+              ? t('split.summary.cell', { count: total, width: cell.w, height: cell.h })
+              : t('split.summary', { count: total })}
           </span>
         </div>
 
@@ -220,13 +232,13 @@ export function SplitDialog({ src, name, onClose, onConfirm }: SplitDialogProps)
                 {row}
               </span>
             ))}
-            {total > previewNames.length ? <span className="im-muted">…等 {total} 个</span> : null}
+            {total > previewNames.length ? <span className="im-muted">{t('split.more', { count: total })}</span> : null}
           </div>
         ) : (
-          <p className="im-split-note">1 × 1 等于不切。把行或列调大一点。</p>
+          <p className="im-split-note">{t('split.tooSmall')}</p>
         )}
 
-        <p className="im-split-note">切出来的每一块都会作为独立图片节点放入画布。</p>
+        <p className="im-split-note">{t('split.note')}</p>
 
         {error ? (
           <p className="im-split-error" role="status">
