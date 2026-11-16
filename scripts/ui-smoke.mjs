@@ -130,25 +130,25 @@ try {
     String(await page.locator('.react-flow__node').count()),
   )
 
-  // ---------------- 设置弹窗：原版结构 ----------------
+  // ---------------- 设置弹窗 ----------------
+  // 2026-11-16 重写：原来是六个平铺的块、14 个可点元素、其中 4 个写着「保存」，
+  // 且每个路径/预算字段自带一套「点了立刻写盘」的按钮，与 footer 的「保存」
+  // 是两套语义。现在统一成「草稿 + footer 一次提交」，只留「测试连通」一个即时动作。
   await page.getByRole('button', { name: '设置', exact: true }).click()
   const dialog = page.getByRole('dialog')
   await dialog.waitFor()
-  const labels = await dialog.locator('.im-label, .im-section-label').allInnerTexts()
-  check(
-    '设置弹窗有「配置来源」下拉',
-    labels.some(t => t.includes('配置来源')),
-    labels.join(' | '),
-  )
+  const labels = await dialog.locator('.im-field-label, .im-settings-group-title').allInnerTexts()
+  check('设置弹窗有「配置来源」下拉', labels.some(t => t.includes('配置来源')), labels.join(' | '))
   check(
     '设置弹窗有「默认模型」下拉',
     labels.some(t => t.includes('默认模型')),
     labels.join(' | '),
   )
   check(
-    '设置弹窗有「生效中」只读表',
-    labels.some(t => t.includes('生效中')),
-    labels.join(' | '),
+    '「生效中」收成一行状态句（不再是三行只读表）',
+    (await dialog.locator('.im-settings-status').count()) === 1 &&
+      (await dialog.locator('.im-spec-row').count()) === 0,
+    `status=${await dialog.locator('.im-settings-status').count()} specRow=${await dialog.locator('.im-spec-row').count()}`,
   )
   check(
     '设置弹窗只有一个目录输入框（不再重复「默认输出路径」）',
@@ -156,11 +156,65 @@ try {
       (await dialog.locator('#imagora-output-dir').count()) === 0,
     `override=${await dialog.locator('#imagora-output-override').count()} legacy=${await dialog.locator('#imagora-output-dir').count()}`,
   )
+  // 提交语义收口：整个弹窗里只有 footer 那一个「保存」+ 一个「测试连通」，
+  // 字段级不再自带「保存手填路径 / 保存上限 / 取消上限」。
+  const dialogButtons = (await dialog.locator('button').allInnerTexts()).map(t => t.trim()).filter(Boolean)
   check(
-    '生效中列出「来源 / 模型 / API Key」三行',
-    (await dialog.locator('.im-spec-row').count()) >= 3,
-    String(await dialog.locator('.im-spec-row').count()),
+    '标着「保存」的按钮只剩 footer 一个',
+    dialogButtons.filter(t => t.includes('保存')).length === 1,
+    dialogButtons.filter(t => t.includes('保存')).join(' | '),
   )
+  check(
+    '不再有字段级提交按钮（保存手填路径 / 保存上限 / 取消上限）',
+    !dialogButtons.some(t => /保存手填路径|保存上限|取消上限/.test(t)),
+    dialogButtons.join(' | '),
+  )
+  // 两列栅格：label 在左列、控件在右列（旧版全竖排，内容 1080px 装不进 622px）。
+  // 期望 5 行：配置来源 / 默认模型 / Imagora 目录 / 图片输出目录 / 本画布累计上限。
+  // 「接口地址」「API Key」在来源是 Imagora 时被收起（填了也不生效），
+  // 切到「插件内配置」才会出现 —— 那条单独断言在下面。
+  check(
+    '字段用两列栅格（label 与控件并排）',
+    (await dialog.locator('.im-field-row').count()) === 5,
+    String(await dialog.locator('.im-field-row').count()),
+  )
+  check(
+    '来源是 Imagora 时收起「接口地址 / API Key」（填了不生效，不占版面）',
+    (await dialog.locator('#imagora-provider-base-url').count()) === 0 &&
+      (await dialog.locator('#imagora-provider-api-key').count()) === 0,
+    `baseUrl=${await dialog.locator('#imagora-provider-base-url').count()} key=${await dialog.locator('#imagora-provider-api-key').count()}`,
+  )
+
+  // 整屏进可视区：旧版内容 1080px / 可视 622px，要滚 458px 才看得到预算。
+  // 这条锁住「不靠滚动就能看到全部三组」，是这次重写的核心目标之一。
+  {
+    const fits = await dialog.evaluate(el => {
+      const body = el.querySelector('.im-modal-body')
+      return body ? { content: body.scrollHeight, visible: body.clientHeight } : null
+    })
+    check(
+      '设置内容一屏放得下（无需滚动）',
+      !!fits && fits.content <= fits.visible + 2,
+      JSON.stringify(fits),
+    )
+  }
+
+  // 切到「插件内配置」→ 接口字段出现（progressive disclosure 的另一半）
+  await page.locator('#imagora-profile').click()
+  await page.waitForTimeout(200)
+  await page.locator('.im-select-option', { hasText: '插件内配置' }).first().click()
+  await page.waitForTimeout(250)
+  check(
+    '切到「插件内配置」后出现接口地址与 API Key 两个输入框',
+    (await dialog.locator('#imagora-provider-base-url').count()) === 1 &&
+      (await dialog.locator('#imagora-provider-api-key').count()) === 1,
+    `baseUrl=${await dialog.locator('#imagora-provider-base-url').count()} key=${await dialog.locator('#imagora-provider-api-key').count()}`,
+  )
+  // 切回原来源，别把弹窗留给后面的用例
+  await page.locator('#imagora-profile').click()
+  await page.waitForTimeout(200)
+  await page.locator('.im-select-option', { hasText: 'aiwanwu 中转站' }).first().click()
+  await page.waitForTimeout(200)
 
   // 预算框：必须能清空、能输入小数（type=text 而非 number）
   const budget = dialog.locator('#imagora-budget')
