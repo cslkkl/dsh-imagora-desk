@@ -272,8 +272,10 @@ try {
   const help = page.getByRole('dialog')
   await help.waitFor()
   const helpText = await help.innerText()
-  check('帮助弹窗写了正确的手势（Shift+拖拽框选）', helpText.includes('Shift+拖拽框选'), helpText.slice(0, 40))
-  check('帮助弹窗没有照抄原版的「右键框选」', !helpText.includes('右键框选'))
+  // 手势与上游统一后，帮助文案也必须跟着改回来：教错操作比缺说明更糟。
+  check('帮助弹窗写了右键框选', helpText.includes('右键拖拽框选'), helpText.slice(0, 60))
+  check('帮助弹窗写了右键菜单', helpText.includes('右键单击节点弹菜单'), helpText.slice(0, 60))
+  check('帮助弹窗不再提 Shift+拖拽框选（手势已统一）', !helpText.includes('Shift+拖拽框选'))
   await page.keyboard.press('Escape')
   await help.waitFor({ state: 'detached' })
 
@@ -302,6 +304,77 @@ try {
     (await countNodes()) === baseCount,
     `${baseCount} → ${addedCount} → ${await countNodes()}`,
   )
+
+  // ---------------- 右键：单击节点弹菜单 / 拖拽框选 ----------------
+  // 回归（维护者报）：插件里一按右键就出浏览器原生菜单，右键拖动也只是选中文字 ——
+  // 整套「右键菜单 + 右键框选」都没移植。这里用真实鼠标事件验三件事。
+  {
+    const imageNode = page
+      .locator('.react-flow__node')
+      .filter({ has: page.locator('.im-thumb') })
+      .first()
+    const imageBox = await imageNode.boundingBox()
+    const paneBox = await page.locator('.react-flow__pane').boundingBox()
+    check('夹具里有一张图片节点（右键菜单要用）', !!imageBox && !!paneBox, JSON.stringify({ imageBox, paneBox }))
+
+    /** 原生右键菜单是否被拦下：本面板内必须 preventDefault。
+     *  判据用事件对象的 defaultPrevented —— 真弹没弹出来取决于浏览器 / 无头环境，
+     *  但「有没有调用 preventDefault」是确定的。 */
+    // evaluate 的回调在**页面**里执行，但 ESLint 按 Node 环境检查这个文件，
+    // 所以 `document` / `MouseEvent` 这类浏览器全局一律经元素自己的文档与视图取。
+    const guarded = await page.locator('.im-root').evaluate(root => {
+      const doc = root.ownerDocument
+      const view = doc.defaultView
+      const pane = doc.querySelector('.react-flow__pane')
+      if (!pane || !view) return { ok: false, reason: 'no pane' }
+      const event = new view.MouseEvent('contextmenu', { bubbles: true, cancelable: true })
+      pane.dispatchEvent(event)
+      return { ok: event.defaultPrevented }
+    })
+    check('面板内屏蔽浏览器原生右键菜单', guarded.ok === true, JSON.stringify(guarded))
+
+    // 单击（右键按下→松开，几乎没动）：节点上弹出菜单。
+    // 落点要取节点与画布的**交集**：夹具节点上沿可能被顶栏压住，
+    // 点在顶栏上既不会触发画布的 mousedown，也会让「鼠标落在节点上」失效。
+    const hitX = imageBox.x + imageBox.width / 2
+    const hitY = Math.min(Math.max(imageBox.y + 40, paneBox.y + 30), imageBox.y + imageBox.height - 10)
+    await page.mouse.move(hitX, hitY)
+    await page.mouse.down({ button: 'right' })
+    await page.mouse.up({ button: 'right' })
+    const menu = page.getByRole('menu', { name: '节点操作' })
+    await menu.waitFor({ timeout: 3000 })
+    const items = await menu.locator('[role="menuitem"]').allInnerTexts()
+    check('右键单击图片节点弹出菜单', items.length > 0, items.join(' | '))
+    check(
+      '图片菜单里有它专属的动作（预览 / 裁剪 / 蒙版）',
+      items.some(t => t.includes('预览大图')) && items.some(t => t.includes('裁剪')),
+      items.join(' | '),
+    )
+    // 点空白处关闭
+    await page.mouse.click(paneBox.x + 12, paneBox.y + 12)
+    await page.waitForTimeout(200)
+    check('点空白关掉菜单', (await menu.count()) === 0, String(await menu.count()))
+
+    // 右键拖拽 = 框选：选框出现，松开后按「完全包含」落定选中
+    const before = await page
+      .locator('.react-flow__node.node-selected, .react-flow__node[data-selected="true"]')
+      .count()
+    await page.mouse.move(paneBox.x + 8, paneBox.y + 8)
+    await page.mouse.down({ button: 'right' })
+    await page.mouse.move(paneBox.x + paneBox.width - 8, paneBox.y + paneBox.height - 8, { steps: 12 })
+    const marqueeVisible = await page.locator('.im-marquee').count()
+    await page.mouse.up({ button: 'right' })
+    check('右键拖拽出现框选矩形', marqueeVisible === 1, String(marqueeVisible))
+    await page.waitForTimeout(250)
+    const selectedAfter = await page
+      .locator('.react-flow__node')
+      .evaluateAll(els => els.filter(el => el.classList.contains('selected')).length)
+    check('右键框选落定选中（至少 1 个）', selectedAfter >= 1, `before=${before} after=${selectedAfter}`)
+    check('松开后选框消失', (await page.locator('.im-marquee').count()) === 0)
+    // 清掉选中，免得影响后续用例
+    await page.keyboard.press('Escape')
+    await page.mouse.click(paneBox.x + 12, paneBox.y + 12)
+  }
 
   await page.locator('.react-flow__pane').click({ position: { x: 24, y: 24 } })
   await page.keyboard.press('Control+z')

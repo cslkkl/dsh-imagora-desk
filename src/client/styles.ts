@@ -706,6 +706,33 @@ body[data-ds-dark-theme] {
 }
 .im-select-check { flex: none; }
 
+/* 右键拖拽框选的选框：与 Imagora 同观感（品牌色描边 + 淡填充）。
+   只做视觉反馈，所以 pointer-events:none，绝不能挡住框选自身的鼠标事件。 */
+.im-marquee {
+  position: absolute;
+  z-index: 1002;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--im-brand) 80%, transparent);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--im-brand) 10%, transparent);
+}
+
+/* 菜单专用三态：危险项（删除）与禁用项（如「这张图还没有文件」）。
+   浮层容器复用 .im-select-list，只为菜单补这三个类，不另造一套外观。 */
+.im-select-option.is-danger { color: var(--im-danger); }
+.im-select-option.is-disabled {
+  color: var(--im-ink-3);
+  cursor: default;
+}
+/* 分隔线：1px 线 + 上下各 4px，与 lib/contextMenu.ts 的 SEPARATOR_HEIGHT 严格对应
+   （菜单高度靠常量推算，两边不一致时贴底弹出的菜单会被裁掉最后一项）。 */
+.im-menu-separator {
+  flex: none;
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--im-line);
+}
+
 /* 搜索框：贴在列表顶部，与选项区用一条细线分开。
    输入框本身不要 field 的边框，否则「框里套框」，在已经带边框的浮层里显得脏。 */
 .im-select-search {

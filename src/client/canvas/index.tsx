@@ -41,6 +41,9 @@ import { nextLod } from './lod'
 import { CanvasToolbar } from './toolbar'
 import { CanvasDock } from './dock'
 import { useCanvasDrop } from './use-canvas-drop'
+import { useCanvasContextMenu } from './use-canvas-context-menu'
+import { NodeContextMenu } from './node-context-menu'
+import { buildNodeMenu } from '../lib/contextMenu'
 import { readMinimapVisible, saveMinimapVisible } from '../lib/canvasPrefs'
 import { SelectionInspector } from './inspector'
 import { Banner, EmptyState, LogPanel, Toast } from './overlays'
@@ -91,6 +94,8 @@ export function CanvasApp() {
   const [guides, setGuides] = useState<SnapGuide[]>([])
 
   const flowRef = useRef<HTMLDivElement>(null)
+  /** 面板根节点：右键菜单的「屏蔽浏览器菜单」只在这一层之内生效（不吞宿主的） */
+  const rootRef = useRef<HTMLDivElement>(null)
   const instanceRef = useRef<ReactFlowInstance<WorkflowNode, Edge> | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const lastCreateRef = useRef<{ x: number; y: number } | null>(null)
@@ -435,6 +440,89 @@ export function CanvasApp() {
     [setNodes, history, flash],
   )
 
+  /* ---------------- 右键：框选 + 节点菜单 ---------------- */
+  // 手势与菜单渲染的语义都照搬 Imagora；屏蔽原生菜单的范围收到面板根节点。
+  const { nodeMenu, boxRect, closeMenu, setNodeMenu } = useCanvasContextMenu({
+    rootRef,
+    canvasRef: flowRef,
+    instanceRef,
+    setNodes,
+    modalOpen: Boolean(dialog) || Boolean(preview),
+  })
+
+  /** 菜单内容：按目标节点类型 + 当前选中数 + 图片是否已就绪现算。
+   *  不缓存 —— 缓存会让「图片上传完成后菜单仍显示禁用」这类问题只有关掉重开才刷新。 */
+  const menuNode = nodeMenu ? nodes.find(node => node.id === nodeMenu.nodeId) : undefined
+  const menuItems = menuNode
+    ? buildNodeMenu(menuNode.type ?? 'image', {
+        hasUrl: menuNode.type === 'image' ? Boolean(menuNode.data.url) : false,
+        selectedCount: selectedIds.length,
+      })
+    : []
+
+  /** 菜单动作分派：按 action id（不是 label —— label 是给人看的，随时会改文案）。 */
+  const handleMenuPick = useCallback(
+    (actionId: string) => {
+      const target = nodeMenu
+      setNodeMenu(null)
+      if (!target) return
+      const nodeId = target.nodeId
+      switch (actionId) {
+        case 'delete-selection':
+          removeNodes(selectedIds)
+          setSelectedIds([])
+          break
+        case 'preview':
+          openPreview(nodeId)
+          break
+        case 'crop':
+          imageOps.cropImage(nodeId)
+          break
+        case 'upscale':
+          imageOps.upscaleImage(nodeId)
+          break
+        case 'split':
+          imageOps.splitImage(nodeId)
+          break
+        case 'mask':
+          imageOps.maskImage(nodeId)
+          break
+        case 'replace':
+          replaceImage(nodeId)
+          break
+        case 'run':
+          void runPrompt(nodeId)
+          break
+        case 'copy-prompt': {
+          const node = nodesRef.current.find(row => row.id === nodeId)
+          if (node?.type !== 'prompt') break
+          void navigator.clipboard
+            .writeText(node.data.prompt)
+            .then(() => flash('已复制提示词'))
+            .catch(() => flash('复制失败：浏览器拒绝了剪贴板访问'))
+          break
+        }
+        case 'delete':
+          deleteNode(nodeId)
+          break
+        default:
+          break
+      }
+    },
+    [
+      nodeMenu,
+      setNodeMenu,
+      removeNodes,
+      openPreview,
+      imageOps,
+      replaceImage,
+      runPrompt,
+      deleteNode,
+      selectedIds,
+      flash,
+    ],
+  )
+
   /* ---------------- 节点上下文 ---------------- */
   const actions = useMemo(
     () => ({
@@ -458,7 +546,7 @@ export function CanvasApp() {
   return (
     <NodeActionContext.Provider value={actions}>
       <style>{CANVAS_CSS}</style>
-      <div className="im-root">
+      <div className="im-root" ref={rootRef}>
         <CanvasToolbar
           config={config}
           promptCount={promptNodes.length}
@@ -630,9 +718,10 @@ export function CanvasApp() {
               panOnScroll={false}
               zoomOnScroll
               zoomOnPinch
-              // 与 Imagora 同一套手势：左键拖空白 = 平移画布（panOnDrag），
-              // Ctrl/Cmd+点击 = 加选。框选 Imagora 用右键拖，这里用 Shift+拖（原生），
-              // 右键留给「平移」，免得和 Imagora 的右键框选抢同一个键。
+              // 与 Imagora 同一套手势：左键拖空白 = 平移（panOnDrag）、
+              // 右键拖拽 = 框选、右键单击节点 = 菜单（两者在
+              // use-canvas-context-menu.ts 里自己接管，所以下面的
+              // selectionKeyCode 必须为 null —— 原生 Shift+框选会和它抢同一个手势）。
               // 与 Imagora 的「锁定画布」同语义：一次性关掉拖动/连线/选中/平移，
               // 只看不动（缩放仍留着，方便凑近看细节）
               nodesDraggable={!canvasLocked}
@@ -640,7 +729,7 @@ export function CanvasApp() {
               elementsSelectable={!canvasLocked}
               panOnDrag={!canvasLocked}
               selectionOnDrag={false}
-              selectionKeyCode="Shift"
+              selectionKeyCode={null}
               multiSelectionKeyCode={['Meta', 'Control']}
             >
               <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
@@ -696,11 +785,45 @@ export function CanvasApp() {
             }
             onOpenHelp={() => setDialog({ kind: 'help' })}
           />
+          {/* 右键拖拽框选的选框：flow 坐标经 flowToScreenPosition 换算回画布内位置。
+              pointer-events-none + 不参与 React Flow 的节点表，纯粹是视觉反馈。 */}
+          {boxRect && instanceRef.current && flowRef.current
+            ? (() => {
+                const p1 = instanceRef.current.flowToScreenPosition({ x: boxRect.x, y: boxRect.y })
+                const p2 = instanceRef.current.flowToScreenPosition({
+                  x: boxRect.x + boxRect.width,
+                  y: boxRect.y + boxRect.height,
+                })
+                const rect = flowRef.current.getBoundingClientRect()
+                return (
+                  <div
+                    className="im-marquee"
+                    style={{
+                      left: p1.x - rect.left,
+                      top: p1.y - rect.top,
+                      width: p2.x - p1.x,
+                      height: p2.y - p1.y,
+                    }}
+                  />
+                )
+              })()
+            : null}
           {nodes.length === 0 ? <EmptyState /> : null}
           <LogPanel logs={logs} />
           <Toast text={toast} />
           {dropChip}
         </div>
+        {/* 节点右键菜单：坐标是视口坐标（组件内部 createPortal + fixed）。
+            挂在这里而不是 React Flow 内部，避免被画布的 transform/overflow 裁切。 */}
+        {nodeMenu && menuItems.length > 0 ? (
+          <NodeContextMenu
+            x={nodeMenu.x}
+            y={nodeMenu.y}
+            items={menuItems}
+            onPick={handleMenuPick}
+            onClose={closeMenu}
+          />
+        ) : null}
         <input
           ref={fileInputRef}
           type="file"
