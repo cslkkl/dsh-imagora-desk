@@ -426,11 +426,14 @@ try {
       check('图片组节点存在（否则下一条断言无从谈起）', false, '页面里没有 .im-group-node')
     } else {
       const rail = group.locator('.im-rail').first()
-      const before = await rail.evaluate(el => getComputedStyle(el).opacity)
+      // ESLint 按 Node 环境检查本文件，浏览器全局（getComputedStyle / document）一律
+      // 经元素自己的 window 取 —— 与下方右键小节同一写法。
+      const railStyle = sel => rail.evaluate((el, prop) => el.ownerDocument.defaultView.getComputedStyle(el)[prop], sel)
+      const before = await railStyle('opacity')
       await group.hover()
       await page.waitForTimeout(250)
-      const after = await rail.evaluate(el => getComputedStyle(el).opacity)
-      const pe = await rail.evaluate(el => getComputedStyle(el).pointerEvents)
+      const after = await railStyle('opacity')
+      const pe = await railStyle('pointerEvents')
       check(
         '图片组 hover 后操作栏出现（含「删除图片组」）',
         before === '0' && after === '1' && pe === 'auto',
@@ -918,8 +921,18 @@ try {
   // 摆在中间会把后面「双击图片放大」的落点挪走（实测 dblclick 直接超时）。
   {
     const twoCards = [
-      { id: 'snap-a', type: 'prompt', position: { x: 120, y: 140 }, data: { prompt: 'snap a', size: '1024x1024', quality: 'high', outputDir: '', status: 'idle' } },
-      { id: 'snap-b', type: 'prompt', position: { x: 520, y: 140 }, data: { prompt: 'snap b', size: '1024x1024', quality: 'high', outputDir: '', status: 'idle' } },
+      {
+        id: 'snap-a',
+        type: 'prompt',
+        position: { x: 120, y: 140 },
+        data: { prompt: 'snap a', size: '1024x1024', quality: 'high', outputDir: '', status: 'idle' },
+      },
+      {
+        id: 'snap-b',
+        type: 'prompt',
+        position: { x: 520, y: 140 },
+        data: { prompt: 'snap b', size: '1024x1024', quality: 'high', outputDir: '', status: 'idle' },
+      },
     ]
     await page.request.post(`${BASE}imagora/__harness/reset-canvas`)
     await page.request.post(`${BASE}imagora/__harness/seed-canvas`, { data: { nodes: twoCards, edges: [] } })
@@ -938,8 +951,9 @@ try {
         await page.mouse.move(cardB.x + 30 + (cardA.x - cardB.x - 4) * t, cardB.y + 16)
         await page.waitForTimeout(40)
       }
-      guideInfo = await page.evaluate(() => {
-        const guide = document.querySelector('[data-testid="snap-guide"]')
+      // 探针挂在画布根元素上求值（不直接用 document，见本文件对 ESLint Node 环境的说明）
+      guideInfo = await page.locator('.im-root').evaluate(root => {
+        const guide = root.querySelector('[data-testid="snap-guide"]')
         if (!guide) return { found: false, reason: 'no guide during drag' }
         return {
           found: true,
