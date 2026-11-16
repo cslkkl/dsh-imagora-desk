@@ -31,6 +31,7 @@ import {
 } from '../lib/maskBrush'
 import { errMessage } from '../lib/format'
 import { ModalShell } from './modal-shell'
+import { useT } from '../i18n'
 
 export interface MaskDialogProps {
   src: string
@@ -43,6 +44,7 @@ export interface MaskDialogProps {
 const PREVIEW_MAX_EDGE = 640
 
 export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
+  const t = useT()
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const drawingRef = useRef(false)
   const [size, setSize] = useState<ImageSize | null>(null)
@@ -63,7 +65,7 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
         if (alive) setSize(next)
       })
       .catch(err => {
-        if (alive) setError(`读不到这张图：${errMessage(err)}`)
+        if (alive) setError(t('dialog.readImageFailed', { reason: errMessage(err) }))
       })
     const img = new Image()
     img.crossOrigin = 'anonymous'
@@ -75,6 +77,8 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
       alive = false
       setBase(null)
     }
+    // t 不进依赖：读调用时刻的语言，引用稳定（见 i18n.tsx）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src])
 
   const preview = useMemo(() => {
@@ -170,12 +174,12 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
   }
 
   const exportMask = async (): Promise<string> => {
-    if (!base || !size) throw new Error('原图还没加载好')
+    if (!base || !size) throw new Error(t('mask.noBase'))
     const canvas = document.createElement('canvas')
     canvas.width = size.width
     canvas.height = size.height
     const context = canvas.getContext('2d')
-    if (!context) throw new Error('画布不可用')
+    if (!context) throw new Error(t('mask.noCanvas'))
 
     // 先铺满不透明白 = 全图保留
     context.fillStyle = '#ffffff'
@@ -215,9 +219,9 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
     setError(null)
     try {
       const dataUrl = await exportMask()
-      await onConfirm(dataUrl, '已挂上蒙版：涂过的地方会被重绘')
+      await onConfirm(dataUrl, t('mask.resultName'))
     } catch (err) {
-      setError(`导出蒙版失败：${errMessage(err)}`)
+      setError(t('mask.failed', { reason: errMessage(err) }))
     } finally {
       setBusy(false)
     }
@@ -227,14 +231,14 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
 
   return (
     <ModalShell
-      title="蒙版重绘"
-      subtitle="涂出要重绘的区域，导出与原图同尺寸的 PNG 蒙版。"
+      title={t('mask.title')}
+      subtitle={t('mask.subtitle')}
       size="lg"
       onClose={onClose}
       footer={
         <>
           <button type="button" className="im-btn-ghost im-btn-sm" onClick={onClose}>
-            取消
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -242,7 +246,7 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
             disabled={busy || empty}
             onClick={() => void confirm()}
           >
-            {busy ? '导出中…' : '挂上蒙版'}
+            {busy ? t('mask.busy') : t('mask.confirm')}
           </button>
         </>
       }
@@ -252,8 +256,8 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
           {/* 涂 / 擦 是**模式**不是行动：原版这一类互斥开关用 chip chip--sm，
               点中那枚走 chip--brand。用 btn-primary 会把模式渲染成「主操作」。 */}
           {[
-            { mode: 'paint' as BrushMode, label: '涂（要重绘）' },
-            { mode: 'erase' as BrushMode, label: '擦' },
+            { mode: 'paint' as BrushMode, key: 'mask.mode.paint' as const },
+            { mode: 'erase' as BrushMode, key: 'mask.mode.erase' as const },
           ].map(row => (
             <button
               key={row.mode}
@@ -262,11 +266,11 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
               className={`im-chip im-chip--sm im-chip--action${mode === row.mode ? ' is-brand' : ''}`}
               onClick={() => setMode(row.mode)}
             >
-              {row.label}
+              {t(row.key)}
             </button>
           ))}
           <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
-            笔刷
+            {t('mask.brush')}
             <input
               type="range"
               min={MASK_BRUSH_MIN * 100}
@@ -283,10 +287,10 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
             disabled={!strokes.length}
             onClick={() => setStrokes([])}
           >
-            清空
+            {t('mask.clear')}
           </button>
           <span style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--im-ink-3)' }}>
-            {strokes.length ? `${strokes.length} 笔` : '还没涂'}
+            {strokes.length ? t('mask.strokes', { count: strokes.length }) : t('mask.noStrokes')}
           </span>
         </div>
 
@@ -317,9 +321,9 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
         </div>
 
         <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.7, color: 'var(--im-ink-3)' }}>
-          涂过的地方会被重绘，没涂的保持原样（导出的是与原图同尺寸的 PNG 蒙版）。
+          {t('mask.note')}
           {name ? ` · ${name}` : ''}
-          {size ? ` · 原图 ${size.width} × ${size.height}` : ''}
+          {size ? ` · ${t('mask.note.original', { width: size.width, height: size.height })}` : ''}
         </p>
 
         {error ? <p style={{ margin: 0, fontSize: 12, color: 'var(--im-danger)' }}>{error}</p> : null}

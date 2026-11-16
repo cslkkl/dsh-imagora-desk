@@ -14,6 +14,8 @@ import {
 } from '../lib/imageOps'
 import { errMessage } from '../lib/format'
 import { ModalShell } from './modal-shell'
+import { useT } from '../i18n'
+import type { LocaleKey } from '../locales'
 
 export interface UpscaleDialogProps {
   src: string
@@ -21,15 +23,17 @@ export interface UpscaleDialogProps {
   onConfirm: (dataUrl: string, note: string) => void | Promise<void>
 }
 
-const ALGOS: { value: UpscaleAlgorithm; label: string }[] = [
-  { value: 'high', label: '高质量' },
-  { value: 'bilinear', label: '平滑' },
-  { value: 'nearest', label: '保像素' },
+/** 算法 id → 文案键（`UpscaleAlgorithm` 是 lib 的稳定契约，按它取文案）。 */
+const ALGOS: { value: UpscaleAlgorithm; key: LocaleKey }[] = [
+  { value: 'high', key: 'upscale.algo.high' },
+  { value: 'bilinear', key: 'upscale.algo.bilinear' },
+  { value: 'nearest', key: 'upscale.algo.nearest' },
 ]
 
 const PRESETS = [1024, 1536, 2048, 3072, MAX_UPSCALE_LONG_EDGE]
 
 export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
+  const t = useT()
   const [size, setSize] = useState<ImageSize | null>(null)
   const [target, setTarget] = useState(2048)
   const [algo, setAlgo] = useState<UpscaleAlgorithm>('high')
@@ -48,11 +52,13 @@ export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
         setTarget(nextPreset)
       })
       .catch(err => {
-        if (alive) setError(`读不到这张图：${errMessage(err)}`)
+        if (alive) setError(t('dialog.readImageFailed', { reason: errMessage(err) }))
       })
     return () => {
       alive = false
     }
+    // t 不在依赖里：它读调用时刻的语言，引用稳定（见 i18n.tsx 的说明）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src])
 
   const out = useMemo(() => {
@@ -68,9 +74,11 @@ export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
     setError(null)
     try {
       const dataUrl = await upscaleDataUrl(src, { targetLongEdge: target, algorithm: algo })
-      await onConfirm(dataUrl, `放大 ${out.width}×${out.height} · ${ALGOS.find(a => a.value === algo)?.label}`)
+      // 结果图的名字：上游用同样形状（尺寸 + 算法），这样历史里两边的命名一致
+      const algoLabel = t(ALGOS.find(a => a.value === algo)!.key)
+      await onConfirm(dataUrl, t('upscale.resultName', { width: out.width, height: out.height, algorithm: algoLabel }))
     } catch (err) {
-      setError(`放大失败：${errMessage(err)}`)
+      setError(t('upscale.failed', { reason: errMessage(err) }))
     } finally {
       setBusy(false)
     }
@@ -78,14 +86,14 @@ export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
 
   return (
     <ModalShell
-      title="放大图片"
-      subtitle="按长边目标本地重采样放大，不调用接口、不花钱。"
+      title={t('upscale.title')}
+      subtitle={t('upscale.subtitle')}
       size="md"
       onClose={onClose}
       footer={
         <>
           <button type="button" className="im-btn-ghost im-btn-sm" onClick={onClose}>
-            取消
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -93,14 +101,14 @@ export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
             disabled={busy || !size || out.width < 8 || out.height < 8}
             onClick={() => void confirm()}
           >
-            {busy ? '处理中…' : '放大并放入画布'}
+            {busy ? t('upscale.busy') : t('upscale.confirm')}
           </button>
         </>
       }
     >
       <div style={{ display: 'grid', gap: 14 }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: 12, color: 'var(--im-ink-3)' }}>长边目标</span>
+          <span style={{ fontSize: 12, color: 'var(--im-ink-3)' }}>{t('upscale.longEdge')}</span>
           {PRESETS.map(edge => (
             <button
               key={edge}
@@ -115,7 +123,7 @@ export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
         </div>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: 12, color: 'var(--im-ink-3)' }}>算法</span>
+          <span style={{ fontSize: 12, color: 'var(--im-ink-3)' }}>{t('upscale.algorithm')}</span>
           {ALGOS.map(row => (
             <button
               key={row.value}
@@ -124,7 +132,7 @@ export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
               className={`im-btn-sm ${row.value === algo ? 'im-btn-primary' : 'im-btn-ghost'}`}
               onClick={() => setAlgo(row.value)}
             >
-              {row.label}
+              {t(row.key)}
             </button>
           ))}
         </div>
@@ -132,22 +140,20 @@ export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
         <div style={{ fontSize: 12, lineHeight: 1.8, color: 'var(--im-ink-2)' }}>
           {size ? (
             <>
-              原图 {size.width} × {size.height}
+              {t('upscale.original', { width: size.width, height: size.height })}
               {' → '}
               <b style={{ color: shrink ? 'var(--im-warn)' : 'var(--im-brand)' }}>
                 {out.width} × {out.height}
               </b>
-              {scale ? ` · ${scale.toFixed(2)}×` : ''}
-              {shrink ? ' · 目标比原图小，等于缩小' : ''}
+              {scale ? ` · ${t('upscale.scale', { ratio: scale.toFixed(2) })}` : ''}
+              {shrink ? ` · ${t('upscale.shrink')}` : ''}
             </>
           ) : (
-            '读取中…'
+            t('upscale.reading')
           )}
         </div>
 
-        <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.7, color: 'var(--im-ink-3)' }}>
-          放大是本地重采样，不调用接口、不花钱；细节不会凭空长出来， 要「更清晰的另一张」应该改提示词重画。
-        </p>
+        <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.7, color: 'var(--im-ink-3)' }}>{t('upscale.note')}</p>
 
         {error ? <p style={{ margin: 0, fontSize: 12, color: 'var(--im-danger)' }}>{error}</p> : null}
       </div>

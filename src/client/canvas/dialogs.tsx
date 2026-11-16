@@ -7,6 +7,8 @@
 import { useState } from 'react'
 import type { ImagoraConfig } from '../api'
 import { ModalShell } from './modal-shell'
+import { useT } from '../i18n'
+import type { LocaleKey } from '../locales'
 
 export function SaveDialog({
   workflows = [],
@@ -21,7 +23,12 @@ export function SaveDialog({
   /** 已配置的 imagora 目录：存到哪儿要写清楚，别让人猜 */
   imagoraRoot?: string
 }) {
-  const [name, setName] = useState(`画布 ${new Date().toISOString().slice(5, 16).replace('T', ' ')}`)
+  const t = useT()
+  // 默认名带时间戳（`05-14 09:32` 这种短形状）：重复点保存不会一路盖掉同一份。
+  // 时间戳本身是数字与冒号，两种语言下都照原样显示，只有前面的「画布」要走词典。
+  const [name, setName] = useState(() =>
+    t('save.defaultName', { stamp: new Date().toISOString().slice(5, 16).replace('T', ' ') }),
+  )
   /** 待确认覆盖的名字：原版是同名覆盖前先确认一次，避免手滑盖掉别人的画布 */
   const [overwrite, setOverwrite] = useState<string | null>(null)
 
@@ -37,42 +44,48 @@ export function SaveDialog({
     onSubmit(trimmed)
   }
 
+  // 落点目录两种语言下都是路径 + 一句括号说明，所以按「有没有 imagora 目录」选键，
+  // 而不是把整句拆成拼接片段 —— 英文的语序不同，拼接必然读起来别扭。
+  const whereClause = imagoraRoot
+    ? t('save.where.shared', { dir: `${imagoraRoot}\\output\\workflows` })
+    : t('save.where', { dir: t('save.where.fallback') })
+
   if (overwrite) {
     return (
       <ModalShell
-        title="覆盖已存在的工作流？"
-        subtitle={`「${overwrite}」已经存在，保存会覆盖掉它。`}
+        title={t('save.overwriteTitle')}
+        subtitle={t('save.overwriteSubtitle', { name: overwrite })}
         size="sm"
         onClose={() => setOverwrite(null)}
         footer={
           <>
             <button type="button" className="im-btn-ghost im-btn-sm" onClick={() => setOverwrite(null)}>
-              返回改名
+              {t('save.back')}
             </button>
             <button type="button" className="im-btn-danger im-btn-sm" onClick={() => onSubmit(overwrite)}>
-              覆盖保存
+              {t('save.overwrite')}
             </button>
           </>
         }
       >
-        <p className="im-modal-note">覆盖后旧的那份就找不回来了；想保留就先返回改个名字。</p>
+        <p className="im-modal-note">{t('save.overwriteWarn')}</p>
       </ModalShell>
     )
   }
 
   return (
     <ModalShell
-      title="保存工作流"
-      subtitle="给这个画布起个名字，之后可以再加载回来。"
+      title={t('save.title')}
+      subtitle={t('save.subtitle')}
       size="sm"
       onClose={onCancel}
       footer={
         <>
           <button type="button" className="im-btn-ghost im-btn-sm" onClick={onCancel}>
-            取消
+            {t('common.cancel')}
           </button>
           <button type="button" className="im-btn-primary im-btn-sm" disabled={!trimmed} onClick={submit}>
-            保存
+            {t('common.save')}
           </button>
         </>
       }
@@ -80,8 +93,8 @@ export function SaveDialog({
       <input
         autoFocus
         value={name}
-        aria-label="工作流名称"
-        placeholder="给这个画布起个名字"
+        aria-label={t('save.nameAria')}
+        placeholder={t('save.namePlaceholder')}
         className="im-field"
         onChange={event => setName(event.target.value)}
         onKeyDown={event => {
@@ -91,14 +104,13 @@ export function SaveDialog({
       {/* 存到哪儿：原版的占位符里就写着「存到 output/workflows/」。
           插件这边的落点会随「有没有设 imagora 目录」变，所以不能写死一句。 */}
       <p className="im-modal-note" style={{ marginTop: 8 }}>
-        存到 {imagoraRoot ? `${imagoraRoot}\\output\\workflows` : '插件自己的数据目录（未设置 imagora 目录）'}
-        {imagoraRoot ? '（与原版共用一份）' : ''}
+        {whereClause}
       </p>
       {/* 已有工作流：点一下填名字。原版保存弹窗就是这块列表（WorkflowModals.tsx:46-60） */}
       {workflows.length ? (
         <>
           <p className="im-modal-note" style={{ marginTop: 12 }}>
-            或者覆盖一个已有的（点一下填名字）
+            {t('save.overwriteMore')}
           </p>
           <div className="im-pick-list">
             {workflows.map(row => (
@@ -126,16 +138,19 @@ export function LoadDialog({
   /** 已配置的 imagora 目录：列表为空时要说清楚「去哪个目录找过了」 */
   imagoraRoot?: string
 }) {
-  const where = imagoraRoot ? `${imagoraRoot}\\output\\workflows` : '插件自己的数据目录（未设置 imagora 目录）'
+  const t = useT()
+  const where = imagoraRoot
+    ? t('load.where', { dir: `${imagoraRoot}\\output\\workflows` })
+    : t('load.where', { dir: t('save.where.fallback') })
   return (
     <ModalShell
-      title="加载工作流"
-      subtitle="选一份已保存的画布继续工作。"
+      title={t('load.title')}
+      subtitle={t('load.subtitle')}
       size="sm"
       onClose={onCancel}
       footer={
         <button type="button" className="im-btn-ghost im-btn-sm" onClick={onCancel}>
-          关闭
+          {t('common.close')}
         </button>
       }
     >
@@ -156,48 +171,45 @@ export function LoadDialog({
         // 空列表必须自证「读过哪里」：用户报过「点开里面什么都没有」，
         // 真正的原因是读错了目录（没跟着设置里的 imagora 根走），不是真没有。
         <>
-          <div className="im-modal-empty">这个目录里还没有工作流</div>
-          <p className="im-modal-note">读的是 {where}</p>
+          <div className="im-modal-empty">{t('load.empty')}</div>
+          <p className="im-modal-note">{where}</p>
         </>
       )}
     </ModalShell>
   )
 }
 
-/** 操作帮助正文：照搬原版 CanvasPage.tsx:148 的 HELP_ROWS。
+/** 帮助正文的行：[键, 文案键]。
  *
  * 手势与上游一致：右键拖拽框选、右键单击节点弹菜单、左键拖空白平移。
  * （曾经插件这里写的是「Shift+拖拽框选」——那时右键还没有菜单与框选，
  * 右键留给平移。手势统一后必须一起改回来，说明文字教错操作比缺说明更糟。）
  *
  * 原版四行（画布 / 节点 / 连线 / 快捷键）之后补了三行本插件独有的（引用 / 运行 / 保存）：
- * 那三条是 DSH 侧的行为（@图片名 引用、批量运行、恢复快照），原版要么没有、要么分散在别处。 */
-const HELP_ROWS: [string, string][] = [
-  [
-    '画布',
-    '右键拖拽框选 · 右键单击节点弹菜单 · Ctrl/Cmd+点击加选 · 滚轮缩放 · 空白拖拽平移 · 左下角「适应」全览 · 双击图片放大预览',
-  ],
-  ['节点', '悬停显右侧操作栏 · 选中后右上角可运行/整理/连线/设路径/删除 · 运行中可单卡取消'],
-  ['连线', '图片→提示词/图片组 · 图片组→提示词 · 提示词→图片；提示词仅一条入边，多图经图片组聚合'],
-  [
-    '快捷键',
-    'Ctrl+A 全选 · Ctrl+Z/Y 撤销恢复 · Delete 删除选中 · Ctrl+S 保存 · 双击连线或选中后 Delete/Backspace 删除连线',
-  ],
-  ['引用', '提示词里写 @图片名 只挑指定图；不写就用全部入边图片'],
-  ['运行', '单卡「运行」· 工具栏「全部运行」「运行所选」「取消全部」'],
-  ['保存', '命名保存进工作流；画布改动会自动落恢复快照'],
+ * 那三条是 DSH 侧的行为（@图片名 引用、批量运行、恢复快照），原版要么没有、要么分散在别处。
+ *
+ * 这里只存**键**，不存文案：文案在 locales.ts 里分中英各写一份。 */
+const HELP_ROWS: [LocaleKey, LocaleKey][] = [
+  ['help.rows.canvas', 'help.rows.canvasText'],
+  ['help.rows.node', 'help.rows.nodeText'],
+  ['help.rows.edge', 'help.rows.edgeText'],
+  ['help.rows.keys', 'help.rows.keysText'],
+  ['help.rows.refs', 'help.rows.refsText'],
+  ['help.rows.run', 'help.rows.runText'],
+  ['help.rows.save', 'help.rows.saveText'],
 ]
 
 export function HelpDialog({ onClose, config }: { onClose: () => void; config: ImagoraConfig | null }) {
+  const t = useT()
   return (
     <ModalShell
-      title="操作帮助"
-      subtitle="拖入图片 · 右键框选 · 右键单击节点出菜单"
+      title={t('help.title')}
+      subtitle={t('help.subtitle')}
       size="md"
       onClose={onClose}
       footer={
         <button type="button" className="im-btn-ghost im-btn-sm" onClick={onClose}>
-          关闭
+          {t('common.close')}
         </button>
       }
     >
@@ -207,16 +219,19 @@ export function HelpDialog({ onClose, config }: { onClose: () => void; config: I
         <div style={{ display: 'grid', gap: 10, fontSize: 12 }}>
           {HELP_ROWS.map(([key, value]) => (
             <div key={key} style={{ display: 'grid', gridTemplateColumns: '3.25rem 1fr', gap: 12 }}>
-              <span style={{ color: 'var(--im-ink-3)', fontWeight: 600 }}>{key}</span>
-              <span style={{ lineHeight: 1.6 }}>{value}</span>
+              <span style={{ color: 'var(--im-ink-3)', fontWeight: 600 }}>{t(key)}</span>
+              <span style={{ lineHeight: 1.6 }}>{t(value)}</span>
             </div>
           ))}
         </div>
         {config ? (
           <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.7, color: 'var(--im-ink-3)' }}>
-            配置来源：{config.source === 'plugin' ? '插件内配置' : config.root || '未找到'} · 模型 {config.modelLabel}
+            {t('help.config', {
+              source: config.source === 'plugin' ? t('help.config.plugin') : config.root || t('help.config.missing'),
+              model: config.modelLabel,
+            })}
             <br />
-            结果默认落在 {config.defaultOutputDir}
+            {t('help.output', { dir: config.defaultOutputDir })}
           </p>
         ) : null}
       </div>
