@@ -245,6 +245,24 @@
           return
         }
         var registered = {}
+        // locale 服务桩：行为必须与宿主一致，否则验收结论不可信。
+        // `register` 把词典存起来；`bind` 返回一个按当前语言查表的翻译函数
+        // （读调用时刻的语言，所以切语言后同一次渲染就会变 —— 与真宿主同语义）。
+        // 语言由 `window.__dshImagoraLang` 控制，验收台与 ui-smoke 用它切到英文核对版面。
+        var dictionaries = {}
+        var currentLang = window.__dshImagoraLang || 'zh'
+        function translate(ns) {
+          return function (key, params) {
+            var dict = dictionaries[ns] || {}
+            var table = dict[currentLang] || dict.zh || {}
+            var template = table[key]
+            if (template === undefined) return key
+            if (!params) return template
+            return template.replace(/\{(\w+)\}/g, function (whole, name) {
+              return Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : whole
+            })
+          }
+        }
         var ctx = {
           slots: {
             inject: function (name, fn) {
@@ -254,6 +272,15 @@
             register: function (options) {
               registered[options.name] = options
               return { dispose: function () {} }
+            },
+          },
+          locale: {
+            register: function (ns, dicts) {
+              dictionaries[ns] = dicts
+              return function () {}
+            },
+            bind: function (ns) {
+              return translate(ns)
             },
           },
           effect: function (fn) {
@@ -268,7 +295,10 @@
           return
         }
         mount.innerHTML = ''
-        window.ReactDOMClient.createRoot(mount).render(window.React.createElement(App))
+        // 宿主会把 `t` 作为 props 注入 CanvasApp（注册项声明了 `locale` 座位），
+        // 验收台照做 —— 走的是与真宿主同一条路，而不是靠组件里的兜底。
+        var t = translate(Object.keys(dictionaries)[0] || 'imagora')
+        window.ReactDOMClient.createRoot(mount).render(window.React.createElement(App, { t: t }))
       })()
     </script>
   </body>

@@ -4,12 +4,13 @@
 import { createContext, memo, useContext, useEffect, useRef, useState } from 'react'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import type { CanvasGroupNodeData, CanvasImageNodeData, CanvasPromptNodeData } from './lib/types'
-import { generatingLabel } from './lib/format'
 import { useThumbnail } from './lib/useThumbnail'
 import { Icon } from './icons'
 import type { ImagoraConfig } from './api'
 import { Select } from './select'
 import { mergeCustomOption } from './lib/customValue'
+import { useT } from './i18n'
+import type { LocaleKey, Translate } from './locales'
 
 export interface NodeActions {
   updatePrompt: (nodeId: string, patch: Partial<CanvasPromptNodeData>) => void
@@ -55,6 +56,7 @@ function useActions(): NodeActions {
   return value
 }
 
+
 /**
  * 提示词输入框：输入法合成期间不把 value 写回 DOM。
  *
@@ -70,6 +72,7 @@ function useActions(): NodeActions {
 function PromptTextarea({ value, onChange }: { value: string; onChange: (next: string) => void }) {
   const [local, setLocal] = useState(value)
   const composing = useRef(false)
+  const t = useT()
 
   // 外部改动（加载工作流 / 撤销 / 恢复快照）同步进来；合成中的本地输入不回灌，
   // 否则正在拼的拼音会被节点里的旧值冲掉。
@@ -82,7 +85,7 @@ function PromptTextarea({ value, onChange }: { value: string; onChange: (next: s
       className="im-field nodrag"
       rows={5}
       value={local}
-      placeholder="英文提示词，例如：a red apple on white background"
+      placeholder={t('node.prompt.placeholder')}
       onCompositionStart={() => {
         composing.current = true
       }}
@@ -154,6 +157,7 @@ export type ImageFlowNode = Node<CanvasImageNodeData, 'image'>
 export const ImageNode = memo(function ImageNode({ id, data, selected }: NodeProps<ImageFlowNode>) {
   const actions = useActions()
   const lod = useLod()
+  const t = useT()
   const [broken, setBroken] = useState(false)
   const missing = data.missing || broken
   // 卡片只显示 128×160，原图却是 3072×4096（摊开约 48 MB）—— 一律走缩略图。
@@ -174,7 +178,7 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
       <Handles />
       {missing ? (
         <span className="im-chip is-danger" style={{ position: 'absolute', right: 4, top: 4, zIndex: 20 }}>
-          文件缺失
+          {t('node.missing')}
         </span>
       ) : null}
       {/* 蒙版角标：蒙版会一直跟着这张图走，之后每次拿它当参考图都按蒙版重绘。
@@ -186,14 +190,14 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
           type="button"
           className="im-chip is-brand im-chip--action nodrag"
           style={{ position: 'absolute', left: 4, top: 4, zIndex: 20 }}
-          title="这张图已设蒙版（局部重绘）。点击清除"
-          aria-label="清除蒙版"
+          title={t('node.mask.title')}
+          aria-label={t('node.mask.clear')}
           onClick={event => {
             event.stopPropagation()
             actions.clearMask(id)
           }}
         >
-          蒙版
+          {t('node.mask.badge')}
         </button>
       ) : null}
       {/* LOD 抽象模式：去掉右侧操作栏（7 个 30px 按钮在 10% 下每颗不到 3px，
@@ -201,25 +205,25 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
           缩远了要看的是「哪张图连着什么」，不是能对它做什么。 */}
       {lod ? null : (
         <Rail>
-          <RailButton label="预览大图" onClick={() => actions.zoomImage(id)}>
+          <RailButton label={t('node.image.preview')} onClick={() => actions.zoomImage(id)}>
             <Icon name="eye" />
           </RailButton>
-          <RailButton label="裁剪图片" onClick={() => actions.cropImage(id)}>
+          <RailButton label={t('node.image.crop')} onClick={() => actions.cropImage(id)}>
             <Icon name="crop" />
           </RailButton>
-          <RailButton label="放大图片" onClick={() => actions.upscaleImage(id)}>
+          <RailButton label={t('node.image.upscale')} onClick={() => actions.upscaleImage(id)}>
             <Icon name="expand" />
           </RailButton>
-          <RailButton label="切分图片" onClick={() => actions.splitImage(id)}>
+          <RailButton label={t('node.image.split')} onClick={() => actions.splitImage(id)}>
             <Icon name="grid" />
           </RailButton>
-          <RailButton label="蒙版重绘" onClick={() => actions.maskImage(id)}>
+          <RailButton label={t('node.image.mask')} onClick={() => actions.maskImage(id)}>
             <Icon name="wand" />
           </RailButton>
-          <RailButton label="替换图片" onClick={() => actions.replaceImage(id)}>
+          <RailButton label={t('node.image.replace')} onClick={() => actions.replaceImage(id)}>
             <Icon name="image" />
           </RailButton>
-          <RailButton label="删除图片" danger onClick={() => actions.deleteNode(id)}>
+          <RailButton label={t('node.image.delete')} danger onClick={() => actions.deleteNode(id)}>
             <Icon name="trash" />
           </RailButton>
         </Rail>
@@ -248,7 +252,7 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
           <span className="im-thumb-placeholder" aria-hidden />
         ) : (
           <span className="im-muted" style={{ fontSize: 11 }}>
-            图片缺失
+            {t('node.imageMissing')}
           </span>
         )}
       </div>
@@ -256,7 +260,7 @@ export const ImageNode = memo(function ImageNode({ id, data, selected }: NodePro
         {data.name}
       </div>
       <div style={{ fontSize: 11, color: data.refCount > 0 ? 'var(--im-brand)' : 'var(--im-ink-3)' }}>
-        {data.refCount > 0 ? `引用 ${data.refCount} 处` : '未引用'}
+        {data.refCount > 0 ? t('node.refs', { count: data.refCount }) : t('node.noRefs')}
       </div>
     </div>
   )
@@ -288,6 +292,7 @@ const STACK_STEP_PX = 4
 export const GroupNode = memo(function GroupNode({ id, data, selected }: NodeProps<GroupFlowNode>) {
   const actions = useActions()
   const lod = useLod()
+  const t = useT()
   const mb = data.totalSize > 0 ? (data.totalSize / (1024 * 1024)).toFixed(1) : '0.0'
   const dup = data.duplicateCount ?? 0
   const stackCount = Math.min(Math.max(data.imageCount - 1, 0), 3)
@@ -298,7 +303,7 @@ export const GroupNode = memo(function GroupNode({ id, data, selected }: NodePro
       {/* LOD 抽象模式：去掉悬停删除栏，只保留组本体（组节点本身已经足够轻量） */}
       {lod ? null : (
         <Rail>
-          <RailButton label="删除图片组" danger onClick={() => actions.deleteNode(id)}>
+          <RailButton label={t('node.group.delete')} danger onClick={() => actions.deleteNode(id)}>
             <Icon name="trash" />
           </RailButton>
         </Rail>
@@ -314,11 +319,11 @@ export const GroupNode = memo(function GroupNode({ id, data, selected }: NodePro
           />
         ))}
         <div className="im-group-face">
-          <div className="im-group-count">{data.imageCount} 张图</div>
+          <div className="im-group-count">{t('node.group.count', { count: data.imageCount })}</div>
           <div className="im-group-size">{mb} MB</div>
           {dup > 0 ? (
-            <span className="im-chip im-chip--sm is-brand im-group-dup" title={`已去重 ${dup} 张重复图片`}>
-              去重
+            <span className="im-chip im-chip--sm is-brand im-group-dup" title={t('node.group.dedup.title', { count: dup })}>
+              {t('node.group.dedup')}
             </span>
           ) : null}
         </div>
@@ -331,21 +336,23 @@ export const GroupNode = memo(function GroupNode({ id, data, selected }: NodePro
 export type PromptFlowNode = Node<CanvasPromptNodeData, 'prompt'>
 
 function Elapsed({ from }: { from?: number | undefined }) {
+  const t = useT()
   const [seconds, setSeconds] = useState(() => (from ? Math.max(0, Math.floor((Date.now() - from) / 1000)) : 0))
   useEffect(() => {
     if (!from) return undefined
     const timer = window.setInterval(() => setSeconds(Math.max(0, Math.floor((Date.now() - from) / 1000))), 1000)
     return () => window.clearInterval(timer)
   }, [from])
-  return <>{generatingLabel(seconds)}</>
+  return <>{t('status.generating', { seconds })}</>
 }
 
-const STATUS_TEXT: Record<string, string> = {
-  idle: '就绪',
-  queued: '排队中',
-  running: '生成中',
-  done: '完成',
-  failed: '失败',
+/** 状态灯 title 用的键；未知状态回落就绪（与原版 STATUS_TEXT 的默认值同义）。 */
+const STATUS_KEY: Record<string, LocaleKey> = {
+  idle: 'status.idle',
+  queued: 'status.queued',
+  running: 'status.running',
+  done: 'status.done',
+  failed: 'status.failed',
 }
 
 /**
@@ -356,28 +363,34 @@ const STATUS_TEXT: Record<string, string> = {
  * 能读到的只有中心和几个字。只写「完成」看不出生成了几张，得再点进去 ——
  * 而抽象模式存在的意义恰恰是「扫一眼就知道全局跑到哪了」。
  */
-function promptStatusSummary(data: CanvasPromptNodeData): { text: string; detail: string; tone: string } {
+function promptStatusSummary(
+  data: CanvasPromptNodeData,
+  t: Translate,
+): { text: string; detail: string; tone: string } {
   switch (data.status) {
     case 'queued':
-      return { text: '排队中', detail: '排队中', tone: 'is-queued' }
+      return { text: t('status.queued'), detail: t('status.queued'), tone: 'is-queued' }
     case 'running':
-      return { text: '生成中', detail: '生成中', tone: 'is-running' }
-    case 'done':
-      return {
-        text: `完成 · ${data.resultCount ?? 0} 张`,
-        detail: `完成 · ${data.resultCount ?? 0} 张`,
-        tone: 'is-done',
-      }
+      return { text: t('status.running'), detail: t('status.running'), tone: 'is-running' }
+    case 'done': {
+      const line = t('status.done.withCount', { count: data.resultCount ?? 0 })
+      return { text: line, detail: line, tone: 'is-done' }
+    }
     case 'failed':
-      return { text: '失败', detail: data.message ? `失败：${data.message}` : '失败', tone: 'is-failed' }
+      return {
+        text: t('status.failed'),
+        detail: data.message ? t('status.failed.withReason', { reason: data.message }) : t('status.failed'),
+        tone: 'is-failed',
+      }
     default:
-      return { text: '就绪', detail: '就绪', tone: 'is-idle' }
+      return { text: t('status.idle'), detail: t('status.idle'), tone: 'is-idle' }
   }
 }
 
 export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeProps<PromptFlowNode>) {
   const actions = useActions()
   const lod = useLod()
+  const t = useT()
   const config = actions.config
   const busy = data.status === 'queued' || data.status === 'running'
   const sizes = config?.sizes ?? []
@@ -385,7 +398,7 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
   const sizeOptions =
     sizes.some(row => row.value === data.size) || !data.size
       ? sizes
-      : [...sizes, { value: data.size, label: `${data.size}（自定义）`, cost: 0 }]
+      : [...sizes, { value: data.size, label: t('node.prompt.customSize', { size: data.size }), cost: 0 }]
   const qualityEffective = config?.qualityEffective !== false
 
   /* LOD 抽象模式（照搬原版 PromptNode 的 lod 分支）：标题大字 + 状态居中，
@@ -393,15 +406,15 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
      卡面尺寸不变（原版也是 `!w-[380px] min-h-[320px]`）—— 一缩尺寸，
      进/出抽象模式时相邻节点会互相挤动，整块画布跳一下。 */
   if (lod) {
-    const summary = promptStatusSummary(data)
+    const summary = promptStatusSummary(data, t)
     return (
       <div
         className={`im-panel-card im-node-lod${selected ? ' is-selected' : ''}`}
         style={{ width: 380, minHeight: 320, padding: 12, boxSizing: 'border-box' }}
       >
         <Handles />
-        <div className="im-lod-title" title={data.title ?? '提示词生成'}>
-          {data.title ?? '提示词生成'}
+        <div className="im-lod-title" title={data.title ?? t('node.prompt.untitled')}>
+          {data.title ?? t('node.prompt.untitled')}
         </div>
         <div className={`im-lod-status ${summary.tone}`} title={summary.detail}>
           {data.status === 'running' ? <Elapsed from={data.startedAtMs} /> : summary.text}
@@ -420,10 +433,10 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
           灯包一层居中容器（原版是 flex justify-center py-0.5）：
           直接放在 flex 列里会被 align-items 拉伸成一条横杠，间隙也会跟着走形。 */}
       <Rail>
-        <span className="im-rail-dot" title={STATUS_TEXT[data.status] ?? '就绪'}>
+        <span className="im-rail-dot" title={t(STATUS_KEY[data.status] ?? 'status.idle')}>
           <span className={`im-dot is-${data.status}`} />
         </span>
-        <RailButton label="删除提示词" danger onClick={() => actions.deleteNode(id)}>
+        <RailButton label={t('node.prompt.delete')} danger onClick={() => actions.deleteNode(id)}>
           <Icon name="trash" />
         </RailButton>
       </Rail>
@@ -433,7 +446,7 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
         className="im-node-title"
         style={{ marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
       >
-        {data.title ?? '提示词生成'}
+        {data.title ?? t('node.prompt.untitled')}
       </div>
 
       <PromptTextarea value={data.prompt} onChange={next => actions.updatePrompt(id, { prompt: next })} />
@@ -448,7 +461,7 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
         }}
       >
         <div style={{ minWidth: 0 }}>
-          <span className="im-label">尺寸</span>
+          <span className="im-label">{t('node.prompt.size')}</span>
           {/* 尺寸可能有十几项（模型自带 size_options 时），超过阈值会自动出搜索框。
               mergeCustomOption：值不在清单里时补一条「自定义」，否则触发器会显示
               「请选择」——加载了别的工作流、尺寸被改到清单外时就会这样。
@@ -457,18 +470,18 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
             className="im-select-fill"
             options={mergeCustomOption(sizeOptions, data.size)}
             value={data.size}
-            title="输出尺寸"
+            title={t('node.prompt.size.title')}
             onChange={value => actions.updatePrompt(id, { size: value })}
           />
         </div>
         {qualityEffective ? (
           <div style={{ minWidth: 0 }}>
-            <span className="im-label">质量</span>
+            <span className="im-label">{t('node.prompt.quality')}</span>
             <Select
               className="im-select-fill"
               options={qualities.map(quality => ({ value: quality, label: quality }))}
               value={data.quality}
-              title="生成质量"
+              title={t('node.prompt.quality.title')}
               onChange={value => actions.updatePrompt(id, { quality: value })}
             />
           </div>
@@ -476,7 +489,7 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
       </div>
 
       <div className="nodrag" style={{ marginTop: 8 }}>
-        <span className="im-label">输出路径（留空 = 只留在画布）</span>
+        <span className="im-label">{t('node.prompt.outputDir')}</span>
         <input
           className="im-field"
           value={data.outputDir}
@@ -503,9 +516,9 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
           {data.status === 'running' ? (
             <Elapsed from={data.startedAtMs} />
           ) : data.status === 'queued' ? (
-            '排队中…'
+            t('node.prompt.queueing')
           ) : (
-            '运行'
+            t('node.prompt.run')
           )}
         </button>
         {busy ? (
@@ -513,13 +526,13 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
             type="button"
             className="im-btn-ghost im-btn-sm nodrag"
             disabled={data.cancelRequested === true}
-            title="排队中的不会再发出去；生成中的会等当前这张跑完才作废"
+            title={t('node.prompt.cancel.title')}
             onClick={event => {
               event.stopPropagation()
               actions.cancelPrompt(id)
             }}
           >
-            {data.cancelRequested ? '取消中…' : '取消'}
+            {data.cancelRequested ? t('node.prompt.cancelling') : t('node.prompt.cancel')}
           </button>
         ) : null}
       </div>

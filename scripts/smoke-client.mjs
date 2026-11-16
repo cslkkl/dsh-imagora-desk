@@ -125,6 +125,9 @@ check(
 const injections = []
 const registrations = []
 const effects = []
+// locale 桩：与真宿主同语义 —— `register` 存词典，`bind` 返回按当前语言查表的函数。
+// 语言固定 zh：冒烟断言的是「中文这一版对不对」，英文版面的验收在 ui-smoke 里。
+const dictionaries = {}
 const ctx = {
   slots: {
     inject(name, fn) {
@@ -137,6 +140,22 @@ const ctx = {
       return { dispose() {} }
     },
   },
+  locale: {
+    register(ns, dicts) {
+      dictionaries[ns] = dicts
+      return () => {}
+    },
+    bind(ns) {
+      return (key, params) => {
+        const table = (dictionaries[ns] ?? {}).zh ?? {}
+        const template = table[key] ?? key
+        if (!params) return template
+        return template.replace(/\{(\w+)\}/g, (whole, name) =>
+          Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : whole,
+        )
+      }
+    },
+  },
   effect(fn, label) {
     effects.push(label)
     const dispose = fn()
@@ -146,14 +165,24 @@ const ctx = {
 
 exportsObject.apply(ctx)
 
+check('inject 含 locale（文案层依赖宿主语言服务）', exportsObject.inject.includes('locale'), JSON.stringify(exportsObject.inject))
+check('注册了文案词典', Object.keys(dictionaries).length > 0, JSON.stringify(Object.keys(dictionaries)))
+const dict = dictionaries.imagora ?? {}
+check('词典有 zh 与 en 两份', Boolean(dict.zh && dict.en), JSON.stringify(Object.keys(dict)))
+check('中英词典键集一致', JSON.stringify(Object.keys(dict.zh ?? {}).sort()) === JSON.stringify(Object.keys(dict.en ?? {}).sort()))
 check('注入了 main 插槽', injections.includes('main'), injections.join(','))
 check('注入了 sidebar.panellist 插槽', injections.includes('sidebar.panellist'))
 const mainReg = registrations.find(row => row.options.name === 'main')
 check('main 注册 key=imagora', mainReg?.options?.key === 'imagora', JSON.stringify(mainReg?.options))
 check('main 注册了组件', typeof mainReg?.component === 'function')
+check('main 声明了 locale 座位', mainReg?.options?.locale === 'imagora', String(mainReg?.options?.locale))
 const sidebarReg = registrations.find(row => row.options.name === 'sidebar.panellist')
 check('侧边栏注册 id=imagora', sidebarReg?.options?.id === 'imagora', JSON.stringify(sidebarReg?.options))
-check('侧边栏有 label', typeof sidebarReg?.options?.label === 'function' && sidebarReg.options.label() === '自由画布')
+check(
+  '侧边栏有 label（thunk，切语言时由宿主重取）',
+  typeof sidebarReg?.options?.label === 'function' && sidebarReg.options.label() === '自由画布',
+  String(sidebarReg?.options?.label?.()),
+)
 check(
   'xyflow 样式注入到 head',
   styleNodes.some(node => String(node.textContent).includes('react-flow')),

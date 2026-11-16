@@ -1,19 +1,44 @@
 // client 半端入口：向侧边栏与主区域注册「imagora」面板。
 // 侧边栏那一行由 sidebar.panellist 渲染；点开后主区域用同名 key 渲染画布。
+//
+// 文案层在这里接上宿主：`ctx.locale.register` 交出中英两份词典，slot 注册项声明
+// `locale: NS` 让框架把 `t` 座位注入组件 props。侧栏标签用 thunk 形态，
+// 于是**切语言时宿主自己会重取**（`resolveSlotLabel` 读一次 thunk），无需重挂载。
 import { CanvasApp } from './canvas/index'
 import { CanvasBoundary, ErrorBoundary, NodeBoundary } from './canvas/error-boundary'
 import { BrandLogo } from './brand'
+import { NS, en, zh, type Translate } from './locales'
 import xyflowCss from '@xyflow/react/dist/style.css'
 
-export const inject = ['slots']
+/**
+ * 依赖两项服务。
+ *
+ * `locale` 是硬依赖：注册词典与注入 `t` 都靠它，DSH 的 web 端必装
+ * （`bundle/web-app` 依赖 `dsh-client-locale`）。少写它不会立刻报错，
+ * 而是 `ctx.locale` 为 undefined —— 那时 `register` 才炸，报错位置离真因很远。
+ */
+export const inject = ['slots', 'locale']
 
 const KEY = 'imagora'
 
-/** Cordis 上下文的最小形状：只声明本插件用到的两件事。 */
+/** Cordis 上下文的最小形状：只声明本插件用到的三件事。 */
 interface SlotsContext {
   slots: {
     inject: (name: string, fn: () => unknown) => () => void
     register: (options: Record<string, unknown>, component: unknown) => { dispose: () => void }
+  }
+  locale: {
+    /**
+     * 注册命名空间词典。带类型的形式要求基线的两种语言都给全
+     * （`zh` 与 `en`），与 dsh-client-locale 的契约一致。
+     */
+    register: (ns: string, dicts: Record<string, Record<string, string>>) => () => void
+    /**
+     * 绑定命名空间，拿到翻译函数。**同一命名空间多次 bind 返回同一个函数**
+     * （引用稳定），所以可以安全地放进 `ctx.effect` 与依赖数组。
+     * 它读的是**调用时刻**的语言 —— 这就是侧栏标签能跟着切语言的原因。
+     */
+    bind: (ns: string) => Translate
   }
   effect: (fn: () => (() => void) | undefined, label: string) => void
 }
@@ -64,6 +89,15 @@ function PanelIcon({ size = 16 }: { size?: number }) {
 }
 
 export function apply(ctx: SlotsContext) {
+  // 词典先注册：晚于出口注册也不会丢（注册会推进修订号，已挂载的出口自动重取），
+  // 但先注册能少一次无用渲染。
+  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-imagora-desk: 文案词典')
+
+  // 侧栏标签走 `bind` 而不是让框架注入：`sidebar.panellist` 的 `label` 是个 thunk，
+  // 宿主调它时并不会递 `t` 进来（`t` 座位只注入组件 props）。`bind` 返回的函数
+  // 读调用时刻的语言，所以 thunk 里调它，切语言就自动跟着变。
+  const t = ctx.locale.bind(NS)
+
   ctx.effect(() => {
     const style = document.createElement('style')
     style.setAttribute('data-dsh-imagora-desk', 'xyflow')
@@ -81,7 +115,8 @@ export function apply(ctx: SlotsContext) {
     }
   })
 
-  ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: KEY }, CanvasApp))
+  // `locale: NS` 让框架把类型化的 `t` 注入 CanvasApp 的 props（本插件唯一的文案入口）。
+  ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: KEY, locale: NS }, CanvasApp))
 
   ctx.effect(
     () =>
@@ -91,7 +126,9 @@ export function apply(ctx: SlotsContext) {
             name: 'sidebar.panellist',
             id: KEY,
             order: 6,
-            label: () => '自由画布',
+            locale: NS,
+            // thunk 形态：宿主每次读标签都重新求值，所以切语言时侧栏那一行跟着变。
+            label: () => t('panel.entry'),
           },
           PanelIcon,
         ),
