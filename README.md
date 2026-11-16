@@ -1,33 +1,40 @@
-# dsh-imagora-desk
+<div align="center">
 
-[![ci](https://github.com/cslkkl/dsh-imagora-desk/actions/workflows/ci.yml/badge.svg)](https://github.com/cslkkl/dsh-imagora-desk/actions/workflows/ci.yml)
-[![license](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
-[![node](https://img.shields.io/badge/node-24.15.0-3776AB.svg)](.node-version)
-[![release](https://img.shields.io/github/v/release/cslkkl/dsh-imagora-desk)](https://github.com/cslkkl/dsh-imagora-desk/releases)
+<img src="icon.svg" alt="dsh-imagora-desk" width="72" height="72">
 
-把 [Imagora](https://github.com/Cogniform/imagora) 的**自由画布**搬进 DeepSeek Harness。
-提示词卡与图片摊在一张无限画布上，**连线就是参考关系**；跑完的图自动回流成新节点。
+<h1>dsh-imagora-desk</h1>
 
-![自由画布](docs/images/canvas.png)
+<p>
+  <a href="https://github.com/cslkkl/dsh-imagora-desk/actions/workflows/ci.yml"><img src="https://github.com/cslkkl/dsh-imagora-desk/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href=".node-version"><img src="https://img.shields.io/badge/node-24.15.0-3776AB.svg" alt="Node 24.15.0"></a>
+  <a href="https://github.com/cslkkl/dsh-imagora-desk/releases"><img src="https://img.shields.io/github/v/release/cslkkl/dsh-imagora-desk" alt="Release"></a>
+</p>
 
-## 为什么用它
+<p><b>把 <a href="https://github.com/Cogniform/imagora">Imagora</a> 的自由画布搬进 DeepSeek Harness</b></p>
 
-- **画布即工作流**。不用填表单再等结果：把图拖上来，把提示词卡连上去，跑完的图直接接在下面，接着往下连。
-- **不用装 Imagora**。填一次接口地址和 API Key 就能出图；两分钟从装插件到出第一张。
-- **界面是原生的**。走 DSH 官方组件库，主题、暗色、焦点环、快捷键都跟宿主一致，不是一个套壳网页。
-- **观感与原版一致**。画布、节点卡片、按钮都照搬 Imagora 的设计层，配色跟随宿主主题（含暗色），不是另画一套。
+<p>提示词卡与图片摊在一张无限画布上，<b>连线就是参考关系</b>；跑完的图自动回流成新节点，接着往下连。<br>
+不用装 Imagora，填一次接口地址和 API Key 就能出图。</p>
+
+</div>
+
+> **数据边界**　请求直连你自己填的接口，没有中转服务；密钥只写本机；图片、工作流与恢复快照全落在本地目录，可随时整个删掉。
+
+## 界面一览
+
+![自由画布：提示词卡、图片节点、按参考关系分层的连线与回流结果](docs/images/canvas.jpg)
 
 ## 能做什么
 
-- 无限画布：提示词卡 / 图片 / 图片组，拖拽吸附对齐、缩放、框选、小地图、全览。
-- 连线即参考：图片或图片组连到提示词就是它的参考图；提示词连到图片表示产出。
-- 出图回流：单卡运行、全部运行、运行所选、取消全部；结果自动变成新节点并连线。
-- 生成历史：磁盘上出过的图都在，可筛选、多选放回画布——节点删了也找得回来。
-- 粘贴导入：一段 `=== 标题 ===` + `ratio:` 格式的清单，一次建出多张提示词卡。
-- 点名引用：提示词里写 `@图片名` 只挑指定的图，不写就用入边上的全部图片。
-- 选中操作栏：运行所选 / **自动整理**（按参考关系分层重排选中的卡片、结果图与图片组，其余原位）/ 自动连线 / 设输出路径 / 删除所选。
-- 工作流：手动命名保存与加载；画布改动还会自动落一份恢复快照（留最近 5 份）。
-- 与 Imagora 同键位：`Ctrl+A` 全选、`Ctrl+Z/Y` 撤销恢复、`Ctrl+S` 保存、`Del` 删除。
+- **画布即工作流**：不用填表单再等结果。把图拖上来、把提示词卡连上去，跑完的图直接接在下面。
+- **连线即参考**：图片或图片组连到提示词就是它的参考图；提示词连到图片表示产出。提示词里写 `@图片名` 只挑指定的图。
+- **三种跑法**：单卡运行、全部运行、运行所选；随时取消。结果回流成新节点并自动连线。
+- **选中操作栏**：运行所选 / 自动整理（按参考关系分层重排，其余原位）/ 自动连线 / 设输出路径 / 删除所选。
+- **图片加工**：图片节点右键 → 裁剪 / 切分 / 放大 / 蒙版重绘，全部本地处理，不花钱。
+- **生成历史**：读磁盘上的账本，可搜索、按状态筛选、看花费与成功率，多选放回画布——节点删了也找得回来。
+- **粘贴导入**：一段 `=== 标题 ===` + `ratio: 3:2` 的清单，一次建出多张提示词卡，格式不对的地方逐条标红。
+- **工作流**：手动命名保存与加载；画布改动另存一份自动恢复快照（留最近 5 份）。
+- **观感是原生的**：走 DSH 组件库，主题、暗色、焦点环都跟宿主一致；画布与节点照搬 Imagora 的设计层，配色随主题。
 
 ## 安装
 
@@ -42,46 +49,27 @@ https://toolboxonline.online/dsh-imagora-desk/index.json
 也可以直接用命令行装：
 
 ```powershell
-# 从仓库源码（git，pinned 到提交无所谓，装最新）
+# 从仓库源码装最新
 dsh plugin --profile web add git+https://github.com/cslkkl/dsh-imagora-desk.git
 
 # 或用 Release 包
 dsh plugin --profile web add https://github.com/cslkkl/dsh-imagora-desk/releases/download/v0.1.0/dsh-imagora-desk-0.1.0.tgz
-
-# npm 发布之后可用
-dsh plugin --profile web add dsh-imagora-desk
 ```
 
-装完刷新页面。左侧面板列表出现「自由画布」；若没有，重启一次 `dsh web`（页面的 client 清单在启动时计算）。
+装完刷新页面，左侧面板列表出现「自由画布」。若没有，重启一次 `dsh web`（页面的 client 清单在启动时计算）。
 
 ## 第一次用
 
 打开画布会**自动弹出设置**（没配置的时候）：
 
-![设置](docs/images/settings.png)
-
 1. **接口地址** — OpenAI 兼容的图片接口根地址，通常以 `/v1` 结尾。
 2. **API Key** — 只存在本机，不回传页面、不进日志。
 3. **模型名** — 上游要求的模型 id。
 
-点「测试连通」会读一次上游模型清单（**不生成图、不花钱**），读到的模型可直接点选。
-保存后即可建卡、连线、出图。
+点「测试连通」会读一次上游模型清单（**不生成图、不花钱**），读到的模型可直接点选。保存后即可建卡、连线、出图。
 
-已经有 Imagora 的话也可以不填：设置弹窗里能切回「本机 Imagora 的配置」，沿用它的来源、模型与价目表。
-同一处还能改**默认输出路径**——留空就用来源根目录下的 `output`。
-
-## 常用操作
-
-| 操作              | 说明                                                               |
-| ----------------- | ------------------------------------------------------------------ |
-| 提示词卡 / 图片组 | 工具栏新建，或在工具栏把按钮拖到画布上落点                         |
-| 导入图片          | 「导入图片」，或把图拖进画布、在画布上 `Ctrl+V`                    |
-| 粘贴导入提示词    | 一段 `=== 标题 ===` + 围栏 + `ratio: 3:2` 的清单，一次建多张卡     |
-| 运行              | 单卡「运行」；工具栏「全部运行」「运行所选」「取消全部」           |
-| 生成历史          | 磁盘上出过的图，筛选后多选放回画布                                 |
-| 成本              | 工具栏右侧显示本画布累计花费；设了预算上限会带进度条，超限拒新任务 |
-| 图片加工          | 图片节点悬停 → 裁剪 / 切分 / 放大 / 蒙版重绘，全部本地处理不花钱   |
-| 保存 / 加载       | 手动命名存工作流；改动另有自动恢复快照（留最近 5 份）              |
+已经有 Imagora 的话也可以不填：设置里能切回「本机 Imagora 的配置」，沿用它的来源、模型与价目表；
+同一处还能改**默认输出路径**，留空就用来源根目录下的 `output`。
 
 ## 快捷键
 
@@ -100,30 +88,17 @@ dsh plugin --profile web add dsh-imagora-desk
 
 在输入框里打字时这些键位不生效，交回浏览器原生行为。
 
-## 数据边界
+## 和原版 Imagora 共用一份数据
 
-- 请求直连你自己填的接口，没有中转服务。
-- 密钥只写本机 `~/.dsh/imagora/settings.json`（权限 600），接口只回「是否已配置」。
-- 默认图片、工作流、恢复快照全部落在 `~/.dsh/imagora/` 下，可随时整个删掉。
-
-### 和原版 [Imagora](https://github.com/Cogniform/imagora) 共用一份数据
-
-设置里填上 Imagora 目录（含 `config.json` 的那个文件夹），插件就**直接读写它那一份**，
-不复制、不建快捷方式：
+设置里填上 Imagora 目录（含 `config.json` 的那个文件夹），插件就**直接读写它那一份**，不复制、不建快捷方式：
 
 - 接口地址、密钥、模型：读它的 `config.json` / `providers.local.json` / `.env`。
-- 工作流：读写它的 `output/workflows/`。
-- 生成历史：读它的 `output/.assets/registry.json`，插件新出的图也登记进同一张表
-  （按内容 sha1 去重，与原版同一个 id 算法）。
+- 工作流：读写它的 `output/workflows/`；生成历史读它的账本 `logs/generation.jsonl`。
+- 预算：与本机那份 `.budget.json` 共读，两边改都立刻可见。
 
-目录留空就只用插件自己的 `~/.dsh/imagora/`，两者互不影响。填了之后随时可以在设置里
-点「不共享」切回去。
+目录留空就只用插件自己的 `~/.dsh/imagora/`，两者互不影响，随时可以在设置里切回去。
 
-## 与 Imagora 的差距
-
-功能面已经对齐：75 项对照里没有「未实现」项了。剩下两处 🟡 是同一件事的两种做法
-（节点拖拽拉伸、插件内配置时的价目显示），不是缺功能。
-逐项对照见 [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md)。
+功能面已与上游对齐，逐项对照见 [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md)。
 
 ## 开发
 
@@ -132,14 +107,14 @@ dsh plugin --profile web add dsh-imagora-desk
 ```powershell
 pnpm install
 pnpm run build        # 打 dist/client.js；改完源码必须重跑
-pnpm run test         # 两套冒烟：host 接口 58 项 + bundle/包名/插槽 16 项
+pnpm run test         # host 接口 113 项 + bundle/包名/插槽 25 项
+pnpm run test:ui      # 真实浏览器跑验收台 58 项（找不到浏览器则 SKIP）
 pnpm run harness      # 渲染验收台 http://127.0.0.1:4319/（mock 数据，不花钱）
 ```
 
 - 全部命令与检查选择 → [AGENTS.md](AGENTS.md)
 - 设计不变量与接口契约 → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- 市场收录与安装方式 → [docs/PUBLISHING.md](docs/PUBLISHING.md)
-- 发版操作与回滚 → [docs/RELEASE.md](docs/RELEASE.md)
+- 市场收录与发版 → [docs/PUBLISHING.md](docs/PUBLISHING.md) · [docs/RELEASE.md](docs/RELEASE.md)
 
 ## 许可
 
