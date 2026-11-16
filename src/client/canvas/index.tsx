@@ -122,6 +122,10 @@ export function CanvasApp() {
     settingsPrompted.current = true
     setDialog({ kind: 'settings' })
   }, [config])
+  /* ---------------- 撤销 / 重做 ---------------- */
+  // 必须在 useCanvasImages / 各 add* 之前：它们落盘前要 history.record()
+  const history = useCanvasHistory({ nodesRef, edgesRef, setNodes, setEdges, flash })
+
   const { addImages, replaceImage, openPreview, addDataUrl } = useCanvasImages({
     nodesRef,
     setNodes,
@@ -129,6 +133,7 @@ export function CanvasApp() {
     log,
     flash,
     setPreview,
+    record: history.record,
   })
   const { runPrompt, cancelPrompt, runMany } = useGeneratedTasks({
     nodesRef,
@@ -154,7 +159,7 @@ export function CanvasApp() {
   })
 
   /* ---------------- 撤销 / 重做 ---------------- */
-  const history = useCanvasHistory({ nodesRef, edgesRef, setNodes, setEdges, flash })
+  // 定义在这里（useCanvasImages / 各 add* 之前）：它们落改动前要 history.record()
 
   /* ---------------- 成本 ---------------- */
   const cost = useCostSummary(nodes)
@@ -248,16 +253,21 @@ export function CanvasApp() {
         quality: cfg?.qualities[0] ?? 'high',
         outputDir: '',
       })
+      // 新增节点是用户意图：必须记一笔，否则「撤销」按钮恒为 disabled、
+      // Ctrl+Z 无事可做。记在这里而不是各调用点（工具栏 / 拖入 / 粘贴导入），
+      // 少一处就是一处漏记 —— 之前工具栏三条入口全都漏了。
+      history.record()
       setNodes(current => [...current, node])
     },
-    [createPosition, setNodes, configRef],
+    [createPosition, setNodes, configRef, history],
   )
 
   const addGroupNode = useCallback(
     (at?: { x: number; y: number }) => {
+      history.record()
       setNodes(current => [...current, buildGroupNode(at ?? createPosition())])
     },
-    [createPosition, setNodes],
+    [createPosition, setNodes, history],
   )
 
   /* ---------------- 组织 ---------------- */
@@ -344,7 +354,7 @@ export function CanvasApp() {
       instanceRef.current ? instanceRef.current.screenToFlowPosition(screen) : createPosition(),
     onDropFiles: (files, point) => void addImages(files, point),
     onDropNode: (kind, point) => {
-      history.record()
+      // add* 自己记历史（单点记录，避免调用点各记一遍而漏），这里不再重复
       if (kind === 'prompt') addPromptNode(point)
       else addGroupNode(point)
     },
@@ -461,10 +471,10 @@ export function CanvasApp() {
           cost={cost}
           canUndo={history.canUndo}
           canRestore={history.canRestore}
-          onUndo={() => {
-            history.record()
-            history.undo()
-          }}
+          // 直接接 history.undo。之前这里多包了一层 history.record()，
+          // 等于「先把当前状态压栈再撤销」—— 弹出来的正是刚压进去的当前态，
+          // 看起来就是「点了撤销没反应」，还会把真正的上一步挤掉。
+          onUndo={history.undo}
           onRestore={history.restore}
           onAddPrompt={() => addPromptNode()}
           onPickFiles={() => fileInputRef.current?.click()}

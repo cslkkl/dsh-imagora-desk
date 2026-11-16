@@ -14,9 +14,11 @@ interface Options {
   log: (line: string) => void
   flash: (line: string) => void
   setPreview: (preview: { url: string; name: string; path?: string } | null) => void
+  /** 落图前记一笔历史，让「撤销」能收回刚上传的图（拖入 / 粘贴 / 选文件三个入口共用）。 */
+  record?: () => void
 }
 
-export function useCanvasImages({ nodesRef, setNodes, createPosition, log, flash, setPreview }: Options) {
+export function useCanvasImages({ nodesRef, setNodes, createPosition, log, flash, setPreview, record }: Options) {
   /** 批量落图：一张一张上传，失败只记日志不中断其余文件。 */
   const addImages = useCallback(
     async (files: File[], position: { x: number; y: number }) => {
@@ -25,6 +27,8 @@ export function useCanvasImages({ nodesRef, setNodes, createPosition, log, flash
         flash('只认图片文件')
         return
       }
+      // 记在循环前一次：撤销一次收掉这一批，而不是撤一张留一张
+      record?.()
       for (const [index, file] of images.entries()) {
         try {
           log(`上传 ${file.name || '剪贴板图片'} …`)
@@ -44,7 +48,7 @@ export function useCanvasImages({ nodesRef, setNodes, createPosition, log, flash
         }
       }
     },
-    [setNodes, log, flash],
+    [setNodes, log, flash, record],
   )
 
   /** 拖进画布：落点用屏幕坐标换算，换算失败时退回「视口中心 + 阶梯错开」。 */

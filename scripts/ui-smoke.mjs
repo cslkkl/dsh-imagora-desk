@@ -285,6 +285,73 @@ try {
   const zoomAfter = await page.locator('.im-dock-row-value').first().innerText()
   check('滚轮能缩放画布', zoomBefore !== zoomAfter, `${zoomBefore} → ${zoomAfter}`)
 
+  // ---------------- 撤销：工具栏新增的节点必须可撤销 ----------------
+  // 回归：三条新增入口（提示词卡 / 图片组 / 上传）曾经都只 setNodes、不 record，
+  // 于是「撤销」按钮恒为 disabled，Ctrl+Z 也无可撤销 —— 用户视角就是「撤销不好使」。
+  const undoBtn = page.getByRole('button', { name: '撤销' })
+  const countNodes = () => page.locator('.react-flow__node').count()
+  const baseCount = await countNodes()
+  await page.getByRole('button', { name: '新建提示词卡片' }).click()
+  await page.waitForTimeout(350)
+  const addedCount = await countNodes()
+  check('工具栏新增后「撤销」按钮可用', !(await undoBtn.isDisabled()), `disabled=${await undoBtn.isDisabled()}`)
+  await undoBtn.click()
+  await page.waitForTimeout(350)
+  check(
+    '点「撤销」撤回刚新增的卡片',
+    (await countNodes()) === baseCount,
+    `${baseCount} → ${addedCount} → ${await countNodes()}`,
+  )
+
+  await page.locator('.react-flow__pane').click({ position: { x: 24, y: 24 } })
+  await page.keyboard.press('Control+z')
+  await page.waitForTimeout(300)
+  check('Ctrl+Z 与撤销按钮同一个栈', (await countNodes()) === baseCount, String(await countNodes()))
+
+  // ---------------- 中文输入法：合成不得被打断 ----------------
+  // 回归：受控 textarea 在合成期间被 value 回写，浏览器会提交并重置合成缓冲区，
+  // 已输入的拼音被当成正文逐段追加（`nihao` → `nninihnihani…`）。
+  const imeCard = page
+    .locator('.react-flow__node')
+    .filter({ has: page.locator('textarea') })
+    .first()
+  const imeArea = imeCard.locator('textarea').first()
+  await imeArea.click()
+  const imeBefore = await imeArea.inputValue()
+  const cdp = await page.context().newCDPSession(page)
+  for (const step of ['n', 'ni', 'nih', 'niha', 'nihao']) {
+    await cdp.send('Input.imeSetComposition', {
+      text: step,
+      selectionStart: step.length,
+      selectionEnd: step.length,
+    })
+    await page.waitForTimeout(60)
+  }
+  await cdp.send('Input.insertText', { text: '你好' })
+  await page.waitForTimeout(250)
+  const imeAfter = await imeArea.inputValue()
+  check('中文提交后只多出候选词本身', imeAfter === `${imeBefore}你好`, JSON.stringify(imeAfter.slice(imeBefore.length)))
+  check('提示词里没有拼接出来的拼音脏串', !/nih|ninih/.test(imeAfter), JSON.stringify(imeAfter.slice(-16)))
+
+  // ---------------- 离开画布前把快照 flush 下去 ----------------
+  // 回归：保存是 2.5s 防抖，卸载时只 clearTimeout 不 flush，防抖窗口里的改动全丢；
+  // 回来时再按旧快照恢复，用户看到的就是「刚放的新卡片没了」。
+  await imeArea.fill('flush-probe-中文')
+  await page.waitForTimeout(120) // 故意不等防抖窗口
+  await page.evaluate(() => {
+    // 模拟「切到别的窗口」：宿主此时会收到 visibilitychange。
+    // 走 globalThis 取 document —— 这段在浏览器里跑，但 eslint 按 node 全局检查本文件。
+    const doc = globalThis.document
+    Object.defineProperty(doc, 'visibilityState', { value: 'hidden', configurable: true })
+    doc.dispatchEvent(new globalThis.Event('visibilitychange'))
+  })
+  await page.waitForTimeout(500)
+  const saved = await page.evaluate(async () => {
+    const r = await fetch('/imagora/recovery/latest').then(x => x.json())
+    return { nodes: r?.nodes?.length ?? null, hasProbe: JSON.stringify(r).includes('flush-probe-中文') }
+  })
+  check('切走窗口时快照里已有最新内容', saved.hasProbe === true, JSON.stringify(saved))
+
   // ---------------- 全程无 JS 报错 ----------------
   check('全程没有页面异常', pageErrors.length === 0, pageErrors.slice(0, 2).join(' | '))
 } catch (error) {

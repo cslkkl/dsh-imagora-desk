@@ -110,6 +110,8 @@ const live = {
   profile: 'wanwu',
   model: 'gpt-image-2.5-flare',
   localBudget: { ...MOCK_BUDGET },
+  /** 最近一次 `/recovery/save` 收到的快照；null = 还没存过（用夹具那份）。 */
+  recovery: null,
 }
 
 export function defineConfig(path, url, rawBody) {
@@ -290,7 +292,24 @@ export function defineConfig(path, url, rawBody) {
     return 'png'
   }
 
+  // 快照保存：真 host 写 output/workflows/.recovery/*.json；验收台只记在内存里，
+  // 之后 `/recovery/latest` 优先返回这一份。有了它才能验收「离开画布前把改动
+  // flush 下去」这条（不实现的话保存静默 404，恢复永远读夹具，回归测不出来）。
+  if (path === '/imagora/recovery/save') {
+    live.recovery = {
+      name: '验收台快照',
+      savedAt: new Date().toISOString(),
+      nodes: Array.isArray(patch.nodes) ? patch.nodes : [],
+      edges: Array.isArray(patch.edges) ? patch.edges : [],
+    }
+    return { ok: true, name: live.recovery.name, savedAt: live.recovery.savedAt }
+  }
+
   if (path === '/imagora/recovery/latest') {
+    // 存过快照就返回它，语义与真 host 一致：latest = 最近一次自动保存
+    if (live.recovery) {
+      return { ok: true, empty: false, ...live.recovery }
+    }
     // ⚠️ 这里的 edges **故意照抄原版 Imagora 真实存档的形态**：
     // 每条边都带 `style.stroke: "var(--edge-stroke-idle)"` 与 `animated: true`。
     // 原版从 edgeStyle 那次提交起把连线外观内联进 JSON，导出的工作流长这样。
