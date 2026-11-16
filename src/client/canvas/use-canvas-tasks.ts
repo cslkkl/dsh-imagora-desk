@@ -128,7 +128,7 @@ export function useGeneratedTasks({
       log(
         snapshot.status === 'done'
           ? cost
-            ? t('task.done.cost', { count: okResults.length, cost: cost.toFixed(2) })
+            ? t('task.done.cost', { count: okResults.length, cost: t('cost.money', { value: cost.toFixed(2) }) })
             : t('task.done', { count: okResults.length })
           : t('task.failed.withReason', {
               status: snapshot.status === 'cancelled' ? t('task.cancelled') : t('task.failed'),

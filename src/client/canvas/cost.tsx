@@ -70,7 +70,7 @@ export function CostBadge({ summary, budget }: { summary: CostSummary; budget: n
         hasBudget
           ? t('cost.title.withBudget', {
               spent: label,
-              budget: money(t, budget),
+              cap: money(t, budget),
               cards: summary.cards,
               images: summary.images,
             })

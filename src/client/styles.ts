@@ -707,6 +707,15 @@ textarea.im-field {
 .im-field-control > .im-btn-ghost {
   flex: none;
 }
+/* 表单行里的**图标**按钮（目前的「在文件管理器中打开」）：做成与字段等高的正方形。
+ *
+ * 不这么写就是个 28×38 的窄条 —— 宽高比别扭，而且和旁边那颗文字按钮挤在一起时
+ * 看不出是一颗独立按钮。宽度跟 --im-h-field 走，所以换阶梯时它自己跟着变。 */
+.im-field-control > .im-icon-btn {
+  flex: none;
+  width: var(--im-h-field);
+  height: var(--im-h-field);
+}
 /* 窄屏（宿主侧栏拉宽、或面板被挤到很窄时）栅格塌成一列：
    label 回到控件上方、左对齐。8.5rem 的固定列在 360px 以下会吃掉三分之一宽度。 */
 @media (max-width: 620px) {

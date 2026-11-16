@@ -105,7 +105,7 @@ C 档的每一条差异都在代码注释与 [FEATURE-PARITY](FEATURE-PARITY.md)
 | POST | `/workflow/save` / GET `/workflow/list` / GET `/workflow/load` | 命名工作流                                                          |
 | POST | `/recovery/save` / GET `/recovery/latest`                      | 自动恢复快照，只留最近 5 份                                         |
 | GET  | `/history` / `/history/stats`                                  | 读账本分页 / 成本看板（附本机预算）                                 |
-| GET  | `/budget` / POST `/budget`                                     | 本机预算设置（`<输出目录>/.budget.json`，0 = 不限）                 |
+| GET  | `/budget` / POST `/budget`                                     | 本机上限设置（`<输出目录>/.budget.json`，0 = 不限）                 |
 | POST | `/reveal`                                                      | 在资源管理器打开路径                                                |
 | POST | `/pick-folder`                                                 | 弹宿主的系统文件夹对话框，拿绝对路径                                |
 
