@@ -7,6 +7,7 @@
 // 每行都有 14px 图标（原版 DockRow 的 icon 属性，9 行全带）：
 // 原版注释说的是「文字是语义来源，别删」，不是「不要图标」——只留文字会比原版单薄一档。
 import { Icon } from '../icons'
+import { zoomToPercent } from './zoom'
 
 export interface DockProps {
   zoom: number
@@ -58,7 +59,7 @@ export function CanvasDock(props: DockProps) {
   return (
     <div className="im-dock nodrag">
       <div className="im-dock-row im-dock-row--readout">
-        <span className="im-dock-row-label im-dock-row-value">{Math.round(zoom * 100)}%</span>
+        <span className="im-dock-row-label im-dock-row-value">{zoomToPercent(zoom)}%</span>
       </div>
       <DockRow icon="zoomIn" label="放大" title="放大画布（滚轮同样可以缩放）" onClick={props.onZoomIn} />
       <DockRow icon="zoomOut" label="缩小" title="缩小画布（滚轮同样可以缩放）" onClick={props.onZoomOut} />

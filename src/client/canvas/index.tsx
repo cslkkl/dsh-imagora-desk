@@ -37,7 +37,20 @@ import { layoutSelection } from '../lib/layout'
 import { LodContext, NodeActionContext } from '../nodes'
 import { CANVAS_CSS } from '../styles'
 import { NODE_TYPES } from './node-types'
-import { nextLod } from './lod'
+import {
+  FIT_ANIM_MS,
+  FIT_MAX_ZOOM,
+  FIT_PADDING,
+  FOCUS_MAX_ZOOM,
+  FOCUS_PADDING,
+  INITIAL_FIT_MAX_ZOOM,
+  LOD_IN_ZOOM,
+  MAX_ZOOM,
+  MIN_FIT_ZOOM,
+  MIN_ZOOM,
+  ZOOM_ANIM_MS,
+  nextLod,
+} from './zoom'
 import { CanvasToolbar } from './toolbar'
 import { CanvasDock } from './dock'
 import { useCanvasDrop } from './use-canvas-drop'
@@ -82,7 +95,7 @@ export function CanvasApp() {
   /** 预览：url 用来显示，path 是本机绝对路径（「复制路径」用；外链/blob 没有就为空） */
   const [preview, setPreview] = useState<{ url: string; name: string; path?: string } | null>(null)
   const [zoom, setZoom] = useState(1)
-  /** LOD 抽象模式：缩到 10% 以下节点降级为轻量卡片（见 canvas/lod.ts 的说明）。
+  /** LOD 抽象模式：缩到 15% 以下节点降级为轻量卡片（见 canvas/zoom.ts 的说明）。
    *  只影响渲染，拖拽/选中/连线等基础交互不变。 */
   const [lod, setLod] = useState(false)
   // 小地图默认关（与 Imagora 一致：卡片铺开了才需要它，平时白占地方）
@@ -341,7 +354,7 @@ export function CanvasApp() {
       flash('画布上还没有节点')
       return
     }
-    void instance.fitView({ nodes: targets, padding: 0.25, duration: 300, maxZoom: 1.6 })
+    void instance.fitView({ nodes: targets, padding: FOCUS_PADDING, duration: FIT_ANIM_MS, maxZoom: FOCUS_MAX_ZOOM })
   }, [selectedIds, flash])
 
   const arrangeSelected = useCallback(() => {
@@ -695,6 +708,10 @@ export function CanvasApp() {
                 }
                 onInit={instance => {
                   instanceRef.current = instance
+                  // 按**初始视口**定一次 LOD（与上游 handleInit 同一做法）。
+                  // 少了这一步，恢复出来的画布若本来就在很小的缩放下，首帧仍按完整卡片
+                  // 渲染一次再抖成抽象模式；也正因为这一处，LOD_IN_ZOOM 不只是 nextLod 的私有常量。
+                  setLod(instance.getViewport().zoom < LOD_IN_ZOOM)
                 }}
                 onNodeDragStop={(_event, node) => {
                   setGuides([])
@@ -733,9 +750,9 @@ export function CanvasApp() {
                   setSelectedEdgeId(current => (current === edgeId ? current : edgeId))
                 }}
                 fitView
-                fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
-                minZoom={0.05}
-                maxZoom={2.5}
+                fitViewOptions={{ padding: FIT_PADDING, minZoom: MIN_FIT_ZOOM, maxZoom: INITIAL_FIT_MAX_ZOOM }}
+                minZoom={MIN_ZOOM}
+                maxZoom={MAX_ZOOM}
                 proOptions={{ hideAttribution: true }}
                 /* 连线外观：原版 defaultEdgeOptions 只有 { animated: !lod }，
                **没有 markerEnd**。我们以前加了 ArrowClosed 箭头，于是每条连线
@@ -794,9 +811,16 @@ export function CanvasApp() {
             snapEnabled={snapEnabled}
             canvasLocked={canvasLocked}
             minimapOpen={minimapOpen}
-            onZoomIn={() => void instanceRef.current?.zoomIn({ duration: 180 })}
-            onZoomOut={() => void instanceRef.current?.zoomOut({ duration: 180 })}
-            onFitView={() => instanceRef.current?.fitView({ padding: 0.2, duration: 300 })}
+            onZoomIn={() => void instanceRef.current?.zoomIn({ duration: ZOOM_ANIM_MS })}
+            onZoomOut={() => void instanceRef.current?.zoomOut({ duration: ZOOM_ANIM_MS })}
+            onFitView={() =>
+              instanceRef.current?.fitView({
+                padding: FIT_PADDING,
+                duration: FIT_ANIM_MS,
+                minZoom: MIN_FIT_ZOOM,
+                maxZoom: FIT_MAX_ZOOM,
+              })
+            }
             onFocusSelected={focusSelected}
             onToggleSnap={() =>
               setSnapEnabled(value => {

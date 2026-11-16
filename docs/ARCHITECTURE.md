@@ -431,7 +431,7 @@ try/except 静默），所以 `appendGeneration` 只回 `boolean`，不抛错。
 
 ## 缩远抽象（LOD）
 
-`canvas/lod.ts` 是纯函数状态机，`LOD_IN_ZOOM = 0.1` / `LOD_OUT_ZOOM = 0.2`（照抄原版）。
+缩放的**所有数字**（行程、fitView、LOD 阈值）集中在 `canvas/zoom.ts`：`MIN_ZOOM = 0.05` / `MAX_ZOOM = 2` / `LOD_IN_ZOOM = 0.15` / `LOD_OUT_ZOOM = 0.2`，与上游 `frontend/src/zoom.ts` 同构。百分比读数由倍率算出来，不写第二份字面量。
 两个阈值之间是**保持现状的死区**：用同一个阈值进出，缩放停在临界点上会反复翻转，
 每次翻转都重建全部节点渲染，画面持续闪烁。
 
