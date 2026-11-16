@@ -1,7 +1,7 @@
 // 三类画布节点：图片 / 提示词 / 图片组。
 // 标记照搬 Imagora 的 CanvasNodes.tsx（panel-card + 右侧 hover 操作栏 + 状态灯），
 // 只把取数与动作换成画布 context —— 这是跑在插件里必须改的一处。
-import { createContext, memo, useContext, useEffect, useState } from 'react'
+import { createContext, memo, useContext, useEffect, useRef, useState } from 'react'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import type { CanvasGroupNodeData, CanvasImageNodeData, CanvasPromptNodeData } from './lib/types'
 import { generatingLabel } from './lib/format'
@@ -53,6 +53,51 @@ function useActions(): NodeActions {
   const value = useContext(NodeActionContext)
   if (!value) throw new Error('dsh-imagora: 节点缺少画布上下文')
   return value
+}
+
+/**
+ * 提示词输入框：输入法合成期间不把 value 写回 DOM。
+ *
+ * 为什么必须这么做（实测，不是推测）：受控 textarea 在中文拼音输入时，
+ * 每次 compositionupdate 都会触发 onChange → setNodes → 重渲染 → React
+ * 把 value 重新写进 DOM。浏览器认为合成内容被外部改动，**直接提交当前
+ * 拼音并重置缓冲区**，于是候选词还没选，已输入的字母就被当成正文一段段
+ * 追加：输 `nihao` 得到 `nninihnihani…`，看起来就是「打字突然中断」。
+ *
+ * 因此：合成期间只更新本地副本（与 DOM 完全一致，React 不会碰 DOM），
+ * `compositionend` 才把最终结果写回节点状态。
+ */
+function PromptTextarea({ value, onChange }: { value: string; onChange: (next: string) => void }) {
+  const [local, setLocal] = useState(value)
+  const composing = useRef(false)
+
+  // 外部改动（加载工作流 / 撤销 / 恢复快照）同步进来；合成中的本地输入不回灌，
+  // 否则正在拼的拼音会被节点里的旧值冲掉。
+  useEffect(() => {
+    if (!composing.current) setLocal(value)
+  }, [value])
+
+  return (
+    <textarea
+      className="im-field nodrag"
+      rows={5}
+      value={local}
+      placeholder="英文提示词，例如：a red apple on white background"
+      onCompositionStart={() => {
+        composing.current = true
+      }}
+      onCompositionEnd={event => {
+        composing.current = false
+        setLocal(event.currentTarget.value)
+        onChange(event.currentTarget.value)
+      }}
+      onChange={event => {
+        const next = event.target.value
+        setLocal(next)
+        if (!composing.current) onChange(next)
+      }}
+    />
+  )
 }
 
 function Handles() {
@@ -383,13 +428,7 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
         {data.title ?? '提示词生成'}
       </div>
 
-      <textarea
-        className="im-field nodrag"
-        rows={5}
-        value={data.prompt}
-        placeholder="英文提示词，例如：a red apple on white background"
-        onChange={event => actions.updatePrompt(id, { prompt: event.target.value })}
-      />
+      <PromptTextarea value={data.prompt} onChange={next => actions.updatePrompt(id, { prompt: next })} />
 
       <div
         className="nodrag"
