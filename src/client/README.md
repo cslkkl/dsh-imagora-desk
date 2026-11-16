@@ -23,23 +23,25 @@
 
 画布按职责拆分，`index.tsx` 只做装配。
 
-| 文件                     | 职责                                           |
-| ------------------------ | ---------------------------------------------- |
-| `index.tsx`              | 状态与 refs、派生量、动作装配、ReactFlow 挂载  |
-| `toolbar.tsx`            | 顶栏，只放全局动作；动作全部由 props 上抛      |
-| `inspector.tsx`          | 右上角选中操作栏（选中 ≥1 个节点才出现）       |
-| `dock.tsx`               | 左下角缩放控件坞（带文字的一列）               |
-| `overlays.tsx`           | 空态、日志轮播、toast、大图预览、顶部提示条    |
-| `dialogs.tsx`            | 保存 / 加载 / 帮助三个对话框                   |
-| `modal-shell.tsx`        | 弹窗基座：四档宽度、头/身/脚三段、内容区自己滚 |
-| `imagora-root-row.tsx`   | 设置里的 Imagora 目录与输出目录指针            |
-| `budget-row.tsx`         | 设置里的「本画布预算上限」（硬拦那一层）       |
-| `use-canvas-drop.tsx`    | 拖入建节点：落点胶囊、工具栏拖出、文件拖放     |
-| `node-types.ts`          | React Flow 的节点类型表                        |
-| `use-canvas-config.ts`   | 配置读取与来源、模型切换                       |
-| `use-canvas-images.ts`   | 上传、换图、大图预览、连线桥                   |
-| `use-canvas-tasks.ts`    | 提交、轮询、结果回流、取消                     |
-| `use-canvas-workflow.ts` | 保存、加载、自动恢复快照                       |
+| 文件                         | 职责                                                 |
+| ---------------------------- | ---------------------------------------------------- |
+| `index.tsx`                  | 状态与 refs、派生量、动作装配、ReactFlow 挂载        |
+| `toolbar.tsx`                | 顶栏，只放全局动作；动作全部由 props 上抛            |
+| `inspector.tsx`              | 右上角选中操作栏（选中 ≥1 个节点才出现）             |
+| `node-context-menu.tsx`      | 节点右键菜单：portal 到 body、贴边夹取、Esc 让位浮层 |
+| `dock.tsx`                   | 左下角缩放控件坞（带文字的一列）                     |
+| `overlays.tsx`               | 空态、日志轮播、toast、大图预览、顶部提示条          |
+| `dialogs.tsx`                | 保存 / 加载 / 帮助三个对话框                         |
+| `modal-shell.tsx`            | 弹窗基座：四档宽度、头/身/脚三段、内容区自己滚       |
+| `imagora-root-row.tsx`       | 设置里的 Imagora 目录与输出目录指针                  |
+| `budget-row.tsx`             | 设置里的「本画布预算上限」（硬拦那一层）             |
+| `use-canvas-drop.tsx`        | 拖入建节点：落点胶囊、工具栏拖出、文件拖放           |
+| `use-canvas-context-menu.ts` | 右键手势：单击节点弹菜单 / 拖拽框选 / 屏蔽原生菜单   |
+| `node-types.ts`              | React Flow 的节点类型表                              |
+| `use-canvas-config.ts`       | 配置读取与来源、模型切换                             |
+| `use-canvas-images.ts`       | 上传、换图、大图预览、连线桥                         |
+| `use-canvas-tasks.ts`        | 提交、轮询、结果回流、取消                           |
+| `use-canvas-workflow.ts`     | 保存、加载、自动恢复快照                             |
 
 ## lib/ 移植区
 
@@ -48,6 +50,7 @@
 - 许可与清单 → [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md)
 - 格式检查已排除该目录；改它要按上游语义判断。
 - 关键规则都在这里：连线方向约束、`@` 引用解析、组递归聚合、引用计数溯源、落点错开、工作流归一化。
+- 右键菜单的内容与位置算术：`contextMenu`（`buildNodeMenu` 按节点类型排项、`clampMenuPosition` 贴边夹取、`menuHeight` 推高度；纯函数，渲染在 `canvas/node-context-menu.tsx`）。
 - 下拉框相关：`optionGroups`（分组）、`popupLayer`（浮层栈，Esc 让位）、`rankByName`（搜索排序）、`apiCatalog`、`customValue`（自由输入归一化）。
 - 大图预览的缩放与平移换算：`previewZoom`；剪贴板写入：`imageCopy`。
 

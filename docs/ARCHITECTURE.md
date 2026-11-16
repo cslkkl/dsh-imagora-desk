@@ -211,7 +211,7 @@ client 半端通过 `window.__ModuleLoader__.load` 注册进宿主的模块表�
 
 顶栏按原版分成两行：页头行（来源 / 模型 / 成本 / 设置）与工具栏行（左创建类、右工作流类）。控件坞行序固定为 缩放读数 → 放大 → 缩小 → 适应 → 聚焦 → 吸附 → 地图 → 锁定 → 帮助，**别调**：用户靠位置记。
 
-层叠：`.im-canvas` 自带 `isolation: isolate`；节点 `:hover` 抬到 `z-index: 1001`（否则右侧操作栏被相邻节点盖住）；连线层 `1200`；浮条与日志 `40`。
+层叠：`.im-canvas` 自带 `isolation: isolate`；节点 `:hover` 抬到 `z-index: 1001`（否则右侧操作栏被相邻节点盖住）；连线层 `1200`；右键选框 `1002`；浮条与日志 `40`；下拉与右键菜单 `70`（portal 到 body，跳出画布的层叠上下文）。
 
 ## 拖拽与弹窗
 
@@ -221,6 +221,25 @@ client 半端通过 `window.__ModuleLoader__.load` 注册进宿主的模块表�
 - **弹窗要自带基座**（`canvas/modal-shell.tsx`）。宿主 `ui.Modal` 的面板宽度按它自己的内容定，弹窗里再写死 `minWidth` 必然溢出，被裁掉的是右边那一块。基座的 `.im-modal-body` 必须 `flex: 1 1 auto; min-height: 0; overflow-y: auto`——只写 `overflow` 不给高度约束的话 `scrollHeight` 永远等于 `clientHeight`，底部几行会被静默裁掉。
 
 `.im-root` 需要 `flex: 1 1 auto; width: 100%`：宿主插槽容器是 flex，没有 `flex` 的伸缩项会按内容收缩，画布右侧会留出一条空白，看着也像「被裁掉」。
+
+### 右键：一套手势，两个结果
+
+右键在画布上同时承担「框选」与「节点菜单」，靠**松开时的移动距离**区分（< 2px 算单击）：
+
+| 落点             | 动作                                   |
+| ---------------- | -------------------------------------- |
+| 节点上，几乎没动 | 弹该节点的菜单（菜单项按节点类型裁剪） |
+| 空白处，几乎没动 | 只关掉已有菜单，不动选中               |
+| 任意位置，拖动过 | 框选：按「节点完全包含于选框」落定选中 |
+
+**不能靠 `contextmenu` 事件分派**：Windows 上它在右键**松开后**才触发，那时已经分辨不出是拖还是点。因此手势在 `canvas/use-canvas-context-menu.ts` 里用 `mousedown`/`mousemove`/`mouseup` 自己接管，`selectionKeyCode={null}`（原生 Shift+框选会和它抢同一个手势）。
+
+两处与上游**必须不同**：
+
+- **屏蔽原生菜单的监听挂在 `.im-root` 上，不是 `window`。** 上游是整页应用，`window` 捕获层全吞没问题；插件活在宿主界面里，照抄会把宿主的会话区、链接、按钮的原生右键一起吞掉。
+- **弹窗打开时不接管右键**：对话框里的输入框要能正常用原生复制/粘贴菜单。
+
+菜单的内容与位置算术在 `lib/contextMenu.ts`（纯函数，与上游逐字节相同）：按类型排项、`clampMenuPosition` 两侧都夹、`menuHeight` 由条目推高度。渲染在 `canvas/node-context-menu.tsx`，portal 到 body 用 `position: fixed`——节点卡是 `overflow: hidden` 容器，就地 absolute 会被裁掉一半；挂载即 `pushPopup()`，否则一次 Esc 会连外层弹窗一起关掉。
 
 ### 弹窗基座：原版写死值 → 我们的 token
 
