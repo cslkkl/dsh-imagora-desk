@@ -1106,6 +1106,22 @@ body[data-ds-dark-theme] {
 .react-flow__node:hover { z-index: 1001 !important; }
 .react-flow__edges { z-index: 1200 !important; }
 
+/* 吸附对齐线（canvas/snap-guides.tsx 渲染，走 ViewportPortal 挂进 .react-flow__viewport）。
+ *
+ * 类名与属性是**上游契约**，别改名：上游的 .snap-guide + data-axis +
+ * data-testid="snap-guide" 被它自己的 E2E 与基线测试引用，改成 im- 前缀能让
+ * 本仓看着统一，但两边就没法共用同一批断言了。
+ *
+ * 取色走 --im-snap（=品牌色），不写死；opacity 0.55 与上游 index.css 同值，
+ * 压过节点但让底下的卡片仍可辨认 —— 对齐线是辅助，不该盖住内容。 */
+.snap-guide {
+  position: absolute;
+  pointer-events: none;
+  background: var(--im-snap, #4c8dff);
+  opacity: 0.55;
+  z-index: 5;
+}
+
 /* 连线三态。用 CSS :hover 而非 JS 内联：插件没有移植 edgeStyle 的四态驱动，
    这里就是唯一取色处，别再叠一层 JS 内联（内联优先级更高，会变成死规则）。
    transition 只含 stroke/stroke-width/opacity，与 Imagora 的 index.css 一致。 */
