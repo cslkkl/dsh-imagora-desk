@@ -938,6 +938,7 @@ export function CanvasApp() {
         {dialog?.kind === 'split' && dialog.target ? (
           <SplitDialog
             src={dialog.target.src}
+            name={dialog.target.name}
             onClose={() => setDialog(null)}
             onConfirm={async parts => {
               history.record()

@@ -478,6 +478,86 @@ body[data-ds-dark-theme] {
 .im-field-state.is-ok { color: var(--im-ok); }
 .im-field-state.is-warn { color: var(--im-warn); }
 
+/* ---------------- 切分弹窗（canvas/split-dialog.tsx） ----------------
+ * 切图算法来自 lib/imageSplit.ts（A 档逐字移植），这里只负责排版：
+ * 预设 chip → 行列输入 → 预览网格 → 输出文件名预览。
+ * 旧的版本是两个 1~6 的滑杆 + 组件内手写的切图循环。 */
+.im-split {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.im-split-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.im-split-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+/* 行列输入：label + 一个窄输入框并排。输入框宽度固定 4rem —— 只有一位数，
+   铺满整行会让人以为要填很长的东西。 */
+.im-split-axis {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--im-ink-2);
+}
+.im-split-axis-input {
+  width: 4rem;
+  padding: 6px 8px;
+  text-align: center;
+}
+.im-split-summary {
+  font-size: 12px;
+  color: var(--im-ink-3);
+}
+.im-split-stage-wrap {
+  display: flex;
+  justify-content: center;
+}
+.im-split-stage {
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+  /* 图当底色铺满：只做参考，不参与切换；网格线叠在上面 */
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+.im-split-line {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+}
+.im-split-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--im-ink-3);
+}
+.im-split-name {
+  padding: 2px 6px;
+  border-radius: var(--im-r-sm);
+  background: var(--im-surface-inset, rgba(15, 17, 21, 0.05));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.im-split-note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--im-ink-3);
+}
+.im-split-error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--im-danger);
+}
+
 /* ---------------- 设置弹窗（canvas/settings-dialog.tsx） ----------------
  *
  * 这一块是 2026-11-16 重写的。旧版把六个块平铺（两个下拉 / 插件内接口 / 生效中规格表 /
