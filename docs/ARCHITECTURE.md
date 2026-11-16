@@ -29,7 +29,7 @@ client 半端通过 `window.__ModuleLoader__.load` 注册进宿主的模块表�
 
 | 档               | 位置                                 | 约定                                                                    | 现状                                                                                                                                                                          |
 | ---------------- | ------------------------------------ | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **A 逐字节相同** | `src/client/lib/` 里与上游同名的模块 | 原样移植，只允许改注释/引号/分号；改一个必须同时改上游                  | `layout` `canvasHistory` `contextMenu` `promptRefs` `imageOps` `snapDrag` `snapGuide` `popupLayer` `maskBrush` `minimapColor` `previewZoom`（去分号后与上游一致，已逐对核对） |
+| **A 规范化后相同** | `src/client/lib/` 里与上游同名的模块 | 只允许改注释/引号/分号（所以不是「逐字节」，见下）；改一个必须同时改上游 | 逐字节相同 **19** 个；仅格式差异 **3** 个；另有 **4** 个必须不同（见 C 档行）。完整清单见下                                                                                    |
 | **B 同构改写**   | `canvas/` 下的渲染件与 hook          | 结构、可访问性属性、语义、类名层级对齐上游，样式走自己的 `--im-*` token | `generation` 类已退场；`node-context-menu` / `use-canvas-context-menu` / `crop-dialog` 等                                                                                     |
 | **C 各自适配**   | 手势、宿主边界、构建                 | 允许与上游不同，但**必须就地写明差异和理由**                            | 屏蔽原生右键菜单只到 `.im-root`（上游是 `window`）；LOD 走 context 不走 nodeTypes 工厂；`workflow.ts` 多出 `sanitizeEdges` / `pendingTaskRefs`                                |
 
@@ -37,6 +37,32 @@ A 档是这套东西还能维护的原因：`layout.ts`（405 行分层布局）
 这类「改了只有靠用例才发现错了」的代码，两边共享同一份实现和同一批注释里的历史坑。
 C 档的每一条差异都在代码注释与 [FEATURE-PARITY](FEATURE-PARITY.md) 里各写一遍——
 前者给改代码的人，后者给判断「功能是否对齐」的人。
+
+**A 档的清单（2026-11-16 逐对比对，`git diff --no-index` 量出来的，不是估的）**
+
+文档此前只列了 11 个「逐字节相同」，实际是 19 个；这类清单靠人记必然会漂，所以写全：
+
+- **逐字节相同（19）**：`apiCatalog` `canvasGeometry` `canvasHistory` `contextMenu` `customValue`
+  `edgeStyle` `format` `imageOps` `layout` `maskBrush` `minimapColor` `optionGroups` `popupLayer`
+  `promptRefs` `rankByName` `recovery` `snapDrag` `snapGuide` `thumbnails`
+- **仅格式/注释差异（3）**：`previewZoom`（插件去分号）、`promptImportFormat`（末尾换行）、
+  `useThumbnail`（注释写法）。**它们与上游语义相同**，修改时仍按 A 档对待。
+- **必须不同（4，归 C 档）**：
+  | 文件 | 为什么不能一样 |
+  | --- | --- |
+  | `workflow.ts` | 多 `sanitizeEdges` / `pendingTaskRefs`。插件把变量收口成 `--im-*`，上游存档里内联的 `var(--edge-stroke-idle)` 在插件里计算值是 `none` → 连线整条消失且不报错。上游**没有**这两个函数，也不需要。 |
+  | `imageCopy.ts` | 上游有第二条路：服务端 `POST /api/clipboard/image` 同步写系统剪贴板。插件 host 没有这个接口，只保留浏览器路径（并因此不能承诺「已经能粘贴」）。 |
+  | `types.ts` | 多一个 `cost?: number`（画布成本徽章用，上游无此徽章）。 |
+  | `canvasDrop.ts` | MIME 名带插件前缀（只在页内传递，不影响行为）；`extractImageFiles` 已按上游补回。 |
+- **插件独有（1）**：`canvasPrefs.ts`。
+
+> **「A 逐字节相同」这个名字本身就是错的**：同一行约定又写着「只允许改注释/引号/分号」，
+> 两者不可能同时成立（插件无分号单引号、上游有分号双引号，一次格式化就会全红）。
+> 真判据是**规范化后相同**，已按此改名。
+>
+> 也因此，**不要**在 CI 里加「与上游 SHA256 相等」的断言：CI 看不到兄弟仓库，
+> 而且上游在活跃开发，它一动插件就红。要做漂移检查就在本机手动跑，比的是
+> 仓库里提交的一份锁（记录「上次对齐时」的哈希），而不是 live 的上游目录。
 
 ## 不变量
 
