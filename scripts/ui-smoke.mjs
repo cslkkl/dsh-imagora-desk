@@ -363,6 +363,58 @@ try {
   const zoomAfter = await page.locator('.im-dock-row-value').first().innerText()
   check('滚轮能缩放画布', zoomBefore !== zoomAfter, `${zoomBefore} → ${zoomAfter}`)
 
+  // ---------------- LOD 阈值与缩放行程 ----------------
+  // 所有缩放数字都收在 canvas/zoom.ts（与上游 frontend/src/zoom.ts 同构）。
+  // 这里验的是**行为**而不是常量本身：一路缩到底、再一路放到底，看档位在哪翻转、
+  // 读数在哪封顶。改了常量却忘了某处字面量，就是靠这几条抓出来的。
+  {
+    const readZoom = async () => ({
+      pct: Number((await page.locator('.im-dock-row-value').first().innerText()).replace('%', '')),
+      lod: await page.locator('.im-node-lod').count(),
+    })
+    await page.locator('.react-flow').hover()
+
+    // 缩小到极限：应停在 5%（MIN_ZOOM=0.05），并进入抽象模式
+    for (let i = 0; i < 22; i += 1) {
+      await page.mouse.wheel(0, 120)
+      await page.waitForTimeout(35)
+    }
+    const atMin = await readZoom()
+    check('缩到极限时的读数封顶在下限', atMin.pct === 5, `pct=${atMin.pct}`)
+    check('缩到 15% 以下进入抽象模式', atMin.lod > 0, `lod=${atMin.lod} pct=${atMin.pct}`)
+
+    // 一路放大到极限：应停在 200%（MAX_ZOOM=2），并退出抽象模式
+    for (let i = 0; i < 26; i += 1) {
+      await page.mouse.wheel(0, -120)
+      await page.waitForTimeout(35)
+    }
+    const atMax = await readZoom()
+    check('放到极限时的读数封顶在上限', atMax.pct === 200, `pct=${atMax.pct}`)
+    check('放大到 20% 以上退出抽象模式', atMax.lod === 0, `lod=${atMax.lod} pct=${atMax.pct}`)
+
+    // 迟滞：停在死区（15%~20%）里不该翻转。逐步缩到 18% 附近，确认仍是完整渲染
+    for (let i = 0; i < 22; i += 1) {
+      await page.mouse.wheel(0, 120)
+      await page.waitForTimeout(35)
+    }
+    let deadZone = null
+    for (let i = 0; i < 14; i += 1) {
+      await page.mouse.wheel(0, -120)
+      await page.waitForTimeout(35)
+      const now = await readZoom()
+      if (now.pct >= 16 && now.pct <= 19) {
+        deadZone = now
+        break
+      }
+    }
+    check('死区（15%~20%）里保持抽象模式，不来回翻转', deadZone === null || deadZone.lod > 0, JSON.stringify(deadZone))
+    // 回到可用的初始视口，别把后面的用例留在 5%
+    for (let i = 0; i < 8; i += 1) {
+      await page.mouse.wheel(0, -120)
+      await page.waitForTimeout(35)
+    }
+  }
+
   // ---------------- 撤销：工具栏新增的节点必须可撤销 ----------------
   // 回归：三条新增入口（提示词卡 / 图片组 / 上传）曾经都只 setNodes、不 record，
   // 于是「撤销」按钮恒为 disabled，Ctrl+Z 也无可撤销 —— 用户视角就是「撤销不好使」。
