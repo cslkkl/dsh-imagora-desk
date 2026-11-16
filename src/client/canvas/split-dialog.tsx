@@ -95,8 +95,7 @@ export function SplitDialog({ src, name, onClose, onConfirm }: SplitDialogProps)
     return () => {
       alive = false
     }
-    // t 不进依赖：读调用时刻的语言，引用稳定（见 i18n.tsx）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // t 不进依赖：它读调用时刻的语言，引用稳定（见 i18n.tsx），加进去只会让 effect 重跑
   }, [src])
 
   /** 归一化后的网格：所有算术都以它为准（输入框里的原始字符串只在打字时存在） */
@@ -147,9 +146,7 @@ export function SplitDialog({ src, name, onClose, onConfirm }: SplitDialogProps)
         <>
           {/* 原图尺寸 / 比例放在 footer 左侧：它属于「这次操作的参数」，与确认按钮同一条带 */}
           <p className="im-modal-note">
-            {size
-              ? t('split.original', { width: size.width, height: size.height })
-              : t('split.readingOriginal')}
+            {size ? t('split.original', { width: size.width, height: size.height }) : t('split.readingOriginal')}
           </p>
           <button type="button" className="im-btn-ghost im-btn-sm" onClick={onClose}>
             {t('common.cancel')}
@@ -235,9 +232,7 @@ export function SplitDialog({ src, name, onClose, onConfirm }: SplitDialogProps)
                 {row}
               </span>
             ))}
-            {total > previewNames.length ? (
-              <span className="im-muted">{t('split.more', { count: total })}</span>
-            ) : null}
+            {total > previewNames.length ? <span className="im-muted">{t('split.more', { count: total })}</span> : null}
           </div>
         ) : (
           <p className="im-split-note">{t('split.tooSmall')}</p>

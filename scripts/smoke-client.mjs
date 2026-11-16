@@ -165,11 +165,18 @@ const ctx = {
 
 exportsObject.apply(ctx)
 
-check('inject 含 locale（文案层依赖宿主语言服务）', exportsObject.inject.includes('locale'), JSON.stringify(exportsObject.inject))
+check(
+  'inject 含 locale（文案层依赖宿主语言服务）',
+  exportsObject.inject.includes('locale'),
+  JSON.stringify(exportsObject.inject),
+)
 check('注册了文案词典', Object.keys(dictionaries).length > 0, JSON.stringify(Object.keys(dictionaries)))
 const dict = dictionaries.imagora ?? {}
 check('词典有 zh 与 en 两份', Boolean(dict.zh && dict.en), JSON.stringify(Object.keys(dict)))
-check('中英词典键集一致', JSON.stringify(Object.keys(dict.zh ?? {}).sort()) === JSON.stringify(Object.keys(dict.en ?? {}).sort()))
+check(
+  '中英词典键集一致',
+  JSON.stringify(Object.keys(dict.zh ?? {}).sort()) === JSON.stringify(Object.keys(dict.en ?? {}).sort()),
+)
 check('注入了 main 插槽', injections.includes('main'), injections.join(','))
 check('注入了 sidebar.panellist 插槽', injections.includes('sidebar.panellist'))
 const mainReg = registrations.find(row => row.options.name === 'main')

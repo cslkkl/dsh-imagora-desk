@@ -29,7 +29,8 @@ import type { Translate } from '../locales'
  * 落点胶囊的文案。
  *
  * 不用 lib/canvasDrop.ts 的 dropChipLabel：它把中文烘在返回值里（A 档移植件，
- * 不改)。这里只借用它的**判定**（esolveDropIntent / countDraggedFiles），
+ * 不改)。这里只借用它的**判定**（
+esolveDropIntent / countDraggedFiles），
  * 文案自己按意图与张数取。
  */
 function chipLabel(t: Translate, intent: CanvasDropIntent, fileCount: number, inside: boolean): string {

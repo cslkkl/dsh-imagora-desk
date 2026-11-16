@@ -56,7 +56,6 @@ function useActions(): NodeActions {
   return value
 }
 
-
 /**
  * 提示词输入框：输入法合成期间不把 value 写回 DOM。
  *
@@ -322,7 +321,10 @@ export const GroupNode = memo(function GroupNode({ id, data, selected }: NodePro
           <div className="im-group-count">{t('node.group.count', { count: data.imageCount })}</div>
           <div className="im-group-size">{mb} MB</div>
           {dup > 0 ? (
-            <span className="im-chip im-chip--sm is-brand im-group-dup" title={t('node.group.dedup.title', { count: dup })}>
+            <span
+              className="im-chip im-chip--sm is-brand im-group-dup"
+              title={t('node.group.dedup.title', { count: dup })}
+            >
               {t('node.group.dedup')}
             </span>
           ) : null}
@@ -363,10 +365,7 @@ const STATUS_KEY: Record<string, LocaleKey> = {
  * 能读到的只有中心和几个字。只写「完成」看不出生成了几张，得再点进去 ——
  * 而抽象模式存在的意义恰恰是「扫一眼就知道全局跑到哪了」。
  */
-function promptStatusSummary(
-  data: CanvasPromptNodeData,
-  t: Translate,
-): { text: string; detail: string; tone: string } {
+function promptStatusSummary(data: CanvasPromptNodeData, t: Translate): { text: string; detail: string; tone: string } {
   switch (data.status) {
     case 'queued':
       return { text: t('status.queued'), detail: t('status.queued'), tone: 'is-queued' }

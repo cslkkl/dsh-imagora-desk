@@ -93,7 +93,6 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
       alive = false
     }
     // t 不进依赖：它读调用时刻的语言，引用稳定（见 i18n.tsx）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src])
 
   const applyRatio = (next: number | null) => {
@@ -139,7 +138,12 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
       const dataUrl = await cropDataUrl(src, crop)
       const px = Math.round(crop.width * (size?.width ?? 0))
       const py = Math.round(crop.height * (size?.height ?? 0))
-      const ratioText = ratio ? ratioLabel(RATIOS.find(r => r.ratio === ratio)!, t) : null
+      const ratioText = ratio
+        ? ratioLabel(
+            RATIOS.find(r => r.ratio === ratio)!,
+            t,
+          )
+        : null
       await onConfirm(
         dataUrl,
         ratioText
@@ -234,7 +238,11 @@ export function CropDialog({ src, name, onClose, onConfirm }: CropDialogProps) {
             userSelect: 'none',
           }}
         >
-          <img src={src} alt={name ?? t('crop.alt')} style={{ maxWidth: '100%', maxHeight: '100%', display: 'block' }} />
+          <img
+            src={src}
+            alt={name ?? t('crop.alt')}
+            style={{ maxWidth: '100%', maxHeight: '100%', display: 'block' }}
+          />
           <div
             onPointerDown={event => beginDrag(event, 'move')}
             style={{

@@ -2102,8 +2102,13 @@ textarea.im-field {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  /* 宽度交给行自己（行是固定 64px）：这里再写 min-width 会多出一条右侧空白 */
-  min-width: 0;
+  /* 宽度由**最宽的一行**决定，不在容器上另写 min-width（那会多出一条右侧空白）。
+   *
+   * 曾经这里把行宽钉成固定 64px —— 那是按中文两字标签（「放大」「适应」）算的。
+   * 英文标签长得多（「Zoom out」比「缩小」宽约二十像素），固定宽度直接把文字裁在
+   * 列的右边缘上，而且因为 overflow 没开、文字只是溢出压到邻居，看不出是布局问题。
+   * 现在：**列宽 = max-content，行只给 64px 下限**，中文版视觉与以前完全一致。 */
+  width: max-content;
   padding: 0;
   /* 原版 .react-flow__controls 是 11px；内边距由行自己带，容器不留 */
   border-radius: var(--im-r-float);
@@ -2117,11 +2122,11 @@ textarea.im-field {
   /* 有图标之后必须左对齐：居中会让 9 行的图标与文字各自错开，看着参差 */
   justify-content: flex-start;
   gap: 4px;
-  /* 原版 .dock-row 固定 64×30：四位数百分比与两字标签都放得下，列宽也不会被撑开。
-     box-sizing 必须写：不写的话 64 是内容宽，加上左右各 8px 内边距实际变成 80，
-     整列右侧就多出一条空白。 */
+  /* 64px 是**下限**不是定宽：四位数百分比与中文两字标签都放得下，
+     而英文标签需要的那点额外宽度由 max-content 自动给出，不再被裁。
+     box-sizing 必须写：不写的话宽度是内容宽，加上左右各 8px 内边距会多出 16px。 */
   box-sizing: border-box;
-  width: 64px;
+  min-width: 64px;
   /* 取紧凑档，不再单写 30：整条阶梯只有 28 / 38 两档控件高度，
      多一个 30 就是「看起来都差不多、但就是对不齐」的来源。 */
   height: var(--im-h-ctl);

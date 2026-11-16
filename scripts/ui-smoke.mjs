@@ -271,6 +271,53 @@ try {
     check('输入框与下拉的文字左边距一致', new Set(insets.map(r => r.inset)).size === 1, JSON.stringify(insets))
   }
 
+  // ---------------- 控件坞：标签不许被列宽裁掉 ----------------
+  // 行宽曾经钉死 64px（按中文两字标签算的）。换英文后「Zoom out」比「缩小」宽二十像素，
+  // 文字直接溢出到列右边缘外、被邻居盖住 —— 而 overflow 没开，看起来不像布局问题。
+  // 判据是「标签的实际内容宽 ≤ 它拿到的宽」，只看 label 就够：行的宽度由最宽一行决定。
+  //
+  // 在 `.im-dock` 这个 locator 上求值（而不是 `page.evaluate` + `document`）：
+  // 冒烟脚本跑在 Node 里，`document` 不在作用域；从元素自身取 ownerDocument 才拿得到。
+  {
+    const rows = await page.locator('.im-dock').evaluate(dock => {
+      const out = []
+      for (const row of dock.querySelectorAll('.im-dock-row')) {
+        const label = row.querySelector('.im-dock-row-label')
+        if (!label) continue
+        const cs = label.ownerDocument.defaultView.getComputedStyle(label)
+        out.push({
+          text: (label.textContent || '').trim(),
+          rowWidth: Math.round(row.getBoundingClientRect().width),
+          // scrollWidth > clientWidth 即「文字比拿到的位置宽」，也就是被裁或溢出
+          overflow: label.scrollWidth - label.clientWidth,
+          nowrap: cs.whiteSpace,
+        })
+      }
+      return out
+    })
+    check('控件坞至少 8 行（读数 + 8 个动作）', rows.length >= 9, `${rows.length} 行`)
+    check(
+      '控件坞每行标签都不溢出（英文标签更长，行宽须随内容）',
+      rows.every(r => r.overflow <= 0),
+      JSON.stringify(rows.filter(r => r.overflow > 0)),
+    )
+    check(
+      '控件坞各行同宽（由最宽一行决定，不参差）',
+      new Set(rows.map(r => r.rowWidth)).size === 1,
+      JSON.stringify([...new Set(rows.map(r => r.rowWidth))]),
+    )
+    check(
+      '控件坞行宽不小于中文版的 64px 下限',
+      rows.every(r => r.rowWidth >= 64),
+      JSON.stringify([...new Set(rows.map(r => r.rowWidth))]),
+    )
+    check(
+      '控件坞标签不换行（换行会把列撑高、行高就乱了）',
+      rows.every(r => r.nowrap === 'nowrap'),
+      JSON.stringify(rows.map(r => r.nowrap)),
+    )
+  }
+
   // 预算框：必须能清空、能输入小数（type=text 而非 number）
   const budget = dialog.locator('#imagora-budget')
   await budget.fill('')

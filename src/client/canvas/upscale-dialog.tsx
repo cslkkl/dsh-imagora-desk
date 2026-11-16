@@ -58,7 +58,6 @@ export function UpscaleDialog({ src, onClose, onConfirm }: UpscaleDialogProps) {
       alive = false
     }
     // t 不在依赖里：它读调用时刻的语言，引用稳定（见 i18n.tsx 的说明）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src])
 
   const out = useMemo(() => {

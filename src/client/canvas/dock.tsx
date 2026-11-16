@@ -66,12 +66,7 @@ export function CanvasDock(props: DockProps) {
       <DockRow icon="zoomIn" label={t('dock.zoomIn')} title={t('dock.zoomIn.title')} onClick={props.onZoomIn} />
       <DockRow icon="zoomOut" label={t('dock.zoomOut')} title={t('dock.zoomOut.title')} onClick={props.onZoomOut} />
       <DockRow icon="maximize" label={t('dock.fit')} title={t('dock.fit.title')} onClick={props.onFitView} />
-      <DockRow
-        icon="focus"
-        label={t('dock.focus')}
-        title={t('dock.focus.title')}
-        onClick={props.onFocusSelected}
-      />
+      <DockRow icon="focus" label={t('dock.focus')} title={t('dock.focus.title')} onClick={props.onFocusSelected} />
       <DockRow
         icon="magnet"
         label={t('dock.snap')}

@@ -213,9 +213,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
       const result = await probeProvider({ baseUrl: draft.baseUrl.trim(), apiKey: draft.apiKey.trim() })
       setProbeModels(result.models ?? [])
       setProbeResult(
-        result.models?.length
-          ? t('settings.probe.ok', { count: result.models.length })
-          : t('settings.probe.okNoList'),
+        result.models?.length ? t('settings.probe.ok', { count: result.models.length }) : t('settings.probe.okNoList'),
       )
     } catch (error) {
       setProbeModels([])
@@ -332,7 +330,11 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
       footer={
         <>
           <p className="im-modal-note">
-            {justSaved ? t('settings.status.saved') : hasChanges ? t('settings.status.dirty') : t('settings.status.clean')}
+            {justSaved
+              ? t('settings.status.saved')
+              : hasChanges
+                ? t('settings.status.dirty')
+                : t('settings.status.clean')}
           </p>
           <button type="button" className="im-btn-ghost im-btn-sm" disabled={busy} onClick={onClose}>
             {t('common.cancel')}
@@ -353,7 +355,9 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
             只在保存后才变；做成输入框会让人以为能在那儿改。 */}
         <p className="im-settings-status">
           {t('settings.status')} <b>{sourceLabel}</b> · {config?.modelLabel || config?.model || '—'} · {keyLabel}
-          {blockedByProvider ? <span className="im-chip is-brand im-settings-chip">{t('settings.status.takenOver')}</span> : null}
+          {blockedByProvider ? (
+            <span className="im-chip is-brand im-settings-chip">{t('settings.status.takenOver')}</span>
+          ) : null}
         </p>
 
         {/* ---------- 一、用哪套接口 ---------- */}
@@ -406,7 +410,11 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
            * 与上游的 progressive disclosure 同一取向：复杂的、少用的选项后置。 */}
           {showProviderFields ? (
             <>
-              <Field id="imagora-provider-base-url" label={t('settings.baseUrl.label')} hint={t('settings.baseUrl.hint')}>
+              <Field
+                id="imagora-provider-base-url"
+                label={t('settings.baseUrl.label')}
+                hint={t('settings.baseUrl.hint')}
+              >
                 <input
                   id="imagora-provider-base-url"
                   className="im-field"
@@ -421,7 +429,9 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
               <Field
                 id="imagora-provider-api-key"
                 label="API Key"
-                hint={provider?.apiKeyConfigured ? t('settings.apiKey.hint.configured') : t('settings.apiKey.hint.plain')}
+                hint={
+                  provider?.apiKeyConfigured ? t('settings.apiKey.hint.configured') : t('settings.apiKey.hint.plain')
+                }
                 action={
                   <button
                     type="button"
@@ -440,16 +450,18 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
                   type="password"
                   value={draft.apiKey}
                   autoComplete="off"
-                  placeholder={provider?.apiKeyConfigured ? t('settings.apiKey.placeholder.keep') : t('settings.apiKey.placeholder.paste')}
+                  placeholder={
+                    provider?.apiKeyConfigured
+                      ? t('settings.apiKey.placeholder.keep')
+                      : t('settings.apiKey.placeholder.paste')
+                  }
                   disabled={busy}
                   onChange={event => patch({ apiKey: event.target.value })}
                 />
               </Field>
             </>
           ) : (
-            <p className="im-settings-hint-line">
-              {t('settings.inheritHint')}
-            </p>
+            <p className="im-settings-hint-line">{t('settings.inheritHint')}</p>
           )}
 
           {probeResult ? (

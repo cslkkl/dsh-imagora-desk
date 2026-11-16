@@ -77,8 +77,7 @@ export function MaskDialog({ src, name, onClose, onConfirm }: MaskDialogProps) {
       alive = false
       setBase(null)
     }
-    // t 不进依赖：读调用时刻的语言，引用稳定（见 i18n.tsx）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // t 不进依赖：它读调用时刻的语言，引用稳定（见 i18n.tsx），加进去只会让 effect 重跑
   }, [src])
 
   const preview = useMemo(() => {

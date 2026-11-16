@@ -81,17 +81,10 @@ export function SelectionInspector(props: InspectorProps) {
           type="button"
           className="im-btn-ghost im-btn-sm nodrag"
           disabled={pickingOutputDir}
-          title={counted(
-            t,
-            selectedPromptCount,
-            'inspector.outputDir.title.one',
-            'inspector.outputDir.title.many',
-          )}
+          title={counted(t, selectedPromptCount, 'inspector.outputDir.title.one', 'inspector.outputDir.title.many')}
           onClick={props.onSetOutputDir}
         >
-          {pickingOutputDir
-            ? t('inspector.picking')
-            : `${t('inspector.outputDir')}${suffix(t, selectedPromptCount)}`}
+          {pickingOutputDir ? t('inspector.picking') : `${t('inspector.outputDir')}${suffix(t, selectedPromptCount)}`}
         </button>
       ) : null}
       <button type="button" className="im-btn-ghost im-btn-danger im-btn-sm nodrag" onClick={props.onDeleteSelected}>
