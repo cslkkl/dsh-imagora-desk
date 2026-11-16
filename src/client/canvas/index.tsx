@@ -64,6 +64,7 @@ import { useCanvasConfig } from './use-canvas-config'
 import { useCanvasHistory } from './use-canvas-history'
 import { useCanvasKeys } from './use-canvas-keys'
 import { useCanvasWorkflow } from './use-canvas-workflow'
+import { CanvasBoundary } from './error-boundary'
 
 type DialogState = {
   kind: 'save' | 'load' | 'help' | 'settings' | 'import' | 'history' | 'crop' | 'split' | 'upscale' | 'mask'
@@ -117,6 +118,13 @@ export function CanvasApp() {
   }, [])
 
   const { config, configIssues, configRef, switchProfile, switchModel, replaceConfig } = useCanvasConfig(flash)
+
+  /** 画布是否已经渲染崩过：崩了就别再自动写快照。
+   *
+   * 这条是上次「一次事故变成永久打不开」的直接成因 —— 崩溃卸载时 flush 把坏画布
+   * 写回磁盘，下次打开又读回同一份坏数据。数据侧已经在保存前收敛形状
+   * （lib/recovery.ts），这里再堵一道：状态本身已经不可信时，不要落盘。 */
+  const crashedRef = useRef(false)
 
   /** 新建卡片与「修复缺字段的旧卡片」共用的参数缺省值（配置里的第一档）。
    *  取 ref 而不是值：加载工作流那一刻的配置才是准的（用户可能刚换过模型）。 */
@@ -172,6 +180,8 @@ export function CanvasApp() {
     closeDialog: () => setDialog(null),
     // 缺 size/quality 的旧卡片补成「配置里的第一档」，与新建卡片同源（见 addPromptNode）
     defaultsRef: configDefaultsRef,
+    // 渲染崩过就别再把当前状态写回快照（见 crashedRef 的注释）
+    crashedRef,
     // 快照恢复完成后认领还活着的任务（切走 tab 再回来时要接着跑）
     onRestored: resumeTasks,
   })
@@ -648,68 +658,86 @@ export function CanvasApp() {
               就是把整块 JSX 重新缩进一遍（diff 变成几百行噪音）。
               用 context 而不是 prop 的原因见 nodes.tsx 的 LodContext 注释。 */}
           <LodContext.Provider value={lod}>
-            <ReactFlow
-              nodes={renderNodes}
-              edges={edges}
-              nodeTypes={NODE_TYPES}
-              onNodesChange={(changes: NodeChange<WorkflowNode>[]) => {
-                // 拖拽时按邻居对齐（与 Imagora 同一套 snapGuide/snapDrag 纯函数）。
-                // 只修正 position change，其余变更原样交给 React Flow。
-                const outcome = applySnapToChanges(changes, nodesRef.current, snapEnabled)
-                setGuides(outcome.guides)
-                onNodesChangeBase(outcome.changes as NodeChange<WorkflowNode>[])
+            {/* 画布整体的兜底：节点级边界（node-types.tsx）拦不到 React Flow 内部
+                抛的错（比如它自己读 `node.position.x`），这一层接住，
+                把「整页消失」降级成「画布区一句话 + 重试 / 清空」。
+                出错时通知 workflow hook 停掉自动快照 —— 别把坏状态写回磁盘，
+                那正是上次「一次事故变成永久打不开」的成因。 */}
+            <CanvasBoundary
+              onCrash={error => {
+                crashedRef.current = true
+                log(`画布渲染出错：${error.message}`)
               }}
-              onEdgesChange={(changes: EdgeChange<Edge>[]) => onEdgesChangeBase(changes)}
-              onConnect={connectEdge(setEdges)}
-              isValidConnection={connection =>
-                canConnect(nodesRef.current, edgesRef.current as WorkflowEdge[], {
-                  source: String(connection.source ?? ''),
-                  target: String(connection.target ?? ''),
-                })
-              }
-              onInit={instance => {
-                instanceRef.current = instance
+              onClear={() => {
+                setNodes([])
+                setEdges([])
+                setSelectedIds([])
               }}
-              onNodeDragStop={(_event, node) => {
-                setGuides([])
-                if (!snapEnabled) return
-                // React Flow 松手时会再发一帧 dragging:false 的 position change，
-                // 那一帧不走吸附，落点会退回未对齐的坐标。这里按最终位置再对齐一次。
-                const moving = snapBoxOf(node as WorkflowNode)
-                const others = nodesRef.current.filter(row => row.id !== node.id).map(snapBoxOf)
-                const snapped = snapToNeighbors(moving, others)
-                if (snapped.x === moving.x && snapped.y === moving.y) return
-                setNodes(current =>
-                  current.map(row => (row.id === node.id ? { ...row, position: { x: snapped.x, y: snapped.y } } : row)),
-                )
-              }}
-              onMove={(_, viewport) => {
-                setZoom(viewport.zoom)
-                // LOD 状态机跟着视口走（原版 handleViewportMove 在同一位置）。
-                // 函数式更新 + 纯函数 nextLod：迟滞判定不需要知道上一帧 zoom，
-                // 只知道自己现在在哪个档，所以快速拖动合并帧也不会把它卡反。
-                setLod(current => nextLod(current, viewport.zoom))
-              }}
-              onEdgeDoubleClick={(_event, edge) => {
-                // 与 Imagora 一致：双击连线直接删掉，不用先选中再按 Del
-                history.record()
-                setEdges(current => current.filter(row => row.id !== edge.id))
-                setSelectedEdgeId(null)
-              }}
-              onSelectionChange={({ nodes: picked, edges: pickedEdges }) => {
-                const ids = picked.map(node => node.id)
-                setSelectedIds(current =>
-                  current.length === ids.length && current.every((id, index) => id === ids[index]) ? current : ids,
-                )
-                const edgeId = pickedEdges.length === 1 ? pickedEdges[0].id : null
-                setSelectedEdgeId(current => (current === edgeId ? current : edgeId))
-              }}
-              fitView
-              fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
-              minZoom={0.05}
-              maxZoom={2.5}
-              proOptions={{ hideAttribution: true }}
-              /* 连线外观：原版 defaultEdgeOptions 只有 { animated: !lod }，
+            >
+              <ReactFlow
+                nodes={renderNodes}
+                edges={edges}
+                nodeTypes={NODE_TYPES}
+                onNodesChange={(changes: NodeChange<WorkflowNode>[]) => {
+                  // 拖拽时按邻居对齐（与 Imagora 同一套 snapGuide/snapDrag 纯函数）。
+                  // 只修正 position change，其余变更原样交给 React Flow。
+                  const outcome = applySnapToChanges(changes, nodesRef.current, snapEnabled)
+                  setGuides(outcome.guides)
+                  onNodesChangeBase(outcome.changes as NodeChange<WorkflowNode>[])
+                }}
+                onEdgesChange={(changes: EdgeChange<Edge>[]) => onEdgesChangeBase(changes)}
+                onConnect={connectEdge(setEdges)}
+                isValidConnection={connection =>
+                  canConnect(nodesRef.current, edgesRef.current as WorkflowEdge[], {
+                    source: String(connection.source ?? ''),
+                    target: String(connection.target ?? ''),
+                  })
+                }
+                onInit={instance => {
+                  instanceRef.current = instance
+                }}
+                onNodeDragStop={(_event, node) => {
+                  setGuides([])
+                  if (!snapEnabled) return
+                  // React Flow 松手时会再发一帧 dragging:false 的 position change，
+                  // 那一帧不走吸附，落点会退回未对齐的坐标。这里按最终位置再对齐一次。
+                  const moving = snapBoxOf(node as WorkflowNode)
+                  const others = nodesRef.current.filter(row => row.id !== node.id).map(snapBoxOf)
+                  const snapped = snapToNeighbors(moving, others)
+                  if (snapped.x === moving.x && snapped.y === moving.y) return
+                  setNodes(current =>
+                    current.map(row =>
+                      row.id === node.id ? { ...row, position: { x: snapped.x, y: snapped.y } } : row,
+                    ),
+                  )
+                }}
+                onMove={(_, viewport) => {
+                  setZoom(viewport.zoom)
+                  // LOD 状态机跟着视口走（原版 handleViewportMove 在同一位置）。
+                  // 函数式更新 + 纯函数 nextLod：迟滞判定不需要知道上一帧 zoom，
+                  // 只知道自己现在在哪个档，所以快速拖动合并帧也不会把它卡反。
+                  setLod(current => nextLod(current, viewport.zoom))
+                }}
+                onEdgeDoubleClick={(_event, edge) => {
+                  // 与 Imagora 一致：双击连线直接删掉，不用先选中再按 Del
+                  history.record()
+                  setEdges(current => current.filter(row => row.id !== edge.id))
+                  setSelectedEdgeId(null)
+                }}
+                onSelectionChange={({ nodes: picked, edges: pickedEdges }) => {
+                  const ids = picked.map(node => node.id)
+                  setSelectedIds(current =>
+                    current.length === ids.length && current.every((id, index) => id === ids[index]) ? current : ids,
+                  )
+                  const edgeId = pickedEdges.length === 1 ? pickedEdges[0].id : null
+                  setSelectedEdgeId(current => (current === edgeId ? current : edgeId))
+                }}
+                fitView
+                fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
+                minZoom={0.05}
+                maxZoom={2.5}
+                proOptions={{ hideAttribution: true }}
+                /* 连线外观：原版 defaultEdgeOptions 只有 { animated: !lod }，
                **没有 markerEnd**。我们以前加了 ArrowClosed 箭头，于是每条连线
                末端挂一个实心三角 —— 原版根本没有这个元素，是纯粹多出来的。
                现在按原版来：不设 marker；animated 随 LOD 走（抽象模式下静止，
@@ -717,48 +745,49 @@ export function CanvasApp() {
                对象必须 useMemo：React Flow 的 StoreUpdater 对 defaultEdgeOptions 做
                浅比较，内联对象每次新建都会写一次 store，edge = {...default, ...edge}
                全量新建 → 每条边的 EdgeWrapper memo 全部失效。 */
-              defaultEdgeOptions={defaultEdgeOptions}
-              /* 视口虚拟化：只渲染可视区域内的节点（原版同一条）。
+                defaultEdgeOptions={defaultEdgeOptions}
+                /* 视口虚拟化：只渲染可视区域内的节点（原版同一条）。
                节点几百个时，屏幕外的卡片不参与渲染，平移才不掉帧。 */
-              onlyRenderVisibleElements
-              deleteKeyCode={null}
-              // 滚轮 = 缩放。之前打开了 panOnScroll，滚轮被当成上下平移，
-              // 与 Imagora（只设 panOnDrag，滚轮保持缩放）不一致。
-              panOnScroll={false}
-              zoomOnScroll
-              zoomOnPinch
-              // 与 Imagora 同一套手势：左键拖空白 = 平移（panOnDrag）、
-              // 右键拖拽 = 框选、右键单击节点 = 菜单（两者在
-              // use-canvas-context-menu.ts 里自己接管，所以下面的
-              // selectionKeyCode 必须为 null —— 原生 Shift+框选会和它抢同一个手势）。
-              // 与 Imagora 的「锁定画布」同语义：一次性关掉拖动/连线/选中/平移，
-              // 只看不动（缩放仍留着，方便凑近看细节）
-              nodesDraggable={!canvasLocked}
-              nodesConnectable={!canvasLocked}
-              elementsSelectable={!canvasLocked}
-              panOnDrag={!canvasLocked}
-              selectionOnDrag={false}
-              selectionKeyCode={null}
-              multiSelectionKeyCode={['Meta', 'Control']}
-            >
-              <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
-              {/* 缩放控件栈由 CanvasDock 接管（React Flow 自带的那套图标不带文字，认不出） */}
-              {/* 小地图放左上（Imagora 的位置）：右下角留给日志，那是「刚刚发生了什么」的即时反馈，
+                onlyRenderVisibleElements
+                deleteKeyCode={null}
+                // 滚轮 = 缩放。之前打开了 panOnScroll，滚轮被当成上下平移，
+                // 与 Imagora（只设 panOnDrag，滚轮保持缩放）不一致。
+                panOnScroll={false}
+                zoomOnScroll
+                zoomOnPinch
+                // 与 Imagora 同一套手势：左键拖空白 = 平移（panOnDrag）、
+                // 右键拖拽 = 框选、右键单击节点 = 菜单（两者在
+                // use-canvas-context-menu.ts 里自己接管，所以下面的
+                // selectionKeyCode 必须为 null —— 原生 Shift+框选会和它抢同一个手势）。
+                // 与 Imagora 的「锁定画布」同语义：一次性关掉拖动/连线/选中/平移，
+                // 只看不动（缩放仍留着，方便凑近看细节）
+                nodesDraggable={!canvasLocked}
+                nodesConnectable={!canvasLocked}
+                elementsSelectable={!canvasLocked}
+                panOnDrag={!canvasLocked}
+                selectionOnDrag={false}
+                selectionKeyCode={null}
+                multiSelectionKeyCode={['Meta', 'Control']}
+              >
+                <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
+                {/* 缩放控件栈由 CanvasDock 接管（React Flow 自带的那套图标不带文字，认不出） */}
+                {/* 小地图放左上（Imagora 的位置）：右下角留给日志，那是「刚刚发生了什么」的即时反馈，
                 被小地图压住就读不到了；左下角是缩放控件栈，右上角是选中操作栏。 */}
-              {minimapOpen ? (
-                <MiniMap
-                  ariaLabel="画布小地图"
-                  pannable
-                  zoomable
-                  position="top-left"
-                  style={{ width: 160, height: 110 }}
-                  nodeColor={node => (node.type === 'prompt' ? 'var(--im-brand)' : 'var(--im-ink-3)')}
-                  maskColor="rgba(31, 41, 55, 0.08)"
-                  nodeStrokeWidth={2}
-                />
-              ) : null}
-              <SnapGuideLayer guides={guides} />
-            </ReactFlow>
+                {minimapOpen ? (
+                  <MiniMap
+                    ariaLabel="画布小地图"
+                    pannable
+                    zoomable
+                    position="top-left"
+                    style={{ width: 160, height: 110 }}
+                    nodeColor={node => (node.type === 'prompt' ? 'var(--im-brand)' : 'var(--im-ink-3)')}
+                    maskColor="rgba(31, 41, 55, 0.08)"
+                    nodeStrokeWidth={2}
+                  />
+                ) : null}
+                <SnapGuideLayer guides={guides} />
+              </ReactFlow>
+            </CanvasBoundary>
           </LodContext.Provider>
           <CanvasDock
             zoom={zoom}

@@ -1,6 +1,7 @@
 // client 半端入口：向侧边栏与主区域注册「imagora」面板。
 // 侧边栏那一行由 sidebar.panellist 渲染；点开后主区域用同名 key 渲染画布。
 import { CanvasApp } from './canvas/index'
+import { CanvasBoundary, ErrorBoundary, NodeBoundary } from './canvas/error-boundary'
 import { BrandLogo } from './brand'
 import xyflowCss from '@xyflow/react/dist/style.css'
 
@@ -20,9 +21,23 @@ interface SlotsContext {
 declare global {
   /** 验收台用来直接挂载画布组件；正式运行时不参与渲染。 */
   var __dshImagoraCanvas: typeof CanvasApp | undefined
+  /** 验收台用来单独挂错误边界（塞一个必炸的子树进去，验替代界面与「崩了不写快照」）。 */
+  var __dshImagoraBoundary: typeof boundaryProbe | undefined
 }
 
 globalThis.__dshImagoraCanvas = CanvasApp
+
+/**
+ * 错误边界的验收入口。
+ *
+ * 为什么要专门开一个口子：边界只在该触发的时候才渲染替代界面，正常路径永远看不到。
+ * 靠「制造一份能把画布搞崩的数据」来验收是不可靠的 —— 数据侧现在有形状校验，
+ * 脏数据会被跳过，根本走不到渲染异常那一步。所以把边界本身交出去，
+ * 让验收台直接挂一个「render 里必定 throw」的子树进去。
+ * 与 `__dshImagoraCanvas` 同一性质：只有验收台会用，正式运行不参与渲染。
+ */
+const boundaryProbe = { ErrorBoundary, NodeBoundary, CanvasBoundary }
+globalThis.__dshImagoraBoundary = boundaryProbe
 
 /**
  * 侧边栏那一行的图标：用原版 Imagora 的 logo 形状。
