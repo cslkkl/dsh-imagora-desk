@@ -415,6 +415,32 @@ try {
     }
   }
 
+  // ---------------- 图片组的操作栏：hover 必须出现 ----------------
+  // 回归：让 rail 显现的 hover 规则只写了 .im-panel-card，而图片组的根是
+  // .im-group-node —— 组右侧的「删除图片组」恒为 opacity:0 + pointer-events:none，
+  // 鼠标扫过去什么都不出现，只能靠右键菜单删。上游靠 Tailwind 的 group-hover
+  // 挂在根节点上，不存在这个缺口，所以这是插件侧的移植遗漏而不是刻意简化。
+  {
+    const group = page.locator('.im-group-node').first()
+    if ((await group.count()) === 0) {
+      check('图片组节点存在（否则下一条断言无从谈起）', false, '页面里没有 .im-group-node')
+    } else {
+      const rail = group.locator('.im-rail').first()
+      const before = await rail.evaluate(el => getComputedStyle(el).opacity)
+      await group.hover()
+      await page.waitForTimeout(250)
+      const after = await rail.evaluate(el => getComputedStyle(el).opacity)
+      const pe = await rail.evaluate(el => getComputedStyle(el).pointerEvents)
+      check(
+        '图片组 hover 后操作栏出现（含「删除图片组」）',
+        before === '0' && after === '1' && pe === 'auto',
+        `before=${before} after=${after} pointer-events=${pe}`,
+      )
+      await page.mouse.move(4, 4)
+      await page.waitForTimeout(120)
+    }
+  }
+
   // ---------------- 撤销：工具栏新增的节点必须可撤销 ----------------
   // 回归：三条新增入口（提示词卡 / 图片组 / 上传）曾经都只 setNodes、不 record，
   // 于是「撤销」按钮恒为 disabled，Ctrl+Z 也无可撤销 —— 用户视角就是「撤销不好使」。

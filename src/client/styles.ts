@@ -964,7 +964,16 @@ body[data-ds-dark-theme] {
   pointer-events: none;
   transition: opacity 0.12s ease;
 }
-.im-panel-card:hover .im-rail { opacity: 1; pointer-events: auto; }
+/* 两个根节点各有一条 hover 规则。图片组（.im-group-node）原先**漏了**这一条，
+ * 于是组右侧的「删除图片组」永远是 opacity:0 + pointer-events:none ——
+ * 鼠标扫过去什么都不出现，只能靠右键菜单删。上游没有这个问题：它的 NodeActions
+ * 挂在 Tailwind 的 group-hover: 上，靠根节点的 group 类无条件生效。
+ *
+ * TODO（下一轮）：两行重复选择器换成共享根类（如 .im-node-shell:hover .im-rail），
+ * 由 panel-card 与 group-node 各自挂上。现在先按「一行止血」处理，避免为了整齐
+ * 同时动两个组件的 className 与它们的冒烟断言。 */
+.im-panel-card:hover .im-rail,
+.im-group-node:hover .im-rail { opacity: 1; pointer-events: auto; }
 
 /* ---------------- 图片组节点（照搬 Imagora 的 GroupNode 叠卡） ----------------
  * 结构是**三块**：外层是节点根（.node-pop，浮面 + 大投影，**方角、无边框**）、
