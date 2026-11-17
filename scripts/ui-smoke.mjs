@@ -1197,6 +1197,71 @@ try {
     )
   }
 
+  // ---------------- 删除节点不删文件 ----------------
+  // 回归（维护者报「参考图生成的图删掉后，历史里就找不到了」）：单条删除走的是
+  // `deleteNode` → 顺带调 `/asset/delete`（删登记 + unlink 文件），而历史按账本的
+  // `outputAssetIds` 去注册表解析 —— 登记一删，那条记录永远只剩「文件已移动」。
+  // 实测账本里已有两张插件出的图这样永久消失。原版的契约是「删节点仅断连线不删文件」。
+  //
+  // 断言三件事：节点真的没了、**没有**发删资产的请求、提示里说清图还在。
+  // 放在套件末尾 + 用 __harness 种子画布，避免把夹具里的图片节点删掉影响前面的用例。
+  {
+    const deleteCalls = []
+    page.on('request', r => {
+      if (r.url().includes('/imagora/asset/delete')) deleteCalls.push(r.url())
+    })
+    await page.request.post(`${BASE}imagora/__harness/reset-canvas`)
+    await page.request.post(`${BASE}imagora/__harness/seed-canvas`, {
+      data: {
+        nodes: [
+          {
+            id: 'del-probe',
+            type: 'image',
+            position: { x: 140, y: 160 },
+            data: {
+              registryId: 'del-asset-1',
+              name: 'del-probe.png',
+              url: '/imagora/file?id=del-asset-1',
+              size: 1024,
+              ext: 'png',
+              absPath: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output\\.assets\\del-probe.png',
+            },
+          },
+        ],
+        edges: [],
+      },
+    })
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.waitForTimeout(1800)
+
+    const card = page.locator('.react-flow__node').first()
+    const beforeCount = await page.locator('.react-flow__node').count()
+    await card.hover()
+    await page.waitForTimeout(200)
+    const delBtn = card.locator('.im-rail button[aria-label="删除图片"]')
+    const hasDelBtn = (await delBtn.count()) === 1
+    if (hasDelBtn) await delBtn.click()
+    await page.waitForTimeout(500)
+
+    check('删除图片：操作栏那颗按钮确实在（否则下两条无从谈起）', hasDelBtn)
+    check(
+      '删除图片：节点从画布消失',
+      (await page.locator('.react-flow__node').count()) === beforeCount - 1,
+      `${beforeCount} → ${await page.locator('.react-flow__node').count()}`,
+    )
+    check(
+      '删除图片：不调用 /asset/delete（文件与登记都保留，历史才解析得出来）',
+      deleteCalls.length === 0,
+      deleteCalls.slice(0, 2).join(' | '),
+    )
+    const toastText = await page.locator('.im-root').evaluate(root => {
+      // toast 是 .im-root 里贴底居中的那颗胶囊；没有就回空串
+      const node = root.querySelector('div[style*="translateX(-50%)"]')
+      return node ? String(node.textContent || '') : ''
+    })
+    check('删除图片：提示里写明图片仍留在磁盘、历史能找回', toastText.includes('图片仍留在磁盘上'), toastText)
+  }
+
   // ---------------- 全程无 JS 报错 ----------------
   check('全程没有页面异常', pageErrors.length === 0, pageErrors.slice(0, 2).join(' | '))
 } catch (error) {

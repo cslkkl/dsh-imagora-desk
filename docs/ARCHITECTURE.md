@@ -97,7 +97,7 @@ C 档的每一条差异都在代码注释与 [FEATURE-PARITY](FEATURE-PARITY.md)
 | POST | `/settings`                                                    | 写插件设置：`profile`（空串 = 跟随 `.env`）、`model`、`imagoraRoot` |
 | GET  | `/assets`                                                      | 已登记图片列表                                                      |
 | POST | `/upload`                                                      | 请求体是原始字节，`?name=` 给文件名                                 |
-| POST | `/asset/delete`                                                | 删登记与文件                                                        |
+| POST | `/asset/delete`                                                | 删登记与文件（**画布不调它**，见「删节点不删文件」）                |
 | GET  | `/file?id=`                                                    | 按登记 id 出图，路径限定在 `assets/` 与 `output/`                   |
 | POST | `/generate`                                                    | 建任务，返回 `taskId`；两道预算闸门见下                             |
 | GET  | `/task?id=`                                                    | 任务快照                                                            |
@@ -313,13 +313,13 @@ C 档的每一条差异都在代码注释与 [FEATURE-PARITY](FEATURE-PARITY.md)
 
 这两张表**不是一回事**，历史列表只能读前者：
 
-|                               | `logs/generation.jsonl`（账本）          | `output/.assets/registry.json`（注册表） |
-| ----------------------------- | ---------------------------------------- | ---------------------------------------- |
-| 一条 =                        | 一次生成**尝试**（含失败）               | 一个**存在的图片文件**                   |
-| 有提示词 / 成本 / 耗时 / 状态 | 有                                       | 没有                                     |
-| 有失败记录                    | 有（失败不出图，但账本有行）             | 没有                                     |
-| 文件没了记录还在              | 有（旧行 `output` 指向已挪走的路径）     | 没有                                     |
-| 插件自己出的图                | **不在**（`src/host/tasks.js` 不写账本） | 在                                       |
+|                               | `logs/generation.jsonl`（账本）       | `output/.assets/registry.json`（注册表） |
+| ----------------------------- | ------------------------------------- | ---------------------------------------- |
+| 一条 =                        | 一次生成**尝试**（含失败）            | 一个**存在的图片文件**                   |
+| 有提示词 / 成本 / 耗时 / 状态 | 有                                    | 没有                                     |
+| 有失败记录                    | 有（失败不出图，但账本有行）          | 没有                                     |
+| 文件没了记录还在              | 有（旧行 `output` 指向已挪走的路径）  | 没有                                     |
+| 插件自己出的图                | 在（`src/host/ledger.js` 追加，见下） | 在                                       |
 
 `GET /imagora/history` 的语义逐条照原版 `core/history.py`，别"简化"：
 
@@ -338,11 +338,12 @@ C 档的每一条差异都在代码注释与 [FEATURE-PARITY](FEATURE-PARITY.md)
 
 **插件自己的产出也写进同一份账本**（`src/host/ledger.js`），格式逐字段照
 `core/logging.py` 的 `log_generation`：`time / mode / refs / prompt / size / quality /
-status / cost / seconds / output`（+ 有资产副本时的 `outputAssetIds`）。
+status / cost / seconds / output`（+ 有资产副本时的 `outputAssetIds`，+ 有参考图时的
+`inputAssetIds`，顺序与 Python 侧一致：输入在前、输出在后）。
 于是共用模式下，历史里既能看到原版出的图，也能看到插件出的图 —— 这正是「双源并存」
 那条待办要解决的事。
 
-三条硬约束（改之前先读）：
+四条硬约束（改之前先读）：
 
 1. **字段名与取值口径必须一模一样**：`mode` 由 `refs > 0` 推导（img2img / txt2img），
    `cost` 两位小数、`seconds` 一位，`time` 是本地时区 `YYYY-MM-DD HH:mm:ss`。
@@ -352,11 +353,47 @@ status / cost / seconds / output`（+ 有资产副本时的 `outputAssetIds`）�
    保留绝对路径 —— 原版也是这个行为。
 3. **写入闸门**：显式设了 `imagoraRoot` 就写；只有自动探测到的 `root` 时，
    必须该目录里真有 `config.json` 才写。否则就是往用户没确认过的路径里 append 日志。
+4. **参考图必须连带 `inputAssetIds` 一起写**，光记 `refs` 计数不够。
+   历史行的参考图缩略图是拿这个字段去注册表解析的（`presentRecord` 的 `inputRefs`），
+   少了它，一条 img2img 记录在界面上永远显示「参考图缺失」——计数还在，图对不上。
+
+   id 从哪来：`/generate` 收的 `refIds` 本来就是登记 id，解析成绝对路径发上游的同时
+   把 id 一起交给任务池（`tasks.js` 的 `refAssetIds`），跑完写账本时用。
+   **顺序是有意为之**：任务对象而不是收尾时再查，因为排队期间用户可能已经把那张图
+   从画布上摘掉，而"这次到底用了哪几张"只有提交那一刻知道。
+
+   同一个接口还带一条**缺图守卫**：`refIds` 解析不出文件时直接 400，不静默退化成
+   文生图 —— 那会花一次钱、出一张完全不相干的图，账本却记着 img2img（原版同一条守卫）。
 
 并发：同进程内用一条串行队列（`appendGeneration` 的 `tail`），跨进程（原版 Python
 同时也在写）靠**整行一次 write** 的 `O_APPEND` 原子性兜住 —— 一次系统调用写整行，
 不拆包，就不会和 Python 那边交错成半行。写失败不影响生成主流程（原版同样是
 try/except 静默），所以 `appendGeneration` 只回 `boolean`，不抛错。
+
+### 删节点不删文件
+
+**从画布上删掉一个节点，只是删掉一个视图。** 图片文件与注册表条目必须留着。
+
+这不是洁癖，是账本与注册表的关系逼出来的：历史一条记录只存 `outputAssetIds`（一个 id），
+图片本体在 `.assets` 里。登记一删，那条历史就永远只剩「文件已移动」，连「导入画布」
+都点不动 —— 而账本是 append-only 的，那行记录还在，只是再也解析不出图。
+
+实测代价：插件早期版本这样永久丢过两张图（`canv_5d47ade2f6cf`、`canv_e2c71b68aa06`），
+`unlink` 不进回收站，救不回来。当时还有一个更隐蔽的后果 —— 同一个「删除」动作有两条路：
+操作栏 / 右键「删除」走 `deleteNode`（删文件），`Delete` 键 / 「删除所选」走 `removeNodes`
+（不删文件），删一张和删一批的后果不同。
+
+规范（三条一起成立才算对）：
+
+1. 画布上**任何**删除入口都只改 `nodes` / `edges`，不发 `/asset/delete`；
+2. 要清盘上的图走「生成历史 → 打开目录」手动删 —— 那是显式操作，不是画布副作用；
+3. 删完给一句提示（`flash.deleted.kept`）：图还在磁盘上、历史里能找回。少了这句，
+   用户只会以为记录丢了。
+
+原版同一条契约：「删节点仅断连线不删文件；删文件是图片节点显式操作」
+（`handleDeleteNode` 里打的是「已删除节点（文件保留）」，`delete_asset` 在前端没有调用点）。
+`POST /asset/delete` 这个接口保留着，但**画布不该调它** —— `src/client/api.ts` 里刻意
+没有对应的封装。
 
 ### 弹窗为什么不是「三页签设置」
 

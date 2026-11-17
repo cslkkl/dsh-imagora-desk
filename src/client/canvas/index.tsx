@@ -16,7 +16,7 @@ import {
   type NodeChange,
   type ReactFlowInstance,
 } from '@xyflow/react'
-import { deleteAsset, listWorkflows } from '../api'
+import { listWorkflows } from '../api'
 import {
   autoConnect,
   autoConnectSelection,
@@ -274,24 +274,37 @@ function CanvasSurface() {
     [setNodes],
   )
 
+  /**
+   * 从画布上摘掉节点：**只动画布，不动磁盘**。
+   *
+   * 这条曾经不是这样的：单条删除会顺手调 `/asset/delete`（删登记 + `unlink` 文件），
+   * 看起来"删干净了"，实际把生成历史一起弄瞎——历史按账本的 `outputAssetIds` 去注册表
+   * 解析，登记一删，那条记录就永远只剩「文件已移动」，连「导入画布」都点不动。
+   * 实测账本里已有两张插件出的图这样永久消失（`canv_5d47ade2f6cf` / `canv_e2c71b68aa06`）。
+   *
+   * 原版的不变量正相反：`handleDeleteNode` 里明写"不删文件，删除文件是显式操作"，
+   * 日志也打「已删除节点（文件保留）」；`delete_asset` 那个接口在前端没有任何调用点。
+   * 这不是"照搬一个按钮"，是照搬它的**存储契约**：一张图会同时被历史、@ 引用、
+   * 别的工作流引用，节点只是其中一个视图，删视图不该销毁数据。
+   *
+   * 顺带把两条入口并齐了——过去「Delete 键 / 删除所选」走这里（不删文件），
+   * 而操作栏与右键「删除」走另一条（删文件），同一个动作两种后果。
+   */
   const removeNodes = useCallback(
     (ids: string[]) => {
+      if (!ids.length) return
       history.record()
       const drop = new Set(ids)
       setNodes(current => current.filter(node => !drop.has(node.id)))
       setEdges(current => current.filter(edge => !drop.has(edge.source) && !drop.has(edge.target)))
+      // 说清楚"图还在"：用户上一版就是因为这句缺失，以为生成记录丢了
+      flash(t('flash.deleted.kept', { count: ids.length }))
     },
-    [setNodes, setEdges, history],
+    [setNodes, setEdges, history, flash, t],
   )
 
-  const deleteNode = useCallback(
-    (nodeId: string) => {
-      const node = nodesRef.current.find(row => row.id === nodeId)
-      removeNodes([nodeId])
-      if (node?.type === 'image') void deleteAsset(node.data.registryId).catch(() => undefined)
-    },
-    [removeNodes],
-  )
+  /** 单条删除 = 批量删除的特例（同一个后果，不再分两条路） */
+  const deleteNode = useCallback((nodeId: string) => removeNodes([nodeId]), [removeNodes])
 
   /* ---------------- 新建节点落点 ---------------- */
   const createPosition = useCallback((): { x: number; y: number } => {

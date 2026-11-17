@@ -435,9 +435,26 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
       const quality = String(body.quality || config.qualities[0] || 'high')
       const refIds = Array.isArray(body.refIds) ? body.refIds.map(String) : []
       const refs = []
+      // 参考图要留两份信息：**绝对路径**（发上游用）与**登记 id**（写账本用）。
+      // 只有路径的话账本就记不下参考图（`refs` 只是个计数），历史里那条 img2img
+      // 永远显示「参考图缺失」——原版在提交阶段就把 id 记进账本了。
+      const refAssetIds = []
+      const lostRefs = []
       for (const id of refIds) {
         const entry = await store.assetById(id)
-        if (entry) refs.push(entry.absPath)
+        if (entry && existsSync(entry.absPath)) {
+          refs.push(entry.absPath)
+          refAssetIds.push(entry.id)
+        } else {
+          lostRefs.push(id)
+        }
+      }
+      // 缺图守卫（原版同一条）：声明了参考图却解析不出文件时**中止**，不要静默退化成
+      // 文生图 —— 那样会花一次钱、出一张完全不相干的图，账本还会记成 img2img。
+      if (lostRefs.length) {
+        return json(res, 400, {
+          error: `参考图不可用（${lostRefs.length} 张）：文件已被删除或移动，先替换那张图再运行`,
+        })
       }
       const outputDir = String(body.outputDir || '')
       // 蒙版：data URL 或 base64 都能收，统一转成 Buffer 交给任务池
@@ -486,7 +503,7 @@ export function createRouter({ store, pool, getConfig, getSettings, applySetting
         }
       }
 
-      const submitted = pool.submit({ prompt, size, quality, refs, outputDir, mask })
+      const submitted = pool.submit({ prompt, size, quality, refs, refAssetIds, outputDir, mask })
       return json(res, 200, submitted)
     }
 

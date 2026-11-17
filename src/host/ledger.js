@@ -84,6 +84,7 @@ export function displayPath(root, absPath) {
  * @param {number} [input.refs] 参考图张数
  * @param {string} [input.output] 输出绝对路径（会相对化成展示形态）
  * @param {string} [input.assetId] 资产副本 id
+ * @param {string[]} [input.inputAssetIds] 参考图的资产 id（按提交时解析出来的登记 id）
  * @param {string} [input.root] imagora 目录，用于相对化 output
  */
 export function buildRecord(input) {
@@ -100,6 +101,16 @@ export function buildRecord(input) {
     cost: Math.round((Number(input.cost) || 0) * 100) / 100,
     seconds: Math.round((Number(input.seconds) || 0) * 10) / 10,
     output: displayPath(input.root, input.output),
+  }
+  // 参考图先于出图（与 core/logging.py 里 input_asset_ids 在 output_asset_ids 之前的顺序一致）。
+  //
+  // **不能省这一项。** 历史行靠它把参考图缩略图解析出来（`presentRecord` 的 inputRefs），
+  // 缺了它，一条 img2img 记录在界面上永远显示「参考图缺失」——原版写了 283 行，
+  // 插件此前一行都没写（refs 计数在，图对不上）。去重是必要的：同一张图被两张卡引用时
+  // 客户端可能把同一个 id 传两遍。
+  if (Array.isArray(input.inputAssetIds)) {
+    const ids = [...new Set(input.inputAssetIds.map(String).filter(Boolean))]
+    if (ids.length) record.inputAssetIds = ids
   }
   if (input.assetId) record.outputAssetIds = [String(input.assetId)]
   return record
