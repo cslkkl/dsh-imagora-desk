@@ -284,14 +284,14 @@ try {
   }).then(res => res.json())
   check('POST /provider reset 回到 imagora 配置', reset.source === 'imagora', reset.source)
 
-  // 默认输出路径：填了就生效，清空就回落到 <数据目录>/output
+  // 默认输出文件夹：填了就生效，清空就回落到来源根目录下的 output
   const customOut = join(SANDBOX, 'my-output')
   const withOut = await fetch(`${base}/settings`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ outputDir: customOut }),
   }).then(res => res.json())
-  check('POST /settings 默认输出路径生效', withOut.defaultOutputDir === customOut, withOut.defaultOutputDir)
+  check('POST /settings 默认输出文件夹生效', withOut.defaultOutputDir === customOut, withOut.defaultOutputDir)
 
   const resetOut = await fetch(`${base}/settings`, {
     method: 'POST',
@@ -300,7 +300,7 @@ try {
   }).then(res => res.json())
   // 回落的落点是「配置来源的根目录」，冒烟里是 fixture 的 imagora 根
   check(
-    'POST /settings 清空输出路径回到来源根目录',
+    'POST /settings 清空输出文件夹回到来源根目录',
     resetOut.defaultOutputDir === join(FIXTURE_ROOT, 'output'),
     resetOut.defaultOutputDir,
   )
@@ -1047,6 +1047,62 @@ try {
       '参考图生成：账本行同时带 outputAssetIds 与 img2img',
       Boolean(runRow?.outputAssetIds?.[0]) && runRow?.mode === 'img2img',
       `${runRow?.mode} / ${runRow?.outputAssetIds?.join(',')}`,
+    )
+
+    // 空 outputDir = 用默认输出目录（与原版 server.run_generation 同一条语义）。
+    //
+    // 回归：插件从前把空串当「只留在画布」，于是 setContent——设过默认路径的用户
+    // 跑一张留空的卡片，磁盘上什么都不出现，而界面上还写着「留空 = 只留在画布」。
+    // 这里用 runConfig.defaultOutputDir 指到一个**还不存在**的目录，顺带锁住
+    // 「写前要先建目录」（原版有 os.makedirs，插件漏了会 ENOENT）。
+    const defaultOut = join(runRoot, 'default-out', 'nested')
+    check('空 outputDir 用例：默认目录一开始并不存在', !existsSync(defaultOut), defaultOut)
+    const runPool2 = new TaskPool({
+      getConfig: () => ({ ...runConfig, defaultOutputDir: defaultOut }),
+      store: runStore,
+      concurrency: 1,
+    })
+    const submitted2 = runPool2.submit({
+      prompt: '端到端：空路径要落到默认目录',
+      size: '1024x1024',
+      quality: 'high',
+      refs: [],
+      refAssetIds: [],
+      outputDir: '',
+      mask: null,
+    })
+    let snap2 = null
+    for (let i = 0; i < 100; i += 1) {
+      snap2 = runPool2.snapshot(submitted2.taskId)
+      if (snap2 && ['done', 'failed', 'cancelled'].includes(snap2.status)) break
+      await new Promise(r => setTimeout(r, 50))
+    }
+    check('空 outputDir：任务跑完', snap2?.status === 'done', `${snap2?.status} ${snap2?.error ?? ''}`)
+    const wroteDefault = snap2?.messages?.some(line => line.includes(defaultOut)) ?? false
+    check('空 outputDir：结果真的写进了默认目录', wroteDefault, (snap2?.messages ?? []).join(' | ').slice(0, 200))
+    check('空 outputDir：目录是写的时候建的', existsSync(defaultOut), defaultOut)
+
+    // 反过来：卡上写了路径就用卡的，不被默认值盖掉（默认只是兜底）
+    const customOut2 = join(runRoot, 'card-out')
+    const submitted3 = runPool2.submit({
+      prompt: '端到端：卡上路径优先',
+      size: '1024x1024',
+      quality: 'high',
+      refs: [],
+      refAssetIds: [],
+      outputDir: customOut2,
+      mask: null,
+    })
+    let snap3 = null
+    for (let i = 0; i < 100; i += 1) {
+      snap3 = runPool2.snapshot(submitted3.taskId)
+      if (snap3 && ['done', 'failed', 'cancelled'].includes(snap3.status)) break
+      await new Promise(r => setTimeout(r, 50))
+    }
+    check(
+      '卡上路径优先于默认目录',
+      snap3?.status === 'done' && (snap3?.messages ?? []).some(line => line.includes(customOut2)),
+      (snap3?.messages ?? []).join(' | ').slice(0, 200),
     )
     fakeUpstream.close()
     rmSync(runRoot, { recursive: true, force: true })

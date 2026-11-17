@@ -140,15 +140,25 @@ export class TaskPool {
         refs,
         mask: task.mask || null,
       })
-      // 结果同时落两处：assets/（画布引用）与用户指定的输出目录（可交付）
+      // 结果同时落两处：assets/（画布引用）与输出目录（可交付）。
+      //
+      // **空串 = 用默认输出目录**，与原版同一条语义（server.py 的
+      // `task.output_dir or load_default_output_dir() or DEFAULT_OUTPUT_DIR`）。
+      // 插件从前把空串解释成「只留在画布」：那是自己造的第二套语义 —— 卡片留空
+      // 就静默不落盘，而界面上又写着「留空 = 只留在画布」，用户以为设了默认就都落。
+      // 现在只有一条规则：卡上写的优先，没写就用配置里的默认值。
       const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
       const prefix = refs.length ? 'img2img' : 'txt2img'
       const name = `${prefix}_${stamp}_${task.id.slice(-4)}${ext}`
       const entry = await this.store.saveAsset(buffer, name, { origin: 'generate' })
-      const target = task.outputDir ? join(task.outputDir, name) : ''
+      const outDir = String(task.outputDir || '').trim() || String(config.defaultOutputDir || '').trim()
+      const target = outDir ? join(outDir, name) : ''
       if (target) {
         try {
-          const { writeFile } = await import('node:fs/promises')
+          const { mkdir, writeFile } = await import('node:fs/promises')
+          // 目录不存在就先建（原版 run_generation 里同样有 os.makedirs）：
+          // 默认目录可能刚在设置里改成一个还没建的路径，不建就直接 ENOENT。
+          await mkdir(outDir, { recursive: true })
           await writeFile(target, buffer)
           task.messages.push(`已另存到 ${target}`)
           ledgerOutput = target
