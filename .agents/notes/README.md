@@ -23,6 +23,7 @@
 - [2026-11-16-skip-invalid-nodes.md](2026-11-16-skip-invalid-nodes.md)：节点骨架不成立时为什么跳过并回报，而不是猜着补齐
 - [2026-11-16-error-boundaries.md](2026-11-16-error-boundaries.md)：错误边界为什么分两层、崩溃时为什么不再写快照
 - [2026-11-17-delete-keeps-file.md](2026-11-17-delete-keeps-file.md)：删节点为什么只删视图、不删文件与登记
+- [2026-11-17-output-folder-one-meaning.md](2026-11-17-output-folder-one-meaning.md)：输出文件夹为什么只留一个语义、三处入口为什么都弹系统目录框
 
 ## 回引
 
