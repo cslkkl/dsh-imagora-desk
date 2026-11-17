@@ -94,7 +94,13 @@ export const uploadImage = async (file: File | Blob, name: string) => {
   return body.image as AssetEntry
 }
 
-export const deleteAsset = (id: string) => request<{ ok: boolean }>('asset/delete', jsonBody({ id }))
+// 这里**故意没有**「删除资产」的封装。
+//
+// host 侧仍保留 `POST /asset/delete`（删登记 + 删文件），但画布不该调它：一张图会同时
+// 被生成历史、@ 引用、已保存的工作流引用，节点只是它的一个视图。删视图时把文件和登记
+// 一起删掉，历史那条记录就永远只剩「文件已移动」——实测已经这样丢过两张图
+// （`canv_5d47ade2f6cf`、`canv_e2c71b68aa06`）。原版同样只删节点、不删文件。
+// 真要清盘上的图，走「生成历史 → 打开目录」手动删，那是显式操作。
 
 /* ---------------- 生成历史（读账本 logs/generation.jsonl，不是资产注册表） ----------------
  *
