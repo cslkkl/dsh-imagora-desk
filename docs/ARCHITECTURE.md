@@ -338,11 +338,12 @@ C 档的每一条差异都在代码注释与 [FEATURE-PARITY](FEATURE-PARITY.md)
 
 **插件自己的产出也写进同一份账本**（`src/host/ledger.js`），格式逐字段照
 `core/logging.py` 的 `log_generation`：`time / mode / refs / prompt / size / quality /
-status / cost / seconds / output`（+ 有资产副本时的 `outputAssetIds`）。
+status / cost / seconds / output`（+ 有资产副本时的 `outputAssetIds`，+ 有参考图时的
+`inputAssetIds`，顺序与 Python 侧一致：输入在前、输出在后）。
 于是共用模式下，历史里既能看到原版出的图，也能看到插件出的图 —— 这正是「双源并存」
 那条待办要解决的事。
 
-三条硬约束（改之前先读）：
+四条硬约束（改之前先读）：
 
 1. **字段名与取值口径必须一模一样**：`mode` 由 `refs > 0` 推导（img2img / txt2img），
    `cost` 两位小数、`seconds` 一位，`time` 是本地时区 `YYYY-MM-DD HH:mm:ss`。
@@ -352,6 +353,17 @@ status / cost / seconds / output`（+ 有资产副本时的 `outputAssetIds`）�
    保留绝对路径 —— 原版也是这个行为。
 3. **写入闸门**：显式设了 `imagoraRoot` 就写；只有自动探测到的 `root` 时，
    必须该目录里真有 `config.json` 才写。否则就是往用户没确认过的路径里 append 日志。
+4. **参考图必须连带 `inputAssetIds` 一起写**，光记 `refs` 计数不够。
+   历史行的参考图缩略图是拿这个字段去注册表解析的（`presentRecord` 的 `inputRefs`），
+   少了它，一条 img2img 记录在界面上永远显示「参考图缺失」——计数还在，图对不上。
+
+   id 从哪来：`/generate` 收的 `refIds` 本来就是登记 id，解析成绝对路径发上游的同时
+   把 id 一起交给任务池（`tasks.js` 的 `refAssetIds`），跑完写账本时用。
+   **顺序是有意为之**：任务对象而不是收尾时再查，因为排队期间用户可能已经把那张图
+   从画布上摘掉，而"这次到底用了哪几张"只有提交那一刻知道。
+
+   同一个接口还带一条**缺图守卫**：`refIds` 解析不出文件时直接 400，不静默退化成
+   文生图 —— 那会花一次钱、出一张完全不相干的图，账本却记着 img2img（原版同一条守卫）。
 
 并发：同进程内用一条串行队列（`appendGeneration` 的 `tail`），跨进程（原版 Python
 同时也在写）靠**整行一次 write** 的 `O_APPEND` 原子性兜住 —— 一次系统调用写整行，

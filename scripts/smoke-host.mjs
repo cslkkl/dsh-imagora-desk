@@ -521,6 +521,21 @@ try {
   })
   check('POST /generate 收 data URL 形态的蒙版', maskOk.status === 200, String(maskOk.status))
 
+  // 缺图守卫：声明了参考图却解析不出文件时必须中止。静默跳过就会退化成文生图 ——
+  // 花一次钱、出一张完全不相干的图，账本却记着 img2img（原版同一条守卫）。
+  const lostRef = await fetch(`${base}/generate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'refs gone', size: '1024x1024', refIds: ['ghost-asset-id'] }),
+  })
+  const lostRefBody = await lostRef.json().catch(() => ({}))
+  check('POST /generate 参考图解析不出时 400', lostRef.status === 400, String(lostRef.status))
+  check(
+    'POST /generate 参考图缺失的报错说得清原因',
+    String(lostRefBody.error || '').includes('参考图不可用'),
+    String(lostRefBody.error || ''),
+  )
+
   const maskEmpty = await fetch(`${base}/generate`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -930,6 +945,113 @@ try {
     displayPath('C:\\x', 'D:\\y\\z.png') === 'D:/y/z.png',
     displayPath('C:\\x', 'D:\\y\\z.png'),
   )
+
+  // ---------------- 账本记录参考图（inputAssetIds） ----------------
+  //
+  // 回归（维护者报「拿参考图生成的图，历史里看不到参考图」）：插件写的账本行只有
+  // `refs`（一个计数），没有 `inputAssetIds`。历史行的参考图缩略图按这个字段去注册表
+  // 解析，缺了它，一条 img2img 记录永远显示「参考图缺失」。原版在提交阶段就
+  // register_input_assets 并把 id 写进账本，插件此前一行都没写。
+  const recWithRefs = buildRecord({
+    prompt: '带参考图',
+    size: '1024x1024',
+    quality: 'high',
+    refs: 2,
+    ok: true,
+    cost: 0.2,
+    seconds: 30,
+    output: join(ledgerWriteRoot, 'output', 'b.png'),
+    assetId: 'out-1',
+    inputAssetIds: ['ref-1', 'ref-1', '', 'ref-2'],
+    root: ledgerWriteRoot,
+  })
+  check(
+    '账本记录：参考图 id 写进 inputAssetIds（去重、去空）',
+    JSON.stringify(recWithRefs.inputAssetIds) === JSON.stringify(['ref-1', 'ref-2']),
+    JSON.stringify(recWithRefs.inputAssetIds),
+  )
+  check(
+    '账本记录：inputAssetIds 在 outputAssetIds 之前（与 core/logging.py 同序）',
+    Object.keys(recWithRefs).join(',') ===
+      'time,mode,refs,prompt,size,quality,status,cost,seconds,output,inputAssetIds,outputAssetIds',
+    Object.keys(recWithRefs).join(','),
+  )
+  check(
+    '账本记录：没有参考图时不写这个字段（旧行形状不变）',
+    !('inputAssetIds' in buildRecord({ prompt: 'p', size: '1', quality: 'high', refs: 0, ok: true })),
+  )
+
+  // 端到端：提交 → 跑完 → 账本那行带参考图 id。
+  // 上游是**本机**假服务（回一张 1×1 PNG 的 b64），不发真实生图请求、不花钱。
+  {
+    const fakeUpstream = createServer((req, res) => {
+      // multipart（带参考图走 edits）与 JSON（文生图）都只回这一份
+      req.resume()
+      req.on('end', () => {
+        res.setHeader('content-type', 'application/json')
+        res.end(JSON.stringify({ data: [{ b64_json: PNG.toString('base64') }] }))
+      })
+    })
+    await new Promise(resolve => fakeUpstream.listen(0, '127.0.0.1', resolve))
+    const upstreamBase = `http://127.0.0.1:${fakeUpstream.address().port}/v1`
+
+    const runRoot = mkdtempSync(join(tmpdir(), 'imagora-run-ledger-'))
+    const runStore = new Store(join(runRoot, 'plugin'))
+    await runStore.init()
+    // 参考图先作为资产落盘（等价于用户把它拖进画布）
+    const refEntry = await runStore.saveAsset(PNG, 'ref.png', { origin: 'upload' })
+    const refFile = refEntry.absPath
+
+    const { TaskPool } = await import('../src/host/tasks.js')
+    const runConfig = {
+      apiKey: 'sk-smoke',
+      baseUrl: upstreamBase,
+      model: 'fixture-model',
+      apiPaths: { generations: '/images/generations', edits: '/images/edits' },
+      sizes: [{ value: '1024x1024', label: '1K', cost: 0.05 }],
+      imagoraRoot: runRoot,
+      root: runRoot,
+    }
+    const runPool = new TaskPool({ getConfig: () => runConfig, store: runStore, concurrency: 1 })
+    const submitted = runPool.submit({
+      prompt: '端到端：账本要记参考图',
+      size: '1024x1024',
+      quality: 'high',
+      refs: [refFile],
+      refAssetIds: [refEntry.id],
+      outputDir: '',
+      mask: null,
+    })
+    let snap = null
+    for (let i = 0; i < 100; i += 1) {
+      snap = runPool.snapshot(submitted.taskId)
+      if (snap && ['done', 'failed', 'cancelled'].includes(snap.status)) break
+      await new Promise(r => setTimeout(r, 50))
+    }
+    check('参考图生成：任务跑完（本机假上游）', snap?.status === 'done', `${snap?.status} ${snap?.error ?? ''}`)
+
+    // 账本是 `void appendGeneration(...)`（写盘不阻塞收尾），轮询到它出现为止
+    let runBack = { records: [] }
+    for (let i = 0; i < 40; i += 1) {
+      runBack = await readLedger(runRoot)
+      if (runBack.records.length) break
+      await new Promise(r => setTimeout(r, 50))
+    }
+    const runRow = runBack.records[0]
+    check(
+      '参考图生成：账本行带 inputAssetIds（历史才解析得出参考图）',
+      JSON.stringify(runRow?.inputAssetIds) === JSON.stringify([refEntry.id]),
+      JSON.stringify(runRow?.inputAssetIds ?? null),
+    )
+    check(
+      '参考图生成：账本行同时带 outputAssetIds 与 img2img',
+      Boolean(runRow?.outputAssetIds?.[0]) && runRow?.mode === 'img2img',
+      `${runRow?.mode} / ${runRow?.outputAssetIds?.join(',')}`,
+    )
+    fakeUpstream.close()
+    rmSync(runRoot, { recursive: true, force: true })
+  }
+
   rmSync(ledgerWriteRoot, { recursive: true, force: true })
 
   // ---------------- 恢复快照：与原版命名共存 ----------------

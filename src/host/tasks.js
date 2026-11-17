@@ -43,6 +43,10 @@ export class TaskPool {
       quality: input.quality,
       outputDir: input.outputDir || '',
       refs: Array.isArray(input.refs) ? input.refs : [],
+      // 参考图的登记 id（与 refs 路径一一对应，顺序相同）：账本靠它把参考图解析回来。
+      // 跟着任务走而不是跑完再查，是因为排队期间用户可能已经把那张图从画布上删了 ——
+      // 路径还能从注册表补，但"这次到底用了哪几张"只有提交那一刻知道。
+      refAssetIds: Array.isArray(input.refAssetIds) ? input.refAssetIds.map(String) : [],
       // 蒙版（局部重绘）：Buffer 或 null。随任务快照保存，之后改画布不影响已提交的任务。
       mask: Buffer.isBuffer(input.mask) && input.mask.length ? input.mask : null,
       createdAt: Date.now(),
@@ -198,6 +202,10 @@ export class TaskPool {
           seconds: (task.finishedAt - task.startedAt) / 1000,
           output: ledgerOutput,
           assetId: ledgerAssetId || undefined,
+          // 参考图 id 也进账本：历史里那条记录才能把参考图缩略图显示出来。
+          // 原版在提交阶段就 register_input_assets 并写 inputAssetIds；我们在
+          // `/generate` 里解析 refIds 时拿到同一批 id（共用模式下内容 sha1 = 原版 id）。
+          inputAssetIds: task.refAssetIds,
           root: config?.root || '',
         })
         void appendGeneration(config, record)
