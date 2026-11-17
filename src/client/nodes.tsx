@@ -6,6 +6,7 @@ import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import type { CanvasGroupNodeData, CanvasImageNodeData, CanvasPromptNodeData } from './lib/types'
 import { useThumbnail } from './lib/useThumbnail'
 import { Icon } from './icons'
+import { ChooseFolderButton } from './choose-folder-button'
 import type { ImagoraConfig } from './api'
 import { Select } from './select'
 import { mergeCustomOption } from './lib/customValue'
@@ -492,8 +493,8 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
       <div className="nodrag" style={{ marginTop: 8 }}>
         <span className="im-label">{t('node.prompt.outputDir')}</span>
         {/* 输入框 + 一枚文件夹按钮：与上游 FolderPicker 同一形态（可手输，也可点按钮弹系统
-            目录框）。按钮做成图标而不是文字 —— 380px 的卡片里「选择文件夹」五个中文字
-            加上输入框会把路径挤成一截，英文 Choose folder 更宽。
+            目录框）。按钮是 ChooseFolderButton —— 与设置弹窗里那枚是同一个组件，
+            所以「folder 图标 = 选目录」在插件里只有一个意思。
             placeholder 放当前生效的默认目录：留空等于用它，得让人看得见。 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <input
@@ -504,18 +505,7 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
             title={data.outputDir || config?.defaultOutputDir || ''}
             onChange={event => actions.updatePrompt(id, { outputDir: event.target.value })}
           />
-          <button
-            type="button"
-            className="im-icon-btn im-btn-ghost nodrag"
-            title={t('common.chooseFolder')}
-            aria-label={t('common.chooseFolder')}
-            onClick={event => {
-              event.stopPropagation()
-              void actions.pickOutputDir(id)
-            }}
-          >
-            <Icon name="folder" />
-          </button>
+          <ChooseFolderButton label={t('common.chooseFolder')} onClick={() => void actions.pickOutputDir(id)} />
         </div>
       </div>
 

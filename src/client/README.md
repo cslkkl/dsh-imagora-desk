@@ -36,6 +36,7 @@
 | `dialogs.tsx`                | 保存 / 加载 / 帮助三个对话框                           |
 | `modal-shell.tsx`            | 弹窗基座：四档宽度、头/身/脚三段、内容区自己滚         |
 | `folder-pick.ts`             | 系统目录选择器的唯一调用点：卡片 / 选中栏 / 工具栏共用 |
+| `choose-folder-button.tsx`   | 「选一个目录」的文件夹图标按钮：卡片与设置弹窗共用一枚 |
 | `imagora-root-row.tsx`       | 设置里的 Imagora 目录与输出目录指针                    |
 | `budget-row.tsx`             | 设置里的「本画布预算上限」（硬拦那一层）               |
 | `use-canvas-drop.tsx`        | 拖入建节点：落点胶囊、工具栏拖出、文件拖放             |

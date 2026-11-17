@@ -48,8 +48,8 @@ import {
   type ImagoraConfig,
 } from '../api'
 import { errMessage } from '../lib/format'
-import { Icon } from '../icons'
 import { Select } from '../select'
+import { ChooseFolderButton } from '../choose-folder-button'
 import { ModalShell } from './modal-shell'
 import { pickFolderOrNull } from './folder-pick'
 import { useT } from '../i18n'
@@ -526,14 +526,11 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
             label={t('settings.root.label')}
             hint={t('settings.root.hint')}
             action={
-              <button
-                type="button"
-                className="im-btn-ghost im-btn-sm"
+              <ChooseFolderButton
+                label={t('common.chooseFolder')}
                 disabled={busy}
                 onClick={() => void chooseFolder('root')}
-              >
-                {t('common.chooseFolder')}
-              </button>
+              />
             }
           >
             <input
@@ -552,27 +549,22 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
             hint={t('settings.outputDir.hint', { dir: config?.defaultOutputDir || t('common.notSet') })}
             action={
               <>
+                <ChooseFolderButton
+                  label={t('common.chooseFolder')}
+                  disabled={busy}
+                  onClick={() => void chooseFolder('output')}
+                />
+                {/* 「打开文件夹」是**次要**动作：改完路径想去看一眼结果才用得上。
+                    做成文字按钮而不是图标 —— 图标那一格已经归「选目录」了，
+                    两个图形按钮并排又回到「哪个是哪个」的老问题。 */}
                 <button
                   type="button"
                   className="im-btn-ghost im-btn-sm"
-                  disabled={busy}
-                  onClick={() => void chooseFolder('output')}
-                >
-                  {t('common.chooseFolder')}
-                </button>
-                {/* 「打开」从第二个文字按钮改成**图标按钮**：一行里并排两个文字按钮，
-                    主次与含义都不清楚（维护者原话「有些又有两个按钮，我也不清楚」）。
-                    留下这一枚图标仍能被发现 —— 它有 aria-label 与 title，且图标本身就是
-                    文件夹。动词交给 hover 文案，不占版面。 */}
-                <button
-                  type="button"
-                  className="im-btn-ghost im-icon-btn"
                   disabled={busy || !config?.defaultOutputDir}
-                  title={t('settings.reveal')}
-                  aria-label={t('settings.reveal')}
+                  title={t('settings.reveal.title')}
                   onClick={() => void revealPath(config?.defaultOutputDir ?? '')}
                 >
-                  <Icon name="folder" size={14} />
+                  {t('settings.reveal')}
                 </button>
               </>
             }

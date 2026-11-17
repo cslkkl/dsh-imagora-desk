@@ -159,6 +159,34 @@ try {
       (await dialog.locator('#imagora-output-dir').count()) === 0,
     `override=${await dialog.locator('#imagora-output-override').count()} legacy=${await dialog.locator('#imagora-output-dir').count()}`,
   )
+
+  // 图标语义：文件夹图标 = 「选一个目录」，与提示词卡上那枚**同一个动作同一个图形**。
+  // 回归（维护者报）：设置里这枚图标从前干的是「在文件管理器中打开」，而卡片上同一个
+  // 图形是「选目录」—— 同一个符号两个意思，两处互相打架。
+  {
+    const outputRow = dialog
+      .locator('#imagora-output-override')
+      .locator('xpath=ancestor::div[contains(@class,"im-field-control")]')
+    const iconPick = outputRow.locator('button.im-icon-btn')
+    const textReveal = outputRow.locator('button.im-btn-sm')
+    check(
+      '输出文件夹那行的图标记为「选择文件夹」',
+      (await iconPick.count()) === 1 && (await iconPick.getAttribute('aria-label')) === '选择文件夹',
+      `count=${await iconPick.count()} label=${await iconPick.getAttribute('aria-label')}`,
+    )
+    check(
+      '「打开文件夹」退回文字按钮（不再占图标那一格）',
+      (await textReveal.count()) === 1 && (await textReveal.innerText()).trim() === '打开文件夹',
+      `count=${await textReveal.count()} text=${(await textReveal.innerText().catch(() => '')).trim()}`,
+    )
+    // 点图标真的会弹选择器并写回（mock 回一个带 picked 的确定路径）；随后清空草稿复原状态
+    const outInput = dialog.locator('#imagora-output-override')
+    await iconPick.click()
+    await page.waitForTimeout(350)
+    const pickedValue = await outInput.inputValue()
+    check('设置里的图标按钮弹选择器并写回草稿', pickedValue.includes('picked'), pickedValue || '(空)')
+    await outInput.fill('')
+  }
   // 提交语义收口：整个弹窗里只有 footer 那一个「保存」+ 一个「测试连通」，
   // 字段级不再自带「保存手填路径 / 保存上限 / 取消上限」。
   const dialogButtons = (await dialog.locator('button').allInnerTexts()).map(t => t.trim()).filter(Boolean)
