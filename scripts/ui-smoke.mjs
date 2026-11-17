@@ -154,7 +154,7 @@ try {
     `status=${await dialog.locator('.im-settings-status').count()} specRow=${await dialog.locator('.im-spec-row').count()}`,
   )
   check(
-    '设置弹窗只有一个目录输入框（不再重复「默认输出路径」）',
+    '设置弹窗只有一个目录输入框（不再重复「默认输出文件夹」）',
     (await dialog.locator('#imagora-output-override').count()) === 1 &&
       (await dialog.locator('#imagora-output-dir').count()) === 0,
     `override=${await dialog.locator('#imagora-output-override').count()} legacy=${await dialog.locator('#imagora-output-dir').count()}`,
@@ -173,7 +173,7 @@ try {
     dialogButtons.join(' | '),
   )
   // 两列栅格：label 在左列、控件在右列（旧版全竖排，内容 1080px 装不进 622px）。
-  // 期望 5 行：配置来源 / 默认模型 / Imagora 目录 / 图片输出目录 / 本画布累计上限。
+  // 期望 5 行：配置来源 / 默认模型 / Imagora 目录 / 默认输出文件夹 / 本画布累计上限。
   // 「接口地址」「API Key」在来源是 Imagora 时被收起（填了也不生效），
   // 切到「插件内配置」才会出现 —— 那条单独断言在下面。
   check(
@@ -675,6 +675,79 @@ try {
     (await countNodes()) === baseCount,
     `${baseCount} → ${addedCount} → ${await countNodes()}`,
   )
+
+  // ---------------- 输出文件夹：三个入口都能弹目录选择器 ----------------
+  // 回归：插件从前只有设置弹窗里能点「选择文件夹」，卡片上只有一条裸输入框，
+  // 选中栏与工具栏则根本不弹选择器（一个抄默认值、一个打开设置弹窗）。
+  // 上游三个入口都是 FolderPicker / selectFolder，这里逐条验「点下去真的变了值」——
+  // 验收台的 /imagora/pick-folder 会回一个带 `picked` 的确定路径，所以断言看得见。
+  {
+    // 卡片上那枚文件夹按钮：新建一张卡，点按钮，输入框里应出现 mock 回的路径
+    await page.getByRole('button', { name: '新建提示词卡片' }).click()
+    await page.waitForTimeout(350)
+    const freshCard = page
+      .locator('.react-flow__node')
+      .filter({ has: page.locator('button[aria-label="选择文件夹"]') })
+      .last()
+    const cardInput = freshCard.locator('input.im-field').last()
+    const before = await cardInput.inputValue()
+    await freshCard.locator('button[aria-label="选择文件夹"]').last().click()
+    await page.waitForTimeout(350)
+    const after = await cardInput.inputValue()
+    check(
+      '卡片上的文件夹按钮真的弹了选择器并写回路径',
+      after !== before && after.includes('picked'),
+      `${before || '(空)'} → ${after || '(空)'}`,
+    )
+
+    // 工具栏「默认输出文件夹」：点下去应当直接改默认值，而不是开设置弹窗
+    const defaultBtn = page.getByRole('button', { name: '默认输出文件夹', exact: true })
+    const cfgBefore = await page.evaluate(() =>
+      fetch('imagora/config')
+        .then(r => r.json())
+        .then(c => c.defaultOutputDir),
+    )
+    await defaultBtn.click()
+    await page.waitForTimeout(400)
+    const cfgAfter = await page.evaluate(() =>
+      fetch('imagora/config')
+        .then(r => r.json())
+        .then(c => c.defaultOutputDir),
+    )
+    check(
+      '工具栏「默认输出文件夹」点了直接改默认值（不再只是打开设置）',
+      cfgAfter !== cfgBefore && cfgAfter.includes('picked'),
+      `${cfgBefore} → ${cfgAfter}`,
+    )
+    check('点完没有弹出设置弹窗', (await page.getByRole('dialog').count()) === 0)
+
+    // 选中栏：选中那张卡后点「设置输出文件夹」，走选择器而不是抄默认值
+    await freshCard.click()
+    await page.waitForTimeout(250)
+    const inspectorBtn = page.locator('.im-inspector').getByRole('button', { name: /设置输出文件夹/ })
+    check('选中卡片后出现「设置输出文件夹」', (await inspectorBtn.count()) === 1, String(await inspectorBtn.count()))
+    if ((await inspectorBtn.count()) === 1) {
+      await inspectorBtn.click()
+      await page.waitForTimeout(400)
+      const afterBatch = await cardInput.inputValue()
+      check('选中栏「设置输出文件夹」弹选择器并写回选中卡片', afterBatch.includes('picked'), afterBatch || '(空)')
+      check('点完没有弹出设置弹窗', (await page.getByRole('dialog').count()) === 0)
+    }
+
+    // 收尾：这三步都进了撤销栈（新建卡 / 卡上改路径 / 选中栏改路径），必须原路撤回，
+    // 否则后面那条「Ctrl+Z 与撤销按钮同一个栈」会撤销到我这里，节点数对不上。
+    // 工具栏改默认值写的是 settings，不进画布撤销栈，所以只撤三次。
+    await page.locator('.react-flow__pane').click({ position: { x: 20, y: 20 } })
+    for (let i = 0; i < 3; i += 1) {
+      await undoBtn.click()
+      await page.waitForTimeout(200)
+    }
+    check(
+      '输出文件夹用例收尾：画布回到用例开始前的节点数',
+      (await countNodes()) === baseCount,
+      String(await countNodes()),
+    )
+  }
 
   // ---------------- 右键：单击节点弹菜单 / 拖拽框选 ----------------
   // 回归（维护者报）：插件里一按右键就出浏览器原生菜单，右键拖动也只是选中文字 ——

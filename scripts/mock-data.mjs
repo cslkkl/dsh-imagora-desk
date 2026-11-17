@@ -615,8 +615,19 @@ export function defineConfig(path, url, rawBody) {
     return { ...config, ...patch }
   }
 
-  if (path === '/imagora/reveal' || path === '/imagora/pick-folder') {
+  if (path === '/imagora/reveal') {
     return { ok: true }
+  }
+
+  // 目录选择器：验收台没法真弹系统对话框，所以**回一个确定的路径**。
+  // 从前这里只回 `{ ok: true }`，于是「点选择文件夹 → path 为 undefined →
+  // 界面毫无变化」。UI 冒烟要验的正是「点完输入框里出现一个目录」，
+  // 回空就等于这条链路永远测不了。返回的路径带一个可辨认的段（picked），
+  // 断言里能直接看出它来自选择器而不是原有值。
+  if (path === '/imagora/pick-folder') {
+    const startAt = String(patch.startAt || '')
+    const base = startAt.replace(/[\\/]+$/, '') || 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output'
+    return { ok: true, path: `${base}\\picked` }
   }
 
   if (path.startsWith('/imagora/')) {

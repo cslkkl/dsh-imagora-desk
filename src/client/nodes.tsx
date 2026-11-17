@@ -17,6 +17,8 @@ export interface NodeActions {
   runPrompt: (nodeId: string) => void
   cancelPrompt: (nodeId: string) => void
   deleteNode: (nodeId: string) => void
+  /** 弹系统目录选择器，把选中的目录写进这张卡（取消则原值不动） */
+  pickOutputDir: (nodeId: string) => Promise<void>
   zoomImage: (nodeId: string) => void
   replaceImage: (nodeId: string) => void
   /** 图片加工：分别打开裁剪 / 切分 / 放大 / 蒙版对话框 */
@@ -489,12 +491,32 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
 
       <div className="nodrag" style={{ marginTop: 8 }}>
         <span className="im-label">{t('node.prompt.outputDir')}</span>
-        <input
-          className="im-field"
-          value={data.outputDir}
-          placeholder={config?.defaultOutputDir ?? ''}
-          onChange={event => actions.updatePrompt(id, { outputDir: event.target.value })}
-        />
+        {/* 输入框 + 一枚文件夹按钮：与上游 FolderPicker 同一形态（可手输，也可点按钮弹系统
+            目录框）。按钮做成图标而不是文字 —— 380px 的卡片里「选择文件夹」五个中文字
+            加上输入框会把路径挤成一截，英文 Choose folder 更宽。
+            placeholder 放当前生效的默认目录：留空等于用它，得让人看得见。 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <input
+            className="im-field"
+            style={{ minWidth: 0, flex: 1 }}
+            value={data.outputDir}
+            placeholder={config?.defaultOutputDir ?? ''}
+            title={data.outputDir || config?.defaultOutputDir || ''}
+            onChange={event => actions.updatePrompt(id, { outputDir: event.target.value })}
+          />
+          <button
+            type="button"
+            className="im-icon-btn im-btn-ghost nodrag"
+            title={t('common.chooseFolder')}
+            aria-label={t('common.chooseFolder')}
+            onClick={event => {
+              event.stopPropagation()
+              void actions.pickOutputDir(id)
+            }}
+          >
+            <Icon name="folder" />
+          </button>
+        </div>
       </div>
 
       {data.status === 'failed' && data.message ? (

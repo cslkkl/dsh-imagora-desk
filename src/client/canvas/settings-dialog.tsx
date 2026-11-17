@@ -37,7 +37,6 @@
 // 上定义（styles.ts 顶部），两边共用一套；这里不写固定色值。
 import { useState } from 'react'
 import {
-  pickFolder,
   probeProvider,
   revealPath,
   saveProvider,
@@ -52,6 +51,7 @@ import { errMessage } from '../lib/format'
 import { Icon } from '../icons'
 import { Select } from '../select'
 import { ModalShell } from './modal-shell'
+import { pickFolderOrNull } from './folder-pick'
 import { useT } from '../i18n'
 
 export interface SettingsDialogProps {
@@ -227,20 +227,18 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
   const chooseFolder = async (kind: 'root' | 'output') => {
     setBusy(true)
     try {
-      const picked = await pickFolder({
-        title: kind === 'root' ? t('settings.pick.root') : t('settings.pick.output'),
-        startAt: kind === 'root' ? draft.imagoraRoot.trim() : draft.outputDir.trim() || config?.defaultOutputDir || '',
-      })
-      if (!picked.ok) {
-        if (picked.reason === 'cancelled') return
-        onFlash(
-          picked.reason === 'unsupported'
-            ? t('settings.pick.unsupported')
-            : t('settings.pick.failed', { reason: picked.reason || t('settings.pick.unknown') }),
-        )
-        return
-      }
-      patch(kind === 'root' ? { imagoraRoot: picked.path || '' } : { outputDir: picked.path || '' })
+      const picked = await pickFolderOrNull(
+        t,
+        {
+          title: kind === 'root' ? t('settings.pick.root') : t('settings.pick.output'),
+          startAt:
+            kind === 'root' ? draft.imagoraRoot.trim() : draft.outputDir.trim() || config?.defaultOutputDir || '',
+        },
+        onFlash,
+      )
+      // 取消 / 不可用都已由助手处理完（取消静默、失败已提示），这里只管成功那一支
+      if (!picked) return
+      patch(kind === 'root' ? { imagoraRoot: picked } : { outputDir: picked })
     } finally {
       setBusy(false)
     }
@@ -534,7 +532,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
                 disabled={busy}
                 onClick={() => void chooseFolder('root')}
               >
-                {t('settings.pick.folder')}
+                {t('common.chooseFolder')}
               </button>
             }
           >
@@ -560,7 +558,7 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
                   disabled={busy}
                   onClick={() => void chooseFolder('output')}
                 >
-                  {t('settings.pick.folder')}
+                  {t('common.chooseFolder')}
                 </button>
                 {/* 「打开」从第二个文字按钮改成**图标按钮**：一行里并排两个文字按钮，
                     主次与含义都不清楚（维护者原话「有些又有两个按钮，我也不清楚」）。

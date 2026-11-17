@@ -16,7 +16,7 @@ import {
   type NodeChange,
   type ReactFlowInstance,
 } from '@xyflow/react'
-import { listWorkflows } from '../api'
+import { listWorkflows, setOutputDir } from '../api'
 import {
   autoConnect,
   autoConnectSelection,
@@ -27,6 +27,7 @@ import {
   computeCounts,
   staggerCreatePosition,
   updatePromptNode,
+  updateSelectedPromptOutputDirs,
 } from '../lib/workflow'
 import type { WorkflowEdge, WorkflowNode } from '../lib/types'
 import { errMessage } from '../lib/format'
@@ -52,6 +53,8 @@ import {
   nextLod,
 } from './zoom'
 import { CanvasToolbar } from './toolbar'
+import { pickFolderOrNull } from './folder-pick'
+
 import { CanvasDock } from './dock'
 import { useCanvasDrop } from './use-canvas-drop'
 import { useCanvasContextMenu } from './use-canvas-context-menu'
@@ -325,7 +328,10 @@ function CanvasSurface() {
       const node = buildPromptNode(at ?? createPosition(), {
         size: configDefaultsRef.current.size ?? '1024x1024',
         quality: configDefaultsRef.current.quality ?? 'high',
-        outputDir: '',
+        // 新建卡片**带上当前的默认值**（与上游 `promptNodeDefaults` 同语义）。
+        // 从前这里是空串，靠 host 兜底；设过默认路径的人看不到它生效，
+        // 看上去就像「设置里那一栏根本没用」。改默认不追溯已建的卡片 —— 那也是上游的边界。
+        outputDir: configRef.current?.defaultOutputDir ?? '',
       })
       // 新增节点是用户意图：必须记一笔，否则「撤销」按钮恒为 disabled、
       // Ctrl+Z 无事可做。记在这里而不是各调用点（工具栏 / 拖入 / 粘贴导入），
@@ -362,21 +368,77 @@ function CanvasSurface() {
     flash(t('flash.autoConnect.selection'))
   }, [selectedIds, setEdges, flash, history])
 
-  /** 把选中的提示词卡片统一设为默认输出路径。
-   *  原版走服务端的目录选择窗口；插件 host 没有这个接口，所以取「设置里那个默认输出路径」，
-   *  按钮标题写清楚用的就是这个值，不做无声的猜测。 */
-  const setSelectedOutputDir = useCallback(() => {
-    const ids = new Set(selectedIds)
-    const target = configRef.current?.defaultOutputDir ?? ''
-    if (!ids.size) return
-    history.record()
-    setNodes(current =>
-      current.map(node =>
-        node.type === 'prompt' && ids.has(node.id) ? { ...node, data: { ...node.data, outputDir: target } } : node,
-      ),
+  /** 给一批提示词卡片选输出文件夹：弹系统目录框，取消则一张都不动。
+   *
+   *  语义照上游 `handleSetSelectedOutputDir`：起点取**第一张选中卡现有的路径**（不是默认值），
+   *  这样「全选后微调一个目录」是从用户上次选的地方开始，而不是每次从默认目录重开。
+   *  一张都没变时只说一句「已经是这个路径」，不记历史 —— 撤销栈里塞一条空操作是噪音。 */
+  const pickOutputDirFor = useCallback(
+    async (ids: string[]) => {
+      const set = new Set(ids)
+      const first = nodesRef.current.find(node => node.type === 'prompt' && set.has(node.id))
+      // 二次收窄是必需的：`find` 的回调里那个判断不会把返回值的联合类型收窄，
+      // 不写这一句 `first.data.outputDir` 在 TS 眼里是 `{}`（WorkflowNode 的 data 联合）。
+      if (!first || first.type !== 'prompt') return
+      const path = await pickFolderOrNull(
+        t,
+        {
+          title: t('settings.pick.output'),
+          startAt: first.data.outputDir || configRef.current?.defaultOutputDir || '',
+        },
+        flash,
+      )
+      if (!path) return
+      const result = updateSelectedPromptOutputDirs(nodesRef.current, set, path)
+      if (!result.changedCount) {
+        flash(t('flash.outputDir.same', { dir: path }))
+        return
+      }
+      history.record()
+      setNodes(result.nodes)
+      flash(t('flash.outputDir.set', { dir: path }))
+    },
+    [nodesRef, configRef, flash, history, setNodes, t],
+  )
+
+  /** 选中栏那一颗按钮：包一层 loading 态，连点不会叠两个系统对话框。 */
+  const [pickingOutputDir, setPickingOutputDir] = useState(false)
+  const setSelectedOutputDir = useCallback(async () => {
+    if (pickingOutputDir) return
+    setPickingOutputDir(true)
+    try {
+      await pickOutputDirFor(selectedIds)
+    } finally {
+      setPickingOutputDir(false)
+    }
+  }, [pickingOutputDir, pickOutputDirFor, selectedIds])
+
+  /** 卡片上那枚文件夹按钮：只改这一张（走同一个 pickFolderOrNull）。 */
+  const pickNodeOutputDir = useCallback(
+    async (nodeId: string) => {
+      await pickOutputDirFor([nodeId])
+    },
+    [pickOutputDirFor],
+  )
+
+  /** 工具栏「默认输出文件夹」：直接弹目录框写入显式默认（上游就是这一条动作）。
+   *
+   *  从前这里只是「打开设置弹窗」，用户还得在那里面找到输入框手打 —— 而原版那颗按钮
+   *  点下去就是系统选择器。空串 = 清掉覆盖、跟随 imagora 目录，host 语义不变。 */
+  const pickDefaultOutputDir = useCallback(async () => {
+    const path = await pickFolderOrNull(
+      t,
+      { title: t('settings.pick.output'), startAt: configRef.current?.defaultOutputDir || '' },
+      flash,
     )
-    flash(target ? t('flash.outputDir.set', { dir: target }) : t('flash.outputDir.cleared'))
-  }, [selectedIds, setNodes, flash, history])
+    if (!path) return
+    try {
+      replaceConfig(await setOutputDir(path))
+      flash(t('flash.defaultOutputDir.set', { dir: path }))
+    } catch (error) {
+      flash(t('settings.save.failed', { reason: errMessage(error) }))
+    }
+  }, [configRef, flash, replaceConfig, t])
 
   /** 聚焦：有选中就只看选中的，否则看全图（原版 Controls 里那一行）。 */
   const focusSelected = useCallback(() => {
@@ -611,6 +673,7 @@ function CanvasSurface() {
         void cancelPrompt(nodeId)
       },
       deleteNode,
+      pickOutputDir: pickNodeOutputDir,
       zoomImage: openPreview,
       replaceImage,
       ...imageOps,
@@ -647,7 +710,7 @@ function CanvasSurface() {
           onRun={runMany}
           onCancelAll={() => busyIds.forEach(id => void cancelPrompt(id))}
           onAutoConnect={autoConnectAll}
-          onOpenDefaultOutputDir={() => setDialog({ kind: 'settings' })}
+          onOpenDefaultOutputDir={() => void pickDefaultOutputDir()}
           onSwitchProfile={name => void switchProfile(name)}
           onSwitchModel={model => void switchModel(model)}
           onOpenSave={async () => {
@@ -702,11 +765,11 @@ function CanvasSurface() {
               selectedIds.filter(id => nodes.some(node => node.id === id && node.type === 'prompt')).length
             }
             selectedRunnableIds={runnableIds.filter(id => selectedIds.includes(id))}
-            pickingOutputDir={false}
+            pickingOutputDir={pickingOutputDir}
             onRunSelected={() => runMany(runnableIds.filter(id => selectedIds.includes(id)))}
             onAutoLayout={arrangeSelected}
             onAutoConnectSelected={autoConnectSelected}
-            onSetOutputDir={setSelectedOutputDir}
+            onSetOutputDir={() => void setSelectedOutputDir()}
             onDeleteSelected={() => {
               removeNodes(selectedIds)
               setSelectedIds([])
@@ -1065,7 +1128,8 @@ function CanvasSurface() {
                 {
                   sizes: cfg?.sizes ?? [],
                   defaultQuality: cfg?.qualities[0] ?? 'high',
-                  defaultOutputDir: '',
+                  // 与工具栏新建同一来源：批量建的卡片也带默认输出目录（从前这里是空串）
+                  defaultOutputDir: cfg?.defaultOutputDir ?? '',
                 },
                 createPosition(),
               )
