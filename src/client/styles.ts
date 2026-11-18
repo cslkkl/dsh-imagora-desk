@@ -48,6 +48,12 @@ body {
      所以这一档用 dark 块单独改写，见下面 body[data-ds-dark-theme]。 */
   --im-surface-page: var(--dsw-alias-bg-module-platform, #f9fafb);
 
+  /* 透明底格纹（棋盘格）：只在**画布节点**里用 —— 那里要一眼看出「图是透明的」，
+     而不是「图本身是白的」。放大预览刻意不用（那边看的是成品与细节）。
+     两格深浅差约 12/255：够辨认，又不至于抢图。暗色在下方主题块里改写。 */
+  --im-checker-base: #ffffff;
+  --im-checker-tile: #ededed;
+
   --im-ink: var(--dsw-alias-label-primary, #17202b);
   --im-ink-2: var(--dsw-alias-label-secondary, #556);
   --im-ink-3: var(--dsw-alias-label-tertiary, #8a8a8a);
@@ -178,6 +184,10 @@ body[data-ds-dark-theme] {
     inset 0 1px color-mix(in srgb, #fff 8%, transparent);
   --im-modal-edge: color-mix(in srgb, #fff 14%, transparent);
   --im-modal-glow: inset 0 1px color-mix(in srgb, #fff 10%, transparent);
+  /* 棋盘格在暗色下要反过来：白底格纹在暗界面里像贴了一张纸。
+     两格差同样约 12/255，与浅色一致。 */
+  --im-checker-base: #2a2a2c;
+  --im-checker-tile: #363639;
 }
 
 .im-root {
@@ -1186,7 +1196,25 @@ textarea.im-field {
   overflow: hidden;
   /* 原版缩略图是 .rounded（4px），不是 8 */
   border-radius: var(--im-r-xs);
-  background: var(--im-surface-inset);
+  /* 棋盘格垫底：透明底 PNG 在这里要一眼看出透明（与 Imagora 的 .checker 同画法）。
+     不用 --im-surface-inset —— 那只是一块纯色，透明图会看着像白底图。 */
+  background-color: var(--im-checker-base);
+  background-image: linear-gradient(
+      45deg,
+      var(--im-checker-tile) 25%,
+      transparent 25%,
+      transparent 75%,
+      var(--im-checker-tile) 75%
+    ),
+    linear-gradient(
+      45deg,
+      var(--im-checker-tile) 25%,
+      transparent 25%,
+      transparent 75%,
+      var(--im-checker-tile) 75%
+    );
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
   cursor: zoom-in;
 }
 .im-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
