@@ -898,8 +898,66 @@ try {
       return { w: img.naturalWidth, h: img.naturalHeight, src: img.getAttribute('src') || '' }
     })
     check('双击预览加载的是原图（未被缩略图降质）', natural.w > 512, JSON.stringify(natural))
+
+    // 适应窗口：四周各留一成（占可视区 80%）。
+    //
+    // 回归：老实现拿**原始像素**当分母，算出的比例却乘在**已缩过一遍**的布局盒上 ——
+    // 缩小了两次，一张竖图会只剩窗口一半（用户反馈「点了适应窗口反而变小」）。
+    // 这里量的是真实渲染尺寸，不是读 zoom 变量，所以判的是用户看到的结果。
+    {
+      const box = await zoom.evaluate(img => {
+        const r = img.getBoundingClientRect()
+        // 回调在页面里执行；ESLint 按 Node 环境检查，所以走 ownerDocument / defaultView
+        const win = img.ownerDocument.defaultView
+        return { w: r.width, h: r.height, vw: win.innerWidth, vh: win.innerHeight }
+      })
+      const fitButton = page.getByRole('button', { name: '适应窗口' })
+      await fitButton.click()
+      await page.waitForTimeout(350)
+      const after = await zoom.evaluate(img => {
+        const r = img.getBoundingClientRect()
+        // 回调在页面里执行；ESLint 按 Node 环境检查，所以走 ownerDocument / defaultView
+        const win = img.ownerDocument.defaultView
+        return { w: r.width, h: r.height, vw: win.innerWidth, vh: win.innerHeight }
+      })
+      // 留白以「受限的那一维」为准：占可视区 80% ± 3%（布局盒按 CSS 取整，不是精确值）
+      const ratio = Math.max(after.w / after.vw, after.h / after.vh)
+      check(
+        '适应窗口：图片占可视区约 80%（四周各留一成）',
+        ratio > 0.77 && ratio < 0.83,
+        `${after.w.toFixed(0)}×${after.h.toFixed(0)} / 视口 ${after.vw}×${after.vh} = ${(ratio * 100).toFixed(1)}%`,
+      )
+      check(
+        '适应窗口：比双击打开时小（不是同一状态，也不是缩成一半）',
+        after.w * after.h < box.w * box.h * 0.75 && after.w * after.h > box.w * box.h * 0.5,
+        `贴边 ${box.w.toFixed(0)}×${box.h.toFixed(0)} → ${after.w.toFixed(0)}×${after.h.toFixed(0)}`,
+      )
+      // 棋盘格只在节点里：放大预览不垫格纹（那边看的是成品与细节）
+      check(
+        '放大预览里没有棋盘格',
+        await zoom.evaluate(img => {
+          const bg = img.ownerDocument.defaultView.getComputedStyle(img.parentElement || img).backgroundImage
+          return !bg.includes('linear-gradient') || bg === 'none'
+        }),
+      )
+    }
+
     await page.keyboard.press('Escape')
     await zoom.waitFor({ state: 'detached' })
+
+    // 节点里的缩略图反过来**必须**有格纹：透明底 PNG 要一眼看出透明，
+    // 否则分不清「图是透明的」还是「图本身是白的」。
+    check(
+      '节点缩略图垫了棋盘格（透明底可辨）',
+      await page
+        .locator('.im-thumb')
+        .first()
+        .evaluate(el => {
+          const s = el.ownerDocument.defaultView.getComputedStyle(el)
+          // 两件事分开看：渐变画格、background-size 定格子大小（16px 在 size 里，不在 image 里）
+          return s.backgroundImage.includes('linear-gradient') && s.backgroundSize.includes('16px')
+        }),
+    )
   }
 
   // ---------------- 自动整理：提示词卡也必须参与 ----------------
