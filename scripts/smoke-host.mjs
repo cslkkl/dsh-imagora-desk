@@ -424,6 +424,57 @@ try {
     check('界面开关：sends 与 buildPayload 同一条判据', sends(dropped.transport, 'quality') === false)
     check('界面开关：sends 对未被摘掉的字段为真', sends(dropped.transport, 'size') === true)
   }
+
+  // ---------- 凭证状态：能出图吗 / 密钥在哪 ----------
+  //
+  // 回归（维护者报「设置里一直显示 No key configured，实际上已经配置了」）：
+  // 状态行读的是 `provider.apiKeyConfigured` —— 那只说明**插件内那个输入框**填了没。
+  // 用户用 imagora 的 profile 时密钥在 .env 里，插件内是空的，于是报「未配置」
+  // 而图照常能出。两个问题不能共用一个字段。
+  {
+    const keyRoot = mkdtempSync(join(tmpdir(), 'imagora-cred-'))
+    writeFileSync(
+      join(keyRoot, 'config.json'),
+      JSON.stringify({
+        default_profile: 'k',
+        profiles: { k: { label: '凭证夹具', base_url: 'https://example.invalid/v1', default_model: 'k-model' } },
+      }),
+    )
+    writeFileSync(join(keyRoot, '.env'), 'API_KEY_K=sk-from-env\nACTIVE_PROFILE=k\n')
+    const fromEnv = loadImagoraConfig({ imagoraRoot: keyRoot })
+    check('凭证：密钥在 .env 里 → 说「已配置」', fromEnv.credential.configured === true)
+    check('凭证：并说清来自 imagora（.env）', fromEnv.credential.from === 'imagora', fromEnv.credential.from)
+    check(
+      '凭证：插件内那个字段仍然是空的（两个问题不同）',
+      fromEnv.providerView.apiKeyConfigured === false,
+      String(fromEnv.providerView.apiKeyConfigured),
+    )
+
+    // 反过来：插件内填了 key → 来源是 plugin
+    const inPlugin = loadImagoraConfig({
+      provider: { baseUrl: 'https://example.invalid/v1', apiKey: 'sk-plugin', model: 'p-model' },
+    })
+    check('凭证：插件内填了 key → 已配置', inPlugin.credential.configured === true)
+    check('凭证：且说清来自 plugin', inPlugin.credential.from === 'plugin', inPlugin.credential.from)
+
+    // 都没有 → 未配置，来源为空。
+    // 注意必须有 config.json：只有空目录会继续回退到 DSH_IMAGORA_ROOT（冒烟夹具），
+    // 于是又读到那份 .env，测出来的就不是「都没有」。
+    const noKeyRoot = mkdtempSync(join(tmpdir(), 'imagora-nokey-'))
+    writeFileSync(
+      join(noKeyRoot, 'config.json'),
+      JSON.stringify({
+        default_profile: 'n',
+        profiles: { n: { label: '没密钥的夹具', base_url: 'https://example.invalid/v1', default_model: 'n-model' } },
+      }),
+    )
+    writeFileSync(join(noKeyRoot, '.env'), 'ACTIVE_PROFILE=n\n')
+    const none = loadImagoraConfig({ imagoraRoot: noKeyRoot })
+    check('凭证：都没有 → 未配置', none.credential.configured === false)
+    check('凭证：未配置时来源为空', none.credential.from === '', JSON.stringify(none.credential.from))
+    rmSync(keyRoot, { recursive: true, force: true })
+    rmSync(noKeyRoot, { recursive: true, force: true })
+  }
   check('POST /provider 去尾斜杠并生效', withProvider.provider?.baseUrl === 'https://example.invalid/v1')
   check('POST /provider 密钥只报已配置', withProvider.provider?.apiKeyConfigured === true)
   check('POST /provider 响应不含密钥明文', !JSON.stringify(withProvider).includes('sk-smoke-secret'))

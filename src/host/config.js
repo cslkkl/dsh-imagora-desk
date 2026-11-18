@@ -163,6 +163,10 @@ function resolveFromProvider(provider, settings, root, imagoraRoot) {
     qualityEffective: qualities.length > 1,
     defaultOutputDir: resolveOutputDir(settings, root, imagoraRoot),
     budget: resolveBudget(settings),
+    // 凭证状态：只回答「当前生效来源能不能出图」，并说清密钥从哪来。
+    // 与 `providerView().apiKeyConfigured` 是两个问题 —— 那个只回答「插件内那个输入框
+    // 填了没」，拿它当全局状态会报「未配置」而图照常能出（密钥在 imagora 的 .env 里）。
+    credential: { configured: Boolean(provider.apiKey), from: provider.apiKey ? 'plugin' : '' },
     issues,
     providerView: providerView({ provider }),
   }
@@ -275,6 +279,9 @@ export function loadImagoraConfig(settings) {
     modelParams: modelParams.value,
     defaultOutputDir,
     budget: resolveBudget(settings),
+    // 凭证状态：能出图吗 + 密钥在哪。`from` 是本机排查真正想问的那个问题
+    // （「设置里没填怎么能出图」→ 因为来自 imagora 的 .env）。
+    credential: { configured: Boolean(apiKey), from: apiKey ? 'imagora' : '' },
     issues,
     providerView: providerView(settings),
   }

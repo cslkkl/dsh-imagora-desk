@@ -153,6 +153,18 @@ try {
     (await dialog.locator('.im-settings-status').count()) === 1 && (await dialog.locator('.im-spec-row').count()) === 0,
     `status=${await dialog.locator('.im-settings-status').count()} specRow=${await dialog.locator('.im-spec-row').count()}`,
   )
+  // 回归（维护者报）：状态行一直显示「No key configured」，可实际已经配好了。
+  // 判据是 `credential`（当前生效来源能不能出图），不是 `provider.apiKeyConfigured`
+  // （那只说明插件内那个框填了没）。夹具正是「插件内空、密钥在 imagora 的 .env 里」。
+  {
+    const statusLine = await dialog.locator('.im-settings-status').innerText()
+    check(
+      '状态行按生效来源报密钥状态（不是「未配置」）',
+      statusLine.includes('密钥已配置') && !statusLine.includes('密钥未配置'),
+      statusLine,
+    )
+    check('状态行说明密钥来自 .env', statusLine.includes('.env'), statusLine)
+  }
   check(
     '设置弹窗只有一个目录输入框（不再重复「默认输出文件夹」）',
     (await dialog.locator('#imagora-output-override').count()) === 1 &&
