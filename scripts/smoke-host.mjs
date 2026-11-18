@@ -18,6 +18,7 @@ import { resolveApiPaths } from '../src/host/config.js'
 import { publicErrorBody } from '../src/host/errors.js'
 import { readLedger, summarize } from '../src/host/history.js'
 import { sniffExt } from '../src/host/generate.js'
+import { buildPayload, checkBlock, normalizeTransport } from '../src/host/payload.js'
 import { Store } from '../src/host/store.js'
 import { LEDGER_NAME, appendGeneration, buildRecord, displayPath, ledgerRoot } from '../src/host/ledger.js'
 
@@ -99,6 +100,13 @@ const results = []
 const check = (name, ok, detail = '') => {
   results.push({ name, ok, detail })
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  ${detail}` : ''}`)
+}
+
+/** 键值逐项相等（请求体是扁平字典，键顺序不算差异） */
+const same = (a, b) => {
+  const ka = Object.keys(a).sort()
+  const kb = Object.keys(b).sort()
+  return ka.length === kb.length && ka.every((k, i) => k === kb[i] && a[k] === b[k])
 }
 
 // 1x1 PNG
@@ -261,6 +269,61 @@ try {
   )
   check('sniffExt 按文件头认 JPEG', sniffExt(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0])) === '.jpg')
   check('sniffExt 认不出时按 .png 兜底', sniffExt(Buffer.from('generated', 'utf8')) === '.png')
+
+  // ---------- 请求体规则（与 Imagora 的 core/payload.py 同一组断言） ----------
+  // 两边各有一份实现（Python / JS 没有共享代码的途径），这组用例是防漂移的钉子：
+  // 改任何一边都必须让下面这些断言同时在两边通过。
+  {
+    const base = {
+      model: 'gpt-image-2.6',
+      prompt: '透明底卡通绘画风',
+      size: '1024x1024',
+      quality: 'high',
+      n: 1,
+      output_format: 'png',
+      watermark: false,
+    }
+    const empty = normalizeTransport(undefined)
+    check('payload：不配 = 请求体逐字不变', same(buildPayload(base, empty.value, {}).payload, base))
+    check('payload：不配时没有标注', buildPayload(base, empty.value, {}).notes.length === 0)
+
+    const channel = normalizeTransport({
+      request: { response_format: 'b64_json' },
+      drop: ['output_format', 'watermark'],
+    }).value
+    const built = buildPayload(base, channel, {})
+    check('payload：渠道字段进请求体', built.payload.response_format === 'b64_json')
+    check('payload：drop 摘掉基线字段', !('output_format' in built.payload) && !('watermark' in built.payload))
+    check(
+      'payload：标注能看出每个键的来源',
+      ['drop:output_format', 'drop:watermark', 'channel:response_format'].every(n => built.notes.includes(n)),
+      built.notes.join(' '),
+    )
+
+    const overridden = buildPayload(base, { request: {}, drop: ['output_format'] }, { output_format: 'jpeg' })
+    check('payload：drop 后仍可在模型级给新值', overridden.payload.output_format === 'jpeg')
+
+    const layered = buildPayload(base, { request: { background: 'opaque' }, drop: [] }, { background: 'transparent' })
+    check('payload：模型级覆盖渠道级', layered.payload.background === 'transparent')
+
+    const passthrough = buildPayload(base, { request: { some_flag: true }, drop: [] }, {})
+    check(
+      'payload：不认识的键透传且可见',
+      passthrough.payload.some_flag === true && passthrough.notes.includes('channel:some_flag'),
+    )
+
+    check('payload：基线字段不许配置（prompt）', checkBlock({ prompt: 'x' }, 't').length === 1)
+    check('payload：凭证类键不许配置（authorization）', checkBlock({ authorization: 'x' }, 't').length === 1)
+    check('payload：嵌套值被拒', checkBlock({ x: { nested: 1 } }, 't').length === 1)
+    check('payload：标量数组合法', checkBlock({ x: ['a', 1, true, null] }, 't').length === 0)
+
+    const broken = normalizeTransport({ request: { response_format: 'b64_json', prompt: 'hack' } })
+    check(
+      'payload：坏块整体丢弃（不半截生效）',
+      Object.keys(broken.value.request).length === 0 && broken.problems.length > 0,
+    )
+    check('payload：坏块丢弃后请求体回到默认', same(buildPayload(base, broken.value, {}).payload, base))
+  }
   check('POST /provider 去尾斜杠并生效', withProvider.provider?.baseUrl === 'https://example.invalid/v1')
   check('POST /provider 密钥只报已配置', withProvider.provider?.apiKeyConfigured === true)
   check('POST /provider 响应不含密钥明文', !JSON.stringify(withProvider).includes('sk-smoke-secret'))

@@ -30,6 +30,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 检查选择：
 
 - 改 `src/host/` → `pnpm run test`（内含 host 冒烟）、`pnpm run lint`
+- 改请求体拼装（`src/host/payload.js`）→ 规则真源在 Imagora 的 `core/payload.py`，**两边同名断言必须同时绿**（那边 `pytest tests/test_core_payload.py`）
 - 改 `src/client/` → `typecheck` + `lint` + `build` + `test`，必要时 `pnpm run harness`
 - 改文档 → 链接校验（见下）
 - 装插件或改包名 → 重装后刷新页面，确认侧边栏出现「自由画布」
@@ -39,7 +40,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - 本地钩子（commit 前）：文本卫生、prettier、eslint、tsc、host 冒烟、bundle 冒烟，全绿。
 - CI：`.github/workflows/ci.yml`，只读；末段 `git diff --exit-code -- dist/client.js` 守住产物同步。
 - CI 状态以 Actions 徽章为准，不在这里抄结论；最近一次 main 的 push 为绿。
-- 冒烟数字：host 126 项、client 32 项、UI 115 项（host 侧含预算两层 13 项、账本读写 22 项，其中 3 条走本机假上游做「提交→跑完→账本带参考图 id」的端到端，另有 5 条锁「空 outputDir 落到默认目录 + 写前建目录 + 卡上路径优先」；client 侧含文案图层 6 项：inject 含 locale、词典已注册、中英两份齐全、键集一致、main 声明 locale 座位、侧栏 label 是 thunk；UI 侧用真实浏览器跑验收台，`pnpm run test:ui`，其中右键菜单/框选 9 条、自动整理 3 条、缩略图 3 条、快照不写蒙版 4 条、重新认领 4 条、生成历史版面 5 条、坏数据与错误边界 7 条、设置弹窗版面 8 条、切分预设/手填 5 条、对齐线坐标系 3 条、控件坞不被裁 5 条、图片组操作栏 1 条、删除不删文件 4 条、输出文件夹三入口 7 条（含图标语义 3 条）、生成回流版面 5 条（落图 / 居中 / 两轮不重叠 / 整组居中 / 同一行））。
+- 冒烟数字：host 140 项、client 32 项、UI 115 项（host 侧含预算两层 13 项、账本读写 22 项、请求体规则 14 项，其中 3 条走本机假上游做「提交→跑完→账本带参考图 id」的端到端，另有 5 条锁「空 outputDir 落到默认目录 + 写前建目录 + 卡上路径优先」；client 侧含文案图层 6 项：inject 含 locale、词典已注册、中英两份齐全、键集一致、main 声明 locale 座位、侧栏 label 是 thunk；UI 侧用真实浏览器跑验收台，`pnpm run test:ui`，其中右键菜单/框选 9 条、自动整理 3 条、缩略图 3 条、快照不写蒙版 4 条、重新认领 4 条、生成历史版面 5 条、坏数据与错误边界 7 条、设置弹窗版面 8 条、切分预设/手填 5 条、对齐线坐标系 3 条、控件坞不被裁 5 条、图片组操作栏 1 条、删除不删文件 4 条、输出文件夹三入口 7 条（含图标语义 3 条）、生成回流版面 5 条（落图 / 居中 / 两轮不重叠 / 整组居中 / 同一行））。
 - 验收台示例图是仓库里的 `harness/sample.png`（1600×1200）：内嵌兜底只有 64×64，会让所有尺寸相关验收失去意义。
 - 渲染验收台：`scripts/harness-server.mjs` + 真实浏览器，实测建卡→运行→回流、四个对话框、Del 删除、粘贴导入、生成历史、滚轮缩放、左键平移、拖拽吸附与对齐线、锁定画布、成本徽章与预算闸门、裁剪/切分/放大/蒙版四个对话框。
 - 真实出图链路验证过两次（火山 Seedream 5.0 pro，1024x1024，单张 0.20 元）：一次走 imagora 配置，一次走插件内配置。
@@ -84,6 +85,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 
 - 设计圣经（不变量、契约、数据流）→ [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - 与 Imagora 的功能对照 → [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md)
+- 接一家新渠道 / 加一个能力不同的模型（插件侧落点；规则真源在上游）→ [docs/provider-config.md](docs/provider-config.md)
 - 市场收录与安装方式（对外）→ [docs/PUBLISHING.md](docs/PUBLISHING.md)
 - 发版操作与回滚（维护者）→ [docs/RELEASE.md](docs/RELEASE.md)
 - 决策与依据 → [.agents/notes/](.agents/notes/README.md)

@@ -3,6 +3,8 @@
 import { readFile } from 'node:fs/promises'
 import { basename, extname } from 'node:path'
 
+import { buildPayload } from './payload.js'
+
 /** 从各家上游的响应里挑出含图片的那一项（OpenAI / 火山方舟 / 中转站三种口径都见过）。 */
 export function extractImageItem(payload) {
   const findIn = seq => {
@@ -79,15 +81,21 @@ export async function generateImage(config, input) {
 
   const maskBuffer = Buffer.isBuffer(input.mask) && input.mask.length ? input.mask : null
   const base = config.baseUrl.replace(/\/+$/, '')
-  const payload = {
-    model: config.model,
-    prompt: input.prompt,
-    size: input.size,
-    quality: input.quality,
-    n: 1,
-    output_format: 'png',
-    watermark: false,
-  }
+  // 基线：产品语义决定的那几个字段。其余差异（渠道要 b64、模型要 transparent）
+  // 写在配置里，由 buildPayload 叠加 —— 与 Imagora 的 core/payload.py 同语义。
+  const { payload, notes } = buildPayload(
+    {
+      model: config.model,
+      prompt: input.prompt,
+      size: input.size,
+      quality: input.quality,
+      n: 1,
+      output_format: 'png',
+      watermark: false,
+    },
+    config.transport,
+    config.modelParams,
+  )
   const headers = { authorization: `Bearer ${config.apiKey}` }
   const refs = Array.isArray(input.refs) ? input.refs.filter(Boolean) : []
 
@@ -138,7 +146,7 @@ export async function generateImage(config, input) {
     return {
       buffer,
       ext: sniffExt(buffer),
-      meta: { mode: refs.length ? 'img2img' : 'txt2img' },
+      meta: { mode: refs.length ? 'img2img' : 'txt2img', payloadNotes: notes },
     }
   }
   if (item.url) {
@@ -149,7 +157,7 @@ export async function generateImage(config, input) {
     return {
       buffer,
       ext: sniffExt(buffer),
-      meta: { mode: refs.length ? 'img2img' : 'txt2img', upstreamUrl: item.url },
+      meta: { mode: refs.length ? 'img2img' : 'txt2img', upstreamUrl: item.url, payloadNotes: notes },
     }
   }
   throw new Error(`接口响应没有图片数据：${JSON.stringify(item).slice(0, 200)}`)

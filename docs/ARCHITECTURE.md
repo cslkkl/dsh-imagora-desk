@@ -142,6 +142,17 @@ C 档的每一条差异都在代码注释与 [FEATURE-PARITY](FEATURE-PARITY.md)
 
 模型 ID 里的全角连字符会折叠成半角再匹配。
 
+### 请求体不硬编码
+
+发出去的请求体 = **产品基线**（`model`/`prompt`/`size`/`quality`/`n`，代码给）+ **渠道字段**（`transport.request`，profile 级）+ **模型字段**（`models[].params`）。
+
+理由一句话：**上游差异分两堆** —— 换模型仍成立的是渠道属性（如 `response_format`），
+换服务器仍成立的是模型能力（如 `background: transparent`）。混在一层，换个模型或换个网关就失效。
+
+规则真源在 Imagora 的 `core/payload.py`，插件 [src/host/payload.js](../src/host/payload.js) 逐条同语义，
+两边靠同名断言防漂移（`scripts/smoke-host.mjs` 的 `payload:` 段）。
+坏块**整体丢弃并降级**（记进 `issues`），不半截生效。写法与实测见 [provider-config.md](provider-config.md)。
+
 ## 状态目录
 
 存储有两套落点，**由「有没有设置 imagora 目录」决定**（`src/host/store.js`）：
