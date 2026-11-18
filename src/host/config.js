@@ -8,6 +8,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
+import { normalizeModelParams, normalizeTransport } from './payload.js'
+
 /** 模型 ID 里的全角连字符（U+2011/U+2010）与半角 '-' 肉眼一样，中转站两种都在用。 */
 export function foldId(text) {
   return String(text || '').replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, '-')
@@ -154,6 +156,10 @@ function resolveFromProvider(provider, settings, root, imagoraRoot) {
     qualities,
     qualityEffective: qualities.length > 1,
     outputFormats: ['png', 'jpeg', 'webp'],
+    // 插件内配置没有 profile 级的 transport / 模型级 params：形状要与另一条来源一致，
+    // 否则消费方（generate.js）得写两套取法。
+    transport: { request: {}, drop: [] },
+    modelParams: {},
     defaultOutputDir: resolveOutputDir(settings, root, imagoraRoot),
     budget: resolveBudget(settings),
     issues,
@@ -194,9 +200,16 @@ export function loadImagoraConfig(settings) {
   const envProfile = String(env.ACTIVE_PROFILE || '').trim()
   const profileName = String(settings?.profile || envProfile || cfg.default_profile || '').trim()
   const profile = profiles[profileName] || {}
+  const issues = []
 
   const apiKey = env[`API_KEY_${profileName.toUpperCase()}`] || env.API_KEY || env.AIWANWU_API_KEY || ''
   const baseUrl = String(env[`BASE_URL_${profileName.toUpperCase()}`] || profile.base_url || '')
+  // 渠道字段块（与 Imagora 的 core/payload.py 同语义）：坏块整体丢弃并记一条 issue，
+  // 出图回落到「今天的行为」而不是直接失败。
+  const transport = normalizeTransport(profile.transport)
+  if (transport.problems.length) {
+    issues.push(...transport.problems.map(problem => `transport 配置被忽略：${problem}`))
+  }
   const apiPaths = {
     generations:
       env[`PATH_GENERATIONS_${profileName.toUpperCase()}`] ||
@@ -224,7 +237,11 @@ export function loadImagoraConfig(settings) {
     : profile.quality_options || ['low', 'medium', 'high']
 
   const defaultOutputDir = resolveOutputDir(settings, root, root)
-  const issues = []
+  // 模型级字段（模型能力差异，如 background: transparent）。未知模型 / 没写 → 空。
+  const modelParams = normalizeModelParams(model?.params)
+  if (modelParams.problems.length) {
+    issues.push(...modelParams.problems.map(problem => `models[].params 被忽略：${problem}`))
+  }
   if (!cfg.profiles) issues.push('没读到 imagora 的 config.json（也没在插件里填过接口地址）')
   if (!apiKey) issues.push(`当前 profile「${profileName || '未命名'}」没有配置密钥`)
   if (!modelId) issues.push('当前 profile 没有默认模型')
@@ -247,6 +264,8 @@ export function loadImagoraConfig(settings) {
     qualities,
     qualityEffective: qualities.length > 1,
     outputFormats: model?.output_formats || ['png'],
+    transport: transport.value,
+    modelParams,
     defaultOutputDir,
     budget: resolveBudget(settings),
     issues,

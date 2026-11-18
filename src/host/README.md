@@ -18,6 +18,7 @@
 | `generate.js` | 上游请求：`generations` 文生图 / `edits` 图生图，兼容三种响应口径；回包按**字节**定扩展名（JPEG、多帧 GIF 都不会存成 `.png`） | `generateImage`、`extractImageItem`、`humanizeError`、`sniffExt`                                                        | 真机跑一张 + host 冒烟                    |
 | `tasks.js`    | 任务池：排队、并发上限、取消语义；结果落 assets 后按「卡片路径 → 默认输出文件夹」另存一份（空 = 用默认，写前建目录）          | `TaskPool`                                                                                                              | host 冒烟（取消分支 / 空路径落默认 5 条） |
 | `picker.js`   | 弹系统目录对话框（Windows 用 PowerShell + Forms），返回绝对路径；取消回 `cancelled`                                           | `pickDirectory`                                                                                                         | UI 冒烟（三处入口）                       |
+| `payload.js`  | 请求体拼装：基线 + `transport.request` + `models[].params`（照 Imagora `core/payload.py`，同语义同断言）                      | `buildPayload`、`normalizeTransport`、`normalizeModelParams`、`checkBlock`                                              | host 冒烟（`payload:` 段 14 条）          |
 | `store.js`    | 状态目录、资产登记、工作流与恢复快照、路径白名单                                                                              | `Store`、`MIME`、`extOf`                                                                                                | host 冒烟                                 |
 
 ## 被谁依赖
@@ -28,6 +29,7 @@
 
 - 改路由路径或响应形状 → 同一次改动里更新 [client/api.ts](../client/README.md)、[docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md) 的契约表、host 冒烟用例。
 - 改配置解析 → 同步 [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md) 的「配置解析顺序」，并与 Imagora 的 `core/config.py` 对齐。
+- 改请求体字段的拼装规则 → 规则真源在 Imagora 的 `core/payload.py`，两边同名断言必须同时绿；配置写法见 [docs/provider-config.md](../../docs/provider-config.md)。
 - 改状态目录结构 → 同步架构文档的「状态目录」，并在根 [AGENTS.md](../../AGENTS.md) 待办里评估迁移。
 - 改任务语义 → 画布上的「取消」文案与 `use-canvas-tasks.ts` 的注释要一起改。
 
