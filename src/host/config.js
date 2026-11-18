@@ -264,8 +264,11 @@ export function loadImagoraConfig(settings) {
     qualities,
     qualityEffective: qualities.length > 1,
     outputFormats: model?.output_formats || ['png'],
+    // 两个都必须给**值本身**，不是 normalize 的包装器：消费方（generate.js）直接把它们
+    // 交给 buildPayload，包装器会被 Object.assign 原样摊进请求体（多出 value / problems
+    // 两个字段），出图照旧成功，只是每个请求都脏 —— 无声失效，冒烟的「接线」段钉住它。
     transport: transport.value,
-    modelParams,
+    modelParams: modelParams.value,
     defaultOutputDir,
     budget: resolveBudget(settings),
     issues,

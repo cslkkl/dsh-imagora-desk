@@ -14,7 +14,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { resolveApiPaths } from '../src/host/config.js'
+import { loadImagoraConfig, resolveApiPaths } from '../src/host/config.js'
 import { publicErrorBody } from '../src/host/errors.js'
 import { readLedger, summarize } from '../src/host/history.js'
 import { sniffExt } from '../src/host/generate.js'
@@ -323,6 +323,57 @@ try {
       Object.keys(broken.value.request).length === 0 && broken.problems.length > 0,
     )
     check('payload：坏块丢弃后请求体回到默认', same(buildPayload(base, broken.value, {}).payload, base))
+  }
+
+  // ---------- 配置 → 请求体的「接线」（上面那组只测规则本身，测不到取值接错） ----------
+  //
+  // 这条锁的是一个真实踩过的坑：loadImagoraConfig 曾把 normalize 的**包装器**
+  // （{ value, problems }）当成值交给 generate.js，于是每个请求体都多出
+  // `value: {}` 和 `problems: []` 两个字段 —— 出图照旧成功，所以肉眼、端到端都发现不了。
+  {
+    const wiringRoot = mkdtempSync(join(tmpdir(), 'imagora-wiring-'))
+    writeFileSync(
+      join(wiringRoot, 'config.json'),
+      JSON.stringify({
+        default_profile: 'wired',
+        profiles: {
+          wired: {
+            label: '接线夹具',
+            base_url: 'https://example.invalid/v1',
+            default_model: 'wired-model',
+            models: [{ id: 'wired-model', params: { background: 'transparent' } }],
+            transport: { request: { response_format: 'b64_json' }, drop: ['output_format'] },
+          },
+        },
+      }),
+    )
+    writeFileSync(join(wiringRoot, '.env'), 'API_KEY_WIRED=sk-wiring\nACTIVE_PROFILE=wired\n')
+    const wired = loadImagoraConfig({ imagoraRoot: wiringRoot, profile: 'wired' })
+    check('接线：transport 给的是值本身（不是 normalize 包装器）', !('problems' in wired.transport))
+    check('接线：modelParams 给的是值本身（不是 normalize 包装器）', !('problems' in wired.modelParams))
+    const wiredBuilt = buildPayload(
+      { model: 'wired-model', prompt: 'x', size: '1024x1024', quality: 'high', n: 1, output_format: 'png' },
+      wired.transport,
+      wired.modelParams,
+    )
+    check(
+      '接线：请求体只剩真实字段，不夹带 value / problems',
+      same(wiredBuilt.payload, {
+        model: 'wired-model',
+        prompt: 'x',
+        size: '1024x1024',
+        quality: 'high',
+        n: 1,
+        response_format: 'b64_json',
+        background: 'transparent',
+      }),
+      JSON.stringify(wiredBuilt.payload),
+    )
+    check(
+      '接线：标注同时报出渠道字段与模型字段',
+      ['drop:output_format', 'channel:response_format', 'model:background'].every(n => wiredBuilt.notes.includes(n)),
+      wiredBuilt.notes.join(' '),
+    )
   }
   check('POST /provider 去尾斜杠并生效', withProvider.provider?.baseUrl === 'https://example.invalid/v1')
   check('POST /provider 密钥只报已配置', withProvider.provider?.apiKeyConfigured === true)
