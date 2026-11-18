@@ -39,7 +39,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - 本地钩子（commit 前）：文本卫生、prettier、eslint、tsc、host 冒烟、bundle 冒烟，全绿。
 - CI：`.github/workflows/ci.yml`，只读；末段 `git diff --exit-code -- dist/client.js` 守住产物同步。
 - CI 状态以 Actions 徽章为准，不在这里抄结论；最近一次 main 的 push 为绿。
-- 冒烟数字：host 126 项、client 32 项、UI 109 项（host 侧含预算两层 13 项、账本读写 22 项，其中 3 条走本机假上游做「提交→跑完→账本带参考图 id」的端到端，另有 5 条锁「空 outputDir 落到默认目录 + 写前建目录 + 卡上路径优先」；client 侧含文案图层 6 项：inject 含 locale、词典已注册、中英两份齐全、键集一致、main 声明 locale 座位、侧栏 label 是 thunk；UI 侧用真实浏览器跑验收台，`pnpm run test:ui`，其中右键菜单/框选 9 条、自动整理 3 条、缩略图 3 条、快照不写蒙版 4 条、重新认领 4 条、生成历史版面 5 条、坏数据与错误边界 7 条、设置弹窗版面 8 条、切分预设/手填 5 条、对齐线坐标系 3 条、控件坞不被裁 5 条、图片组操作栏 1 条、删除不删文件 4 条、输出文件夹三入口 7 条（含图标语义 3 条））。
+- 冒烟数字：host 126 项、client 32 项、UI 115 项（host 侧含预算两层 13 项、账本读写 22 项，其中 3 条走本机假上游做「提交→跑完→账本带参考图 id」的端到端，另有 5 条锁「空 outputDir 落到默认目录 + 写前建目录 + 卡上路径优先」；client 侧含文案图层 6 项：inject 含 locale、词典已注册、中英两份齐全、键集一致、main 声明 locale 座位、侧栏 label 是 thunk；UI 侧用真实浏览器跑验收台，`pnpm run test:ui`，其中右键菜单/框选 9 条、自动整理 3 条、缩略图 3 条、快照不写蒙版 4 条、重新认领 4 条、生成历史版面 5 条、坏数据与错误边界 7 条、设置弹窗版面 8 条、切分预设/手填 5 条、对齐线坐标系 3 条、控件坞不被裁 5 条、图片组操作栏 1 条、删除不删文件 4 条、输出文件夹三入口 7 条（含图标语义 3 条）、生成回流版面 5 条（落图 / 居中 / 两轮不重叠 / 整组居中 / 同一行））。
 - 验收台示例图是仓库里的 `harness/sample.png`（1600×1200）：内嵌兜底只有 64×64，会让所有尺寸相关验收失去意义。
 - 渲染验收台：`scripts/harness-server.mjs` + 真实浏览器，实测建卡→运行→回流、四个对话框、Del 删除、粘贴导入、生成历史、滚轮缩放、左键平移、拖拽吸附与对齐线、锁定画布、成本徽章与预算闸门、裁剪/切分/放大/蒙版四个对话框。
 - 真实出图链路验证过两次（火山 Seedream 5.0 pro，1024x1024，单张 0.20 元）：一次走 imagora 配置，一次走插件内配置。
@@ -47,7 +47,7 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 ## 待办
 
 - [x] 市场可搜索：自托管索引 + GitHub Pages，实测搜到并安装成功。发 npm 只是可选增强（`dsh plugin add dsh-imagora-desk` 直接装）
-- [x] 自动化 UI 测试：`pnpm run test:ui` 用真实浏览器跑 109 条断言；host 侧另有 6 条任务池 TTL 断言（弹窗结构 / 提示词浮层 / 蒙版底图 / 预算输入 / 生成历史版面 / 右键菜单与框选 / 自动整理 / 中文输入法 / 重新认领 / 删除不删文件 / 输出文件夹三入口 / 无页面异常）。浏览器找不到时打 SKIP 退 0，CI 仍只跑 `pnpm run test`
+- [x] 自动化 UI 测试：`pnpm run test:ui` 用真实浏览器跑 115 条断言；host 侧另有 6 条任务池 TTL 断言（弹窗结构 / 提示词浮层 / 蒙版底图 / 预算输入 / 生成历史版面 / 右键菜单与框选 / 自动整理 / 中文输入法 / 重新认领 / 删除不删文件 / 输出文件夹三入口 / 无页面异常）。浏览器找不到时打 SKIP 退 0，CI 仍只跑 `pnpm run test`
 - [x] 生成历史「双源并存」：插件出的图现在按 `core/logging.py` 的格式追加进同一份账本（`src/host/ledger.js`），历史里能看见；写入闸门见下
 - [x] 生成历史成本条的「每日上限 / 单次上限」输入框（原版 CostBoard）：落在 `<输出目录>/.budget.json`，与原版共读一份；语义是「超限需确认」，见 [决策](.agents/notes/2026-11-08-budget-two-layers.md)
 - [x] 生成历史里提示词的鼠标悬浮：改用原版 `PromptCell`（2 行截断，真被截断才出跟随鼠标的深色浮层）
@@ -67,7 +67,8 @@ uv tool run pre-commit run --all-files   # 手动跑一遍全部本地钩子
 - 提示统一用原生 `title`，不要引入宿主气泡组件：两种并存会出现「有的秒出黑框、有的等 1~2 秒」。见 [决策](.agents/notes/2026-11-07-native-title-only.md)。
 - 索引别用 jsDelivr：JSON 请求实测 4 次挂 1 次（ECONNRESET），宿主读不到就在界面报「Could not fetch」。用 GitHub Pages（`pages.yml`），同一份文件连测 4 次全通。
 - 索引里的 commit 不能写「刚提交的 HEAD」：索引文件本身是提交的一部分，写进去那次提交又产生新 HEAD，永远落后一格。现在指向 v<version> tag 指向的提交，`market:fresh` 兜住存在性。
-- 全局事件监听（点外部关闭、快捷键）如果目标区域可能是**画布**，必须用**捕获阶段**：React Flow 在 `mousedown` 上会 `stopPropagation`，冒泡阶段的 `document` 监听收不到。表现为「点画布空白关不掉下拉/浮层」。
+- 全局事件监听（点外部关闭、快捷键）如果目标区域可能是**画布**，必须用**捕获阶段**：React Flow 在 `mousedown` 上会 `stopPropagation`，冒泡阶段的 `document` 监听收不到。表现为「点画布空白关不掉下拉/浮层」。上游 Imagora 踩过同一条（2026-11-18 已同步改成捕获阶段），两边现在一致——改 `select.tsx` 时别把它改回去。
+- **「怎么算」的活不许在组件里另写一份**：回流的坐标曾经在 `use-canvas-tasks.ts` 里自己算 `index * 172`，而上游走 `lib/layout.ts` 的 `layoutPromptResults`。后果是第二轮生成与上一轮**坐标完全相同**（UI 冒烟量到两次都是 `x=450`），用户看到「排不整齐、还叠在一起」。凡是移植区已有的纯逻辑（`layout` / `contextMenu` / `cost` / `rankByName` …），组件只负责摆和画，算的一律回去调它。
 - 布局里写 `flex: 1` 的占位元素，选择器**不能带父级作用域**：`.im-toolbar .im-spacer` 管不到页头里的同名 span，表现为「按钮全挤左边、右侧空着」。`width` 与 `padding` 同时写时别忘了 `box-sizing: border-box`，否则宽度会多出两倍内边距。
 - **改了 `src/host/` 后「界面上没变化」不等于改漏了**：插件是软链装的，但宿主进程**只在启动时加载 host 模块**，软链只省掉重装、不省掉重载。判据是「这个产物在什么时候被读」——host 代码**启动时读一次**，client 代码按指纹在浏览器里换。所以改完 host 要 `dsh_hot_reload`（entryId 是 `include:imagora`；热重载失败会回滚）或重启宿主，改完 client 要重建 `dist/client.js` 再刷新页面。用户报过「你改了吗？为什么还是没有」——那次就是只改了文件、进程还拿着旧模块。**验证 host 侧的改动要用真实数据走一遍完整 HTTP 路径**（假 ctx 挂起 host 半端，像 `scripts/smoke-host.mjs` 那样），别只看源码。
 - **不要把 Markdown 正文塞进 PowerShell 变量再交给 `gh`**：反引号在 pwsh 里是转义符（`` `b `` → 退格、`` `0 `` → NUL），正文会被吃掉或变成乱码，GitHub 收到的是一条残缺评论/PR 描述（踩过两次：一次评论只剩一句、一次 `border-box` 变成 `\order-box` 且中文变 `图��`）。**一律用 `write` 工具写成 UTF-8 文件再 `gh pr create/edit --body-file <路径>`**。另外本机 `gh` 2.96.0 没有 `--attach`，别用它挂图。

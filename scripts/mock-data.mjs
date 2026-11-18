@@ -1,5 +1,7 @@
 // 验收台的 mock 数据：配置 + 一份带图的恢复快照，让画布一打开就有真实内容。
 const pollCounts = new Map()
+/** `/imagora/generate` 的任务号流水：每次提交递增，好让两轮生成拿到两张不同的图 */
+let genSeq = 0
 
 /** 生成历史的 mock 行：形状与 host 的 /imagora/history 完全一致。
  *
@@ -308,24 +310,90 @@ export function defineConfig(path, url, rawBody) {
     return { ok: true }
   }
 
-  // 任务快照：验收台没有真实任务池，这里按 id 回一份固定的「运行中」。
-  // 存在的意义是验「重新认领」——画布重挂载后按节点 data 里的 taskId 回来问一句，
-  // 拿得到 queued/running 就该重新挂上轮询；回了 404 就该清掉 id 回归 idle。
+  // 生成任务。两条语义都要在同一个路由上成立，所以按 id 前缀分流：
+  //   · `t_gen_*`（下方 /imagora/generate 签发）= 一次真的会跑完的生成：第 1 次排队、
+  //     第 2 次运行中、第 3 次 done 带一张结果图。没有这条，「生成 → 回流」的版面
+  //     （结果图按提示词卡片居中排在正下方、两轮之间不重叠）就一直没法验 ——
+  //     而验收台正是唯一能不花钱、不用真上游就能验它的地方。
+  //   · 其余 id = 固定的「运行中」：给「重新认领」用（画布重挂载后回来问一句）。
+  //     `t_gone` 回 null，模拟宿主重启过、任务真的没了。
   if (path === '/imagora/task') {
     const id = url.searchParams.get('id') || ''
     if (!id) return { error: 'not found' }
     if (id === 't_gone') return null // 模拟宿主重启过：任务真的没了
+    if (!id.startsWith('t_gen_')) {
+      return {
+        taskId: id,
+        status: 'running',
+        startedAt: Date.now() - 5000,
+        finishedAt: null,
+        results: [],
+        messages: ['图生图 · 参考图 1 张'],
+        totalCost: 0,
+        error: null,
+        cancelRequested: false,
+      }
+    }
+    const step = (pollCounts.get(id) ?? 0) + 1
+    pollCounts.set(id, step)
+    if (step === 1) {
+      return {
+        taskId: id,
+        status: 'queued',
+        startedAt: null,
+        finishedAt: null,
+        results: [],
+        messages: [],
+        totalCost: 0,
+        error: null,
+        cancelRequested: false,
+      }
+    }
+    if (step < 3) {
+      return {
+        taskId: id,
+        status: 'running',
+        startedAt: Date.now() - 1200,
+        finishedAt: null,
+        results: [],
+        messages: [],
+        totalCost: 0,
+        error: null,
+        cancelRequested: false,
+      }
+    }
     return {
       taskId: id,
-      status: 'running',
-      startedAt: Date.now() - 5000,
-      finishedAt: null,
-      results: [],
-      messages: ['图生图 · 参考图 1 张'],
-      totalCost: 0,
+      status: 'done',
+      startedAt: Date.now() - 2400,
+      finishedAt: Date.now(),
+      results: [
+        {
+          // 资产 id 带上任务号：两轮生成必须是两张**不同**的图，否则回流时会被
+          // 「同 registryId 不重复建节点」挡掉，重叠那条断言就永远测不到。
+          status: 'ok',
+          assetId: `gen-${id}`,
+          url: `/imagora/file?id=gen-${id}`,
+          name: `${id}.png`,
+          absPath: `C:\\Users\\demo\\Desktop\\imagora\\imagora\\output\\.assets\\${id}.png`,
+          ext: 'png',
+          bytes: 812345,
+          size: '1024x1024',
+          cost: 0.05,
+          mode: 'txt2img',
+        },
+      ],
+      messages: ['文生图', '已生成 · 1024x1024 · 0.05 元'],
+      totalCost: 0.05,
       error: null,
       cancelRequested: false,
     }
+  }
+
+  // 提交生成：签发一个递增的任务号，让上面 `/imagora/task` 走「真的会跑完」那条分支。
+  if (path === '/imagora/generate') {
+    genSeq += 1
+    return { taskId: `t_gen_${genSeq}`, status: 'queued' }
   }
 
   if (path === '/imagora/task/cancel') {
@@ -545,62 +613,9 @@ export function defineConfig(path, url, rawBody) {
     return { workflows: [{ name: '商品主图', modified: '2026-11-06T12:00:00.000Z' }] }
   }
 
-  // 生成任务：头两次排队/运行中，第三次返回成功结果 —— 让画布真的走一遍「出图回流」
-  if (path === '/imagora/task') {
-    const id = url.searchParams.get('id') || 'demo'
-    const step = (pollCounts.get(id) ?? 0) + 1
-    pollCounts.set(id, step)
-    if (step === 1) {
-      return {
-        taskId: id,
-        status: 'queued',
-        startedAt: null,
-        finishedAt: null,
-        results: [],
-        messages: [],
-        totalCost: 0,
-        error: null,
-        cancelRequested: false,
-      }
-    }
-    if (step < 3) {
-      return {
-        taskId: id,
-        status: 'running',
-        startedAt: Date.now() - 1200,
-        finishedAt: null,
-        results: [],
-        messages: [],
-        totalCost: 0,
-        error: null,
-        cancelRequested: false,
-      }
-    }
-    return {
-      taskId: id,
-      status: 'done',
-      startedAt: Date.now() - 2400,
-      finishedAt: Date.now(),
-      results: [
-        {
-          status: 'ok',
-          assetId: `gen-${id}`,
-          url: `/imagora/file?id=gen-${id}`,
-          name: 'txt2img_20261106_131900_demo.png',
-          absPath: 'C:\\Users\\demo\\Desktop\\imagora\\imagora\\output\\txt2img_20261106_131900_demo.png',
-          ext: 'png',
-          bytes: 812345,
-          size: '1024x1024',
-          cost: 0.05,
-          mode: 'txt2img',
-        },
-      ],
-      messages: ['文生图', '已生成 · 1024x1024 · 0.05 元'],
-      totalCost: 0.05,
-      error: null,
-      cancelRequested: false,
-    }
-  }
+  // 生成任务与本文件前面的 `/imagora/task` 是同一路由 —— 那边已经 return，
+  // 这里曾留着一份「第三次回 done」的副本，永远不会执行（原文声称能有出图回流，
+  // 实际验收台从来没跑完过一次生成）。语义已合并到上方那个块里，别在这里再抄一份。
 
   // 写设置类接口：**必须回完整的 config**，不能回 { ok: true }。
   // 前端把返回值直接当成 ImagoraConfig 用（onSaved(next) → setConfig），回一个窄对象
