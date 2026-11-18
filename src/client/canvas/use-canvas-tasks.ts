@@ -4,7 +4,7 @@ import { useCallback, useEffect, type MutableRefObject } from 'react'
 import type { Edge } from '@xyflow/react'
 import { cancelTask, fetchTask, submitGenerate, type TaskSnapshot } from '../api'
 import { buildImageNode, collectPromptRefImages, pendingTaskRefs, updatePromptNode } from '../lib/workflow'
-import { nodeSize } from '../lib/layout'
+import { layoutPromptResults } from '../lib/layout'
 import type { WorkflowEdge, WorkflowNode } from '../lib/types'
 import { errMessage } from '../lib/format'
 import { useT } from '../i18n'
@@ -57,7 +57,15 @@ export function useGeneratedTasks({
     [log],
   )
 
-  /** 结果回流：成功的结果在提示词卡正下方排成一行，并自动连一条「产出边」。 */
+  /** 结果回流：成功的结果在提示词卡正下方排成一行，并自动连一条「产出边」。
+   *
+   *  位置**不在这里算**，交给 `lib/layout.ts` 的 `layoutPromptResults`（与 Imagora 同一份）
+   *  在节点落进画布之后统一重排。理由有两个，都不是风格问题：
+   *    1. 只有它知道「这一批结果全部」——本次新建的几张 + 这张卡以前的几张。
+   *       各自按自己的序号偏移，第二轮生成就会**正好压在上一轮那几张上**（用户报的「重叠」）。
+   *    2. 它是「按提示词卡居中、按节点真实宽度排间距」的，并且只用卡片邻居的实测尺寸；
+   *       在回流里手写 `index * 172` 等于把这个算法抄一遍还抄漏了居中。
+   *  所以这里只负责构建节点与产出边，位置留给那一处唯一的实现。 */
   const finishTask = useCallback(
     (nodeId: string, snapshot: TaskSnapshot) => {
       const results = Array.isArray(snapshot.results) ? snapshot.results : []
@@ -65,8 +73,7 @@ export function useGeneratedTasks({
       const prompt = nodesRef.current.find(node => node.id === nodeId && node.type === 'prompt')
       const created: WorkflowNode[] = []
       if (prompt && prompt.type === 'prompt') {
-        const height = nodeSize(prompt).height
-        okResults.forEach((result, index) => {
+        okResults.forEach(result => {
           created.push(
             buildImageNode(
               {
@@ -79,21 +86,30 @@ export function useGeneratedTasks({
                 absPath: result.absPath ?? '',
                 createdAt: new Date().toISOString(),
               },
-              {
-                x: prompt.position.x + index * 172,
-                y: prompt.position.y + height + 56,
-              },
+              // 占位坐标：紧接着就会被 layoutPromptResults 改写。用卡片自身位置而不是
+              // 卡片中心，是为了「万一布局没跑成」时至少还在卡片正下方，不会飘到别处。
+              prompt.position,
             ),
           )
         })
       }
+      const outputEdges = created.map(node => ({
+        id: `${nodeId}->${node.id}`,
+        source: nodeId,
+        target: node.id,
+        animated: true,
+      }))
       setNodes(current => {
         // 去重：重新认领时可能重复收尾（例如两个窗口同时挂着同一个任务），
         // 而结果节点的 id 就是资产 id，已经存在就不再加一遍。
         const existing = new Set(current.map(node => node.id))
         const fresh = created.filter(node => !existing.has(node.id))
         const merged = fresh.length ? [...current, ...fresh] : current
-        return updatePromptNode(merged, nodeId, {
+        // 只有真的加了新节点才重排：仅仅更新状态时不该动别人的位置（用户手动摆好的）
+        const arranged = fresh.length
+          ? layoutPromptResults(merged, [...(edgesRef.current as WorkflowEdge[]), ...outputEdges], nodeId)
+          : merged
+        return updatePromptNode(arranged, nodeId, {
           status: snapshot.status === 'done' ? 'done' : snapshot.status === 'cancelled' ? 'idle' : 'failed',
           resultCount: okResults.length,
           message: snapshot.error ?? undefined,
@@ -103,11 +119,9 @@ export function useGeneratedTasks({
           taskId: undefined,
         })
       })
-      if (created.length) {
+      if (outputEdges.length) {
         setEdges(current => {
-          const additions = created
-            .map(node => ({ id: `${nodeId}->${node.id}`, source: nodeId, target: node.id, animated: true }))
-            .filter(edge => !current.some(row => row.id === edge.id))
+          const additions = outputEdges.filter(edge => !current.some(row => row.id === edge.id))
           return additions.length ? [...current, ...additions] : current
         })
       }

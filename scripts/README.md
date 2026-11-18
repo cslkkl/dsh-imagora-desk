@@ -16,6 +16,10 @@
 | `ui-smoke.mjs`             | **自动化** UI 冒烟：真实浏览器跑 24 条断言（弹窗结构 / 浮层 / 蒙版底图 / 预算输入 / 无异常） | `pnpm run test:ui`           | 自动起停验收台，不花钱       |
 | `mock-data.mjs`            | 验收台的配置与恢复快照夹具，含一次完整的生成回流模拟                                         | 由 `harness-server.mjs` 引入 | 无                           |
 
+`/imagora/generate` 签发 `t_gen_*` 任务号，`/imagora/task` 对它回「排队 → 运行中 → done 带一张图」，
+其余 id 固定回 running（给「重新认领」那些用例用）。此前那块「第三次回 done」被前面的同名路由挡住、
+永远不执行 —— 验收台因此从来没跑完过一次生成，「生成 → 回流」的版面没法验。
+
 ## 自动化 UI 冒烟（test:ui）
 
 ```powershell

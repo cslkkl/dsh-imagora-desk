@@ -1363,6 +1363,82 @@ try {
     check('删除图片：提示里写明图片仍留在磁盘、历史能找回', toastText.includes('图片仍留在磁盘上'), toastText)
   }
 
+  // ---------------- 生成回流：结果图排在卡片正下方，两轮之间不重叠 ----------------
+  // 回归（维护者报）：插件里生成完的图不排版、还会叠在一起，原版没这问题。
+  // 根因：回流时自己算位置 `x: prompt.x + index * 172` —— 既没有「按卡片居中」，
+  // 也没有把**这张卡已有的结果**算进来，于是第二轮生成正好压在上一轮那几张上。
+  // 现在两边共用 lib/layout.ts 的 layoutPromptResults（同一份移植件），位置由它统一算；
+  // 这条断言锁的就是「用的是它」：居中 + 同行排开 + 不重叠。
+  {
+    await page.request.post(`${BASE}imagora/__harness/reset-canvas`)
+    await page.request.post(`${BASE}imagora/__harness/seed-canvas`, {
+      data: {
+        nodes: [
+          {
+            id: 'reflow-probe',
+            type: 'prompt',
+            position: { x: 200, y: 120 },
+            data: { prompt: 'reflow probe', size: '1024x1024', quality: 'high', outputDir: '', status: 'idle' },
+          },
+        ],
+        edges: [],
+      },
+    })
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.waitForTimeout(1800)
+
+    const promptBox = await page.locator('.react-flow__node-prompt').boundingBox()
+    const runBtn = page.locator('.react-flow__node-prompt .im-btn-primary').first()
+    const centerX = box => box.x + box.width / 2
+    /** 点运行并等到收尾：mock 的轮询是 1.2s × 3 步才到 done，留足余量 */
+    const runOnce = async () => {
+      await runBtn.click()
+      await page.waitForTimeout(5200)
+    }
+
+    await runOnce()
+    const firstCount = await page.locator('.react-flow__node-image').count()
+    check('生成完成后结果图落在画布上', firstCount === 1, `images=${firstCount}`)
+    if (firstCount === 1 && promptBox) {
+      const one = await page.locator('.react-flow__node-image').first().boundingBox()
+      check(
+        '结果图排在卡片正下方且水平居中（不是从卡片左边沿开始排）',
+        Boolean(one) && Math.abs(centerX(one) - centerX(promptBox)) <= 2 && one.y >= promptBox.y + promptBox.height,
+        JSON.stringify({ image: one, prompt: promptBox }),
+      )
+    }
+
+    await runOnce()
+    const twoCount = await page.locator('.react-flow__node-image').count()
+    check('第二轮生成多出一张图（不是覆盖上一轮那张）', twoCount === 2, `images=${twoCount}`)
+    if (twoCount === 2 && promptBox) {
+      const a = await page.locator('.react-flow__node-image').nth(0).boundingBox()
+      const b = await page.locator('.react-flow__node-image').nth(1).boundingBox()
+      const overlaps =
+        Boolean(a && b) &&
+        a.x < b.x + b.width - 1 &&
+        b.x < a.x + a.width - 1 &&
+        a.y < b.y + b.height - 1 &&
+        b.y < a.y + a.height - 1
+      check(
+        '两张结果图并排不重叠（这就是用户报的「叠在一起」）',
+        Boolean(a && b) && !overlaps,
+        JSON.stringify({ a, b }),
+      )
+      if (a && b) {
+        // 一组结果按**整体**居中：两边的外沿中心落在卡片中心上
+        const left = Math.min(a.x, b.x)
+        const right = Math.max(a.x + a.width, b.x + b.width)
+        check(
+          '两张图作为一组仍居中对齐卡片',
+          Math.abs((left + right) / 2 - centerX(promptBox)) <= 2,
+          JSON.stringify({ group: (left + right) / 2, card: centerX(promptBox) }),
+        )
+        check('两张图在同一行（y 相同）', Math.abs(a.y - b.y) <= 1, JSON.stringify({ ay: a.y, by: b.y }))
+      }
+    }
+  }
+
   // ---------------- 全程无 JS 报错 ----------------
   check('全程没有页面异常', pageErrors.length === 0, pageErrors.slice(0, 2).join(' | '))
 } catch (error) {

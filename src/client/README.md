@@ -48,6 +48,10 @@
 | `use-canvas-tasks.ts`        | 提交、轮询、结果回流、取消                             |
 | `use-canvas-workflow.ts`     | 保存、加载、自动恢复快照                               |
 
+`use-canvas-tasks.ts` 的回流**位置不自己算**：结果节点落进画布后交给 `lib/layout.ts` 的
+`layoutPromptResults`（与上游同一份）统一重排。它曾在回流里手写 `index * 172`，
+第二轮生成会正好压在上一轮那几张上。
+
 ## lib/ 移植区
 
 来自 Imagora 的无副作用模块，保持原实现与注释。
