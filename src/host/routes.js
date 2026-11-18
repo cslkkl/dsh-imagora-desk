@@ -98,6 +98,9 @@ function publicConfig(config) {
     // 两个指针：imagora 目录（读 config.json / .env / 工作流 / 图片注册表）与输出目录
     imagoraRoot: config.imagoraRoot || '',
     outputDirOverride: config.outputDirOverride || '',
+    // 凭证状态（能出图吗 / 密钥在哪）与 provider.apiKeyConfigured（插件内输入框填了没）
+    // 是两个问题，后者不能拿来当全局状态 —— 详见 config.js 的 credential 注释。
+    credential: config.credential,
     provider: config.providerView,
   }
 }

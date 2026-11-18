@@ -318,7 +318,15 @@ export function SettingsDialog({ config, onClose, onSaved, onFlash }: SettingsDi
   }
 
   const sourceLabel = usingPlugin ? t('settings.profile.plugin') : config?.profileLabel || config?.profile || '—'
-  const keyLabel = provider?.apiKeyConfigured ? t('settings.keyConfigured') : t('settings.keyMissing')
+  // 状态行说的是**当前生效来源**有没有密钥，所以读 `credential`，不读
+  // `provider.apiKeyConfigured`（那个只说明插件内那个输入框填了没 —— 用户用 imagora
+  // 的 profile 时，密钥在 .env 里，拿它判断会报「未配置」而图照常能出）。
+  const credential = config?.credential
+  const keyLabel = credential?.configured
+    ? credential.from === 'imagora'
+      ? t('settings.keyConfiguredFromEnv')
+      : t('settings.keyConfigured')
+    : t('settings.keyMissing')
 
   return (
     <ModalShell

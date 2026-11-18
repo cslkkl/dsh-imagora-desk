@@ -21,6 +21,12 @@ export interface ImagoraConfig {
   sizes: { value: string; label: string; cost: number }[]
   qualities: string[]
   qualityEffective: boolean
+  /** 凭证状态：**当前生效来源**能不能出图，以及密钥从哪来。
+   *
+   *  与 `provider.apiKeyConfigured` 是两个问题：那个只回答「插件内那个输入框填了没」。
+   *  拿它当全局状态会报「未配置」而图照常能出——密钥在 imagora 的 `.env` 里。
+   *  `from` 取 `'plugin'`（插件内 settings.json）/ `'imagora'`（profile 的 .env 键）/ `''`。 */
+  credential?: { configured: boolean; from: 'plugin' | 'imagora' | '' }
   defaultOutputDir: string
   /** 预算上限（元）；0 = 不设上限 */
   budget?: number

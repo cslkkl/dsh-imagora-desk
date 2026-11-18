@@ -607,6 +607,21 @@ React Flow 会把所有节点重挂载 —— 入场动画重播、输入框失�
 
 host 半端（Node）拿不到 `ctx.locale` —— 那是 client 服务。所以 host 的中文错误文案只能作为**数据**返回，前端原样显示。要让它也跟随语言，得改成「host 回稳定错误码 + 前端词典翻译」，目前**没做**（34 处，记在这里免得下次误以为已经覆盖）。
 
+## 凭证状态只有一个出口
+
+「能不能出图」与「插件内那个输入框填了没」是**两个问题**，共用一个字段就会互相撒谎：
+用户用 imagora 的 profile 时密钥在 `.env` 里，插件内是空的 —— 拿后者当状态会报
+「未配置」而图照常能出（真实反馈过）。
+
+- `credential = { configured, from }`：**当前生效来源**能不能出图，以及密钥从哪来
+  （`plugin` / `imagora` / `''`）。状态行、首次使用弹设置都读它。
+- `provider.apiKeyConfigured`：只回答「插件内那个输入框填了没」，供该字段自己的
+  placeholder 用（「留空则不修改」还是「粘贴密钥」）。
+
+上游 `core/config.py` 的 `build_profile_view` 早就这么分了（`configured` +
+`source: env_where(key)`）；插件这边少的是同样的分工，不是缺字段。
+插件有中英双语，所以只给枚举、文案留在词典里，不照搬上游那句人话。
+
 ## 相关
 
 - 决策记录 → [.agents/notes/](../.agents/notes/README.md)

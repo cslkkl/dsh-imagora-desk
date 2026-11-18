@@ -171,13 +171,13 @@ function CanvasSurface() {
     quality: configRef.current?.qualities[0],
   }
 
-  // 首次使用（既没插件内配置、也没有可用密钥）时直接把设置弹出来：
-  // 「下载后填一次 key 就能用」靠这一步，不然用户只会看到一行错误提示。
+  // 首次使用（生效来源没密钥）时直接把设置弹出来：「下载后填一次 key 就能用」靠这一步，
+  // 不然用户只会看到一行错误提示。判据用 `credential`（当前生效来源能不能出图），
+  // 不再拿 `provider.apiKeyConfigured`（只说明插件内那个框填了没）去间接推断。
   const settingsPrompted = useRef(false)
   useEffect(() => {
     if (!config || settingsPrompted.current) return
-    const needsSetup = !config.provider?.apiKeyConfigured && (config.source === 'plugin' || config.issues.length > 0)
-    if (!needsSetup) return
+    if (config.credential?.configured !== false) return
     settingsPrompted.current = true
     setDialog({ kind: 'settings' })
   }, [config])

@@ -195,6 +195,9 @@ export function defineConfig(path, url, rawBody) {
       issues: [],
       imagoraRoot: live.imagoraRoot,
       outputDirOverride: live.outputDir,
+      // 验收台的来源是 imagora 的 profile，密钥在 .env 里 —— 与场景「插件内没填、
+      // 但图照常能出」一致，正好验状态行读的是 credential 而不是 provider.apiKeyConfigured。
+      credential: { configured: true, from: 'imagora' },
       provider: {
         baseUrl: '',
         model: '',

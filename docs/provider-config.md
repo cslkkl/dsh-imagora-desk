@@ -21,6 +21,12 @@
 规则没有插件特有版本，所以只有一条：**改一边必须让两边的同名断言同时通过**。
 Imagora 的 `tests/test_core_payload.py` 与这里的 `scripts/smoke-host.mjs`（`payload:` 段）是同一组断言。
 
+## 界面控件也走这条规则
+
+卡上的「质量」等控件显不显示，判据与请求体同一条：这个东西最终会不会被发出去。
+插件读同一份 `transport.drop` 算 `qualityEffective`，前端只消费结论、不自己判断——
+所以不会出现「界面还摆着、其实早就没发」这种两套说法。
+
 ## 最小示例
 
 `providers.local.json` 里某个 profile：

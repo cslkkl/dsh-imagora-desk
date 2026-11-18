@@ -18,7 +18,7 @@ import { loadImagoraConfig, resolveApiPaths } from '../src/host/config.js'
 import { publicErrorBody } from '../src/host/errors.js'
 import { readLedger, summarize } from '../src/host/history.js'
 import { sniffExt } from '../src/host/generate.js'
-import { buildPayload, checkBlock, normalizeTransport } from '../src/host/payload.js'
+import { buildPayload, checkBlock, normalizeTransport, sends } from '../src/host/payload.js'
 import { Store } from '../src/host/store.js'
 import { LEDGER_NAME, appendGeneration, buildRecord, displayPath, ledgerRoot } from '../src/host/ledger.js'
 
@@ -374,6 +374,106 @@ try {
       ['drop:output_format', 'channel:response_format', 'model:background'].every(n => wiredBuilt.notes.includes(n)),
       wiredBuilt.notes.join(' '),
     )
+    // 界面开关必须与「实际发不发这个字段」一致：谎报会让用户以为调了有用，
+    // 误报又会把能调的档位藏掉。夹具里没 drop quality → 显示；换个把 quality
+    // 摘掉的渠道 → 隐藏。判据只有这一条，不按模型名/域名猜。
+    check('接线：渠道认 quality 时界面显示该控件', wired.qualityEffective === true, String(wired.qualityEffective))
+    const wiredNoQuality = loadImagoraConfig({
+      imagoraRoot: mkdtempSync(join(tmpdir(), 'imagora-wiring2-')),
+      profile: 'wired',
+    })
+    check('接线：读不到 config 时退回插件内的形状（质量档位恒生效）', wiredNoQuality.qualityEffective === true)
+  }
+
+  // ---------- 界面开关只由配置决定（不许在代码里按模型名/域名猜） ----------
+  //
+  // 反例锁：同一个模型走两台网关，一台认 quality、一台不认 —— 结论必须只跟着
+  // `transport.drop` 走。曾经这里是 `qualityAppliesTo(modelId, baseUrl)`：按
+  // `doubao` 前缀与 `volces.com` 域名判断，用户换个自家网关的同类模型就答错了。
+  {
+    const dropRoot = mkdtempSync(join(tmpdir(), 'imagora-drop-'))
+    writeFileSync(
+      join(dropRoot, 'config.json'),
+      JSON.stringify({
+        default_profile: 'g',
+        profiles: {
+          g: {
+            label: '摘掉 quality 的网关',
+            base_url: 'https://gateway.example/v1',
+            default_model: 'some-model',
+            quality_options: ['low', 'medium', 'high'],
+            transport: { request: {}, drop: ['quality'] },
+            models: [{ id: 'some-model' }],
+          },
+        },
+      }),
+    )
+    writeFileSync(join(dropRoot, '.env'), 'API_KEY_G=sk-drop\nACTIVE_PROFILE=g\n')
+    const dropped = loadImagoraConfig({ imagoraRoot: dropRoot, profile: 'g' })
+    check('界面开关：渠道摘掉 quality → 隐藏该控件', dropped.qualityEffective === false)
+    const droppedBuilt = buildPayload(
+      { model: 'some-model', prompt: 'x', size: '1024x1024', quality: 'high', n: 1 },
+      dropped.transport,
+      dropped.modelParams,
+    )
+    check(
+      '界面开关：隐藏的同时请求体里真的没有 quality',
+      !('quality' in droppedBuilt.payload) && droppedBuilt.notes.includes('drop:quality'),
+      Object.keys(droppedBuilt.payload).join(','),
+    )
+    check('界面开关：sends 与 buildPayload 同一条判据', sends(dropped.transport, 'quality') === false)
+    check('界面开关：sends 对未被摘掉的字段为真', sends(dropped.transport, 'size') === true)
+  }
+
+  // ---------- 凭证状态：能出图吗 / 密钥在哪 ----------
+  //
+  // 回归（维护者报「设置里一直显示 No key configured，实际上已经配置了」）：
+  // 状态行读的是 `provider.apiKeyConfigured` —— 那只说明**插件内那个输入框**填了没。
+  // 用户用 imagora 的 profile 时密钥在 .env 里，插件内是空的，于是报「未配置」
+  // 而图照常能出。两个问题不能共用一个字段。
+  {
+    const keyRoot = mkdtempSync(join(tmpdir(), 'imagora-cred-'))
+    writeFileSync(
+      join(keyRoot, 'config.json'),
+      JSON.stringify({
+        default_profile: 'k',
+        profiles: { k: { label: '凭证夹具', base_url: 'https://example.invalid/v1', default_model: 'k-model' } },
+      }),
+    )
+    writeFileSync(join(keyRoot, '.env'), 'API_KEY_K=sk-from-env\nACTIVE_PROFILE=k\n')
+    const fromEnv = loadImagoraConfig({ imagoraRoot: keyRoot })
+    check('凭证：密钥在 .env 里 → 说「已配置」', fromEnv.credential.configured === true)
+    check('凭证：并说清来自 imagora（.env）', fromEnv.credential.from === 'imagora', fromEnv.credential.from)
+    check(
+      '凭证：插件内那个字段仍然是空的（两个问题不同）',
+      fromEnv.providerView.apiKeyConfigured === false,
+      String(fromEnv.providerView.apiKeyConfigured),
+    )
+
+    // 反过来：插件内填了 key → 来源是 plugin
+    const inPlugin = loadImagoraConfig({
+      provider: { baseUrl: 'https://example.invalid/v1', apiKey: 'sk-plugin', model: 'p-model' },
+    })
+    check('凭证：插件内填了 key → 已配置', inPlugin.credential.configured === true)
+    check('凭证：且说清来自 plugin', inPlugin.credential.from === 'plugin', inPlugin.credential.from)
+
+    // 都没有 → 未配置，来源为空。
+    // 注意必须有 config.json：只有空目录会继续回退到 DSH_IMAGORA_ROOT（冒烟夹具），
+    // 于是又读到那份 .env，测出来的就不是「都没有」。
+    const noKeyRoot = mkdtempSync(join(tmpdir(), 'imagora-nokey-'))
+    writeFileSync(
+      join(noKeyRoot, 'config.json'),
+      JSON.stringify({
+        default_profile: 'n',
+        profiles: { n: { label: '没密钥的夹具', base_url: 'https://example.invalid/v1', default_model: 'n-model' } },
+      }),
+    )
+    writeFileSync(join(noKeyRoot, '.env'), 'ACTIVE_PROFILE=n\n')
+    const none = loadImagoraConfig({ imagoraRoot: noKeyRoot })
+    check('凭证：都没有 → 未配置', none.credential.configured === false)
+    check('凭证：未配置时来源为空', none.credential.from === '', JSON.stringify(none.credential.from))
+    rmSync(keyRoot, { recursive: true, force: true })
+    rmSync(noKeyRoot, { recursive: true, force: true })
   }
   check('POST /provider 去尾斜杠并生效', withProvider.provider?.baseUrl === 'https://example.invalid/v1')
   check('POST /provider 密钥只报已配置', withProvider.provider?.apiKeyConfigured === true)
@@ -1295,6 +1395,120 @@ try {
     check('快照：版本不认识时跳过', afterBadVersion?.version !== 99, String(afterBadVersion?.version))
 
     rmSync(recoveryRoot, { recursive: true, force: true })
+  }
+
+  // ---------------- 提示词卡片按下去，实际发出的是哪个请求体 ----------------
+  //
+  // 维护者问的问题：「我在卡片上按的，跟你用代码请求的，是不是同一个请求体？」
+  //
+  // 卡片按下去走 `POST /imagora/generate`（前端只发 prompt / size / quality /
+  // refIds / outputDir / spent / mask，见 src/client/canvas/use-canvas-tasks.ts），
+  // **请求体是在 host 侧组装的**。所以只要这个路由发给上游的 body，与拿同一份
+  // 配置直接调 buildPayload 的结果一致，两条路就是同一条 —— 不用人去读代码比对。
+  //
+  // 这里用一个记账假上游把 body 抓下来，逐字比对（键序无关，值必须一模一样）。
+  {
+    const seen = []
+    const recorder = createServer((req, res) => {
+      const chunks = []
+      req.on('data', chunk => chunks.push(chunk))
+      req.on('end', () => {
+        seen.push({
+          path: String(req.url),
+          type: String(req.headers['content-type'] || ''),
+          body: Buffer.concat(chunks).toString('utf8'),
+        })
+        res.setHeader('content-type', 'application/json')
+        res.end(JSON.stringify({ data: [{ b64_json: PNG.toString('base64') }] }))
+      })
+    })
+    await new Promise(resolve => recorder.listen(0, '127.0.0.1', resolve))
+    // 不加 /v1：默认 api_paths 本身以 /v1 开头，地址再带一段就会叠成 /v1/v1
+    // （AGENTS.md「活跃坑」里那条必然 404 的陷阱）
+    const recorderBase = `http://127.0.0.1:${recorder.address().port}`
+
+    const uiRoot = mkdtempSync(join(tmpdir(), 'imagora-ui-body-'))
+    writeFileSync(
+      join(uiRoot, 'config.json'),
+      JSON.stringify({
+        default_profile: 'ui',
+        profiles: {
+          ui: {
+            label: '卡片请求体夹具',
+            base_url: recorderBase,
+            default_model: 'ui-model',
+            quality_options: ['low', 'medium', 'high'],
+            size_options: [{ value: '1024x1024', label: '1K', cost: 0 }],
+            // 渠道不认 quality：请求体不该带、界面也不该显示 —— 两件事必须同步
+            transport: { request: { response_format: 'b64_json' }, drop: ['quality'] },
+            models: [{ id: 'ui-model' }],
+          },
+        },
+      }),
+    )
+    writeFileSync(join(uiRoot, '.env'), 'API_KEY_UI=sk-ui\nACTIVE_PROFILE=ui\n')
+
+    // 等价于用户在设置里把 imagora 目录指过去（之后卡片与脚本读同一份配置）
+    await fetch(`${base}/settings`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ imagoraRoot: uiRoot }),
+    })
+
+    // 前端按下去时发的就是这几个字段
+    const uiTask = await fetch(`${base}/generate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        prompt: '卡片按下去的提示词',
+        size: '1024x1024',
+        quality: 'high',
+        refIds: [],
+        outputDir: '',
+        spent: 0,
+        mask: '',
+      }),
+    }).then(res => res.json())
+    for (let i = 0; i < 100 && seen.length === 0; i += 1) {
+      await new Promise(r => setTimeout(r, 50))
+    }
+    check('卡片请求体：卡片那条路真的打到了上游', seen.length === 1, `${uiTask.status} / ${seen.length}`)
+    check('卡片请求体：走的是 generations 路径', seen[0]?.path === '/v1/images/generations', String(seen[0]?.path))
+
+    // 「代码直连」那边：同一份配置，同一次 buildPayload
+    const uiCfg = loadImagoraConfig({ imagoraRoot: uiRoot })
+    const expected = buildPayload(
+      {
+        model: uiCfg.model,
+        prompt: '卡片按下去的提示词',
+        size: '1024x1024',
+        quality: 'high',
+        n: 1,
+        output_format: 'png',
+        watermark: false,
+      },
+      uiCfg.transport,
+      uiCfg.modelParams,
+    ).payload
+
+    const got = JSON.parse(seen[0]?.body || '{}')
+    check(
+      '卡片请求体：与代码直连算出来的逐字段一致',
+      same(got, expected),
+      `卡片 ${JSON.stringify(got)} / 代码 ${JSON.stringify(expected)}`,
+    )
+    check('卡片请求体：渠道摘掉的 quality 真的没发出去', !('quality' in got), Object.keys(got).join(','))
+    check('卡片请求体：渠道字段进了请求体', got.response_format === 'b64_json', String(got.response_format))
+    check('卡片请求体：界面开关与请求体一致（摘掉即隐藏）', uiCfg.qualityEffective === false)
+
+    // 复原指针，别把这份夹具留给后面的用例
+    await fetch(`${base}/settings`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ imagoraRoot: '' }),
+    })
+    recorder.close()
+    rmSync(uiRoot, { recursive: true, force: true })
   }
 
   rmSync(SHARED_ROOT, { recursive: true, force: true })
