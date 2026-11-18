@@ -16,11 +16,13 @@
 // 判据：换模型不换服务器还成立 → `transport.request`；换服务器不换模型还成立 →
 // `models[].params`。
 //
-// 实证（2026-11-18，chatgpt2api + gpt-image-2.6，同一句提示词）：
-//   含 output_format        → url → JPEG/RGB（黑底）
-//   去掉 output_format      → url → JPEG/RGB
-//   再加 stream:true        → SSE 里仍是 url → JPEG/RGB
-//   只加 response_format    → **PNG/RGBA，alpha 0–255**（且更快：44.4s vs 49.0s）
+// ## 为什么不动「谁认什么」
+//
+// 同一字段在不同渠道上可能一个认、一个不认，而且会随时间变。所以这里只回答
+// **「最终发了什么」**，判断权在配置（`transport` / `models[].params`）。
+// 具体到某一家、某一模型的实测记录不写在这里 —— 那会把一家之言变成所有人的默认。
+// 实测数据见 Imagora 的 `.agents/notes/2026-11-18-request-payload-layers.md`，
+// 面向使用者的写法见 docs/provider-config.md。
 //
 // ## 三条规则（顺序不可换）
 //   1. 基线：调用方给的那份字典

@@ -151,7 +151,11 @@ C 档的每一条差异都在代码注释与 [FEATURE-PARITY](FEATURE-PARITY.md)
 
 规则真源在 Imagora 的 `core/payload.py`，插件 [src/host/payload.js](../src/host/payload.js) 逐条同语义，
 两边靠同名断言防漂移（`scripts/smoke-host.mjs` 的 `payload:` 段）。
-坏块**整体丢弃并降级**（记进 `issues`），不半截生效。写法与实测见 [provider-config.md](provider-config.md)。
+坏块**整体丢弃并降级**（记进 `issues`），不半截生效。写法见 [provider-config.md](provider-config.md)。
+
+**不判断「谁认什么」**：同一字段在不同渠道上可能一个认一个不认，还会随时间变。
+哪家渠道要什么由写配置的人实测后填，代码只回答「最终发了什么」。这条同样管界面 ——
+控件的去留读同一个判据（见下节）。
 
 ## 状态目录
 
