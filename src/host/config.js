@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
-import { normalizeModelParams, normalizeTransport } from './payload.js'
+import { normalizeModelParams, normalizeTransport, sends } from './payload.js'
 
 /** 模型 ID 里的全角连字符（U+2011/U+2010）与半角 '-' 肉眼一样，中转站两种都在用。 */
 export function foldId(text) {
@@ -154,12 +154,13 @@ function resolveFromProvider(provider, settings, root, imagoraRoot) {
     models: modelId ? [{ id: modelId, label: modelId, note: '' }] : [],
     sizes,
     qualities,
-    qualityEffective: qualities.length > 1,
     outputFormats: ['png', 'jpeg', 'webp'],
     // 插件内配置没有 profile 级的 transport / 模型级 params：形状要与另一条来源一致，
-    // 否则消费方（generate.js）得写两套取法。
+    // 否则消费方（generate.js）得写两套取法。也因此没有 drop 通道可降，
+    // 质量档位恒生效（判据仍是「quality 会进请求体」，只是这里必然成立）。
     transport: { request: {}, drop: [] },
     modelParams: {},
+    qualityEffective: qualities.length > 1,
     defaultOutputDir: resolveOutputDir(settings, root, imagoraRoot),
     budget: resolveBudget(settings),
     issues,
@@ -262,7 +263,10 @@ export function loadImagoraConfig(settings) {
     models: models.map(row => ({ id: row.id, label: row.label || row.id, note: row.note || '' })),
     sizes: sizeOptions.map(row => ({ value: row.value, label: row.label || row.value, cost: Number(row.cost) || 0 })),
     qualities,
-    qualityEffective: qualities.length > 1,
+    // 质量档位在这个渠道上是否真的生效 —— 与 Imagora 的 config.quality_effective
+    // 同一条判据：只看 `quality` 最终会不会进请求体（渠道不认就写 transport.drop），
+    // 不按模型名/域名猜。界面据此决定显不显示那个下拉框。
+    qualityEffective: qualities.length > 1 && sends(transport.value, 'quality'),
     outputFormats: model?.output_formats || ['png'],
     // 两个都必须给**值本身**，不是 normalize 的包装器：消费方（generate.js）直接把它们
     // 交给 buildPayload，包装器会被 Object.assign 原样摊进请求体（多出 value / problems
